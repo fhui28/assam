@@ -1,0 +1,33 @@
+Package: assam
+Title: Approximate and scalable species archetype models
+Version: 0.1
+Date: 2024-12-01
+Authors@R: c(person(given = "Francis K.C.",
+                    family = "Hui", 
+                    role = c("aut", "cre"), 
+                    email = "fhui28@gmail.com"))
+Maintainer: Francis Hui <fhui28@gmail.com>
+Description: assam is an computationally scalable (at least at the time of development!) method for ftting approximate finite mixture models for clustering species environmental responses in ecology.
+License: GPL (>= 3)
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+NeedsCompilation: no
+URL: https://github.com/fhui28/COQUE
+BugReports: https://github.com/fhui28/COQUE/issues
+RoxygenNote: 7.3.1
+Imports: 
+    abind,
+    cluster,
+    collapse,
+    doParallel,
+    foreach,
+    glmmTMB,
+    label.switching,
+    lifecycle,
+    Matrix,
+    mvtnorm,
+    parallel,
+    quadprog,
+    stats,
+    tweedie
+Depends: R (>= 3.5.0), TMB
