@@ -7,7 +7,7 @@ Authors@R: c(person(given = "Francis K.C.",
                     role = c("aut", "cre"), 
                     email = "fhui28@gmail.com"))
 Maintainer: Francis Hui <fhui28@gmail.com>
-Description: assam is an computationally scalable (at least at the time of development!) method for ftting approximate finite mixture models for clustering species environmental responses in ecology.
+Description: assam is an computationally scalable (at least at the time of development!) method for fitting approximate finite mixture models for clustering species environmental responses in ecology.
 License: GPL (>= 3)
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
@@ -25,9 +25,15 @@ Imports:
     label.switching,
     lifecycle,
     Matrix,
+    methods,
     mvtnorm,
+    mgcv,
     parallel,
     quadprog,
     stats,
+    tdigest,
     tweedie
-Depends: R (>= 3.5.0), TMB
+Depends: R (>= 4.1.0),
+Suggests: 
+    spelling
+Language: en-US
