@@ -36,6 +36,7 @@
 #' @importFrom mgcv gam predict.gam
 #' @importFrom stats qnorm qqnorm qqline quantile rnorm
 #' @importFrom tdigest tdigest tquantile
+#'
 #' @md
 
 plot.assam <- function(x, 

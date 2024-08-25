@@ -6,11 +6,11 @@
 #' A specified family object for the Tweedie distribution using the log link function and a power mean-variance relationship
 #'
 #' @details 
-#' This family object was cretated specifically for fitting CBFMs to non-negative continuous data with a "spike" at zero. 
+#' This family object was created specifically for fitting asSAMs to non-negative continuous data with a "spike" at zero. 
 #' 
 #' @return An object of class "family". 
 #'
-#' @author Francis K.C. Hui <fhui28@gmail.com>, Chris Haak
+#' @author Francis K.C. Hui <fhui28@gmail.com>
 #' 
 #' @export
 #' @md

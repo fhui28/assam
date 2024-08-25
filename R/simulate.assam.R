@@ -9,6 +9,7 @@
 #' @param data The data frame used as part of the \code{assam} object. This needs to be supplied since currently \code{assam} objects do not save the data to save memory. Having said that, a user can in principle supply a new data frame to \code{data}, all the other arguments and parameter estimates from the \code{assam} object are compatible.
 #' @param nsim A positive integer specifying the number of simulated datasets. Defaults to 1.
 #' @param seed An integer to set seed number. Defaults to a random seed number.
+#' @param ... Not used.
 #' 
 #' @details 
 #' Simulates multivariate abundance data from a species archetype model (SAM). For the purposes of the package, the SAM is characterized by the following mean regression model: for observational unit \eqn{i=1,\ldots,N} and species \eqn{j=1,\ldots,M}, conditional on the species belong to archetype \eqn{k},
@@ -22,11 +23,11 @@
 #' @author Francis K.C. Hui <fhui28@gmail.com>
 #' 
 #' @export
-#' @importFrom stats plogis
+#' @importFrom stats as.formula plogis
 #' @md
 
 
-simulate.assam <- function(object, data, nsim = 1, seed = NULL) {
+simulate.assam <- function(object, data, nsim = 1, seed = NULL, ...) {
     if(class(object) != "assam") 
         stop("object must be of class assam.")
 
@@ -72,3 +73,11 @@ simulate.assam <- function(object, data, nsim = 1, seed = NULL) {
     set.seed(NULL)
     return(out)
     }   
+
+
+#' @rdname simulate.assam
+#' @export 
+simulate <- function(object, ...) {
+        UseMethod("simulate")
+    }
+

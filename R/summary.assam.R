@@ -23,8 +23,9 @@
 #' @details # Warning
 #' The current summary function is pretty basic (apologies!), and in the future we may add some more useful information to the summary output. 
 #' 
-#' @author Francis K.C. Hui <fhui28@gmail.com>, Chris Haak
+#' @author Francis K.C. Hui <fhui28@gmail.com>
 #' 
+#' @method summary assam
 #' @export
 #' @md
 

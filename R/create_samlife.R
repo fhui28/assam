@@ -13,7 +13,7 @@
 #' @param betas A matrix of archetypal regression coefficients corresponding to the model matrix created. The number of rows in \code{betas} is equal to the number of archetypes.
 #' @param spp_intercepts A vector of species-specific intercept.  
 #' @param spp_dispparam A vector of species-specific dispersion parameters, to be used for distributions that require one.  
-#' @param powerparam A vector of species-specific power parameters, to be used for distributions that require one. 
+#' @param spp_powerparam A vector of species-specific power parameters, to be used for distributions that require one. 
 #' @param mixture_proportion A vector of mixture proportions corresponding to the probability of belonging to each archetype.
 #' @param trial_size Trial sizes to use for binomial distribution. This should equal to a scalar.
 #' @param archetype_label If desired, the user can manually supply the archetype labels for each species. In this case, \code{mixture_proportion} must still be supplied but is subsequently ignored.
@@ -51,8 +51,8 @@
 #' 
 #' @export
 #' @import Matrix
-#' @importFrom glmmTMB glmmTMB model.matrix.glmmTMB
-#' @importFrom stats rbeta rbinom rgamma rnorm rnbinom rpois plogis
+#' @importFrom glmmTMB glmmTMB
+#' @importFrom stats as.formula binomial model.matrix rbeta rbinom rgamma rnorm rnbinom rpois plogis
 #' @importFrom tweedie rtweedie
 #' @md
 

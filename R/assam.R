@@ -12,7 +12,7 @@
 #' @param offset A matrix of offset terms, of the same dimension as \code{y}.
 #' @param trial_size Trial sizes to use for binomial distribution. This should equal to a scalar.
 #' @param num_archetypes Number of archetypes (clusters) to assume in the asSAM.
-#' @param do_parallel Should parallel computing be used to fit the asSAM. Defaults to \code{TRUE}, and shouldbe kept this way as much as possible as parallel computing is one of the key ingredients in making asSAMs scalable. 
+#' @param do_parallel Should parallel computing be used to fit the asSAM. Defaults to \code{TRUE}, and should be kept this way as much as possible as parallel computing is one of the key ingredients in making asSAMs scalable. 
 #' @param num_cores If \code{do_parallel = TRUE}, then this argument controls the number of cores used. Defaults to \code{NULL}, in which case it is set to \code{parallel::detectCores() - 2}.
 #' @param uncertainty_quantification Should uncertainly intervals be computed via parametric bootstrap?
 #' @param control A list containing the following elements:
@@ -24,10 +24,10 @@
 #' }
 #' @param bootstrap_control A list containing the following elements to control the parametric bootstrap for uncertainty quantification:
 #' \itemize{
-#' \item{num_boot:}{the number of bootstrapped iterations to do. Defauls to 100, which can already take a long time but should be enough in a lot of settings for uncertainty quantification.}
+#' \item{num_boot:}{the number of bootstrapped iterations to do. Defaults to 100, which can already take a long time but should be enough in a lot of settings for uncertainty quantification.}
 #' \item{ci_alpha:}{the type-1 level for confidence interval construction. \code{100 * (1 - ci_alpha)} percent Confidence intervals are constructed.}
 #' \item{seed:}{a seed that can be set for bootstrapping the datasets.}
-#' #' \item{ci_type:}{type of confidence inervals to construct. Two options are currently available: 1) "percentile" confidence intervals based directly on the empirical quantiles of the bootstrap samples; 2) "expanded" percentole confidence intervals, which are typically slightly wider intervals that attempto to correct for a so-called "narrowness bias". Defaults to "percentile".}
+#' #' \item{ci_type:}{type of confidence intervals to construct. Two options are currently available: 1) "percentile" confidence intervals based directly on the empirical quantiles of the bootstrap samples; 2) "expanded" percentile confidence intervals, which are typically slightly wider intervals that attempt to correct for a so-called "narrowness bias". Defaults to "percentile".}
 #' }
 
 #' @details 
@@ -37,7 +37,7 @@
 #' 
 #' where \eqn{g(.)} is a known link function, \eqn{x_i} denotes a vector of predictors for unit \eqn{i} i.e., the \eqn{i}-th row from the created model matrix, \eqn{\beta_k} denotes the corresponding regression coefficients for archetype \eqn{k}. Based on the mean model given above, responses \eqn{y_{ij}} are then simulated from the assumed distribution, using the additional dispersion and power parameters as appropriate. We refer the reader to [Dunstan et al., (2011)](https://doi.org/10.1016/j.ecolmodel.2010.11.030), [Hui et al., (2013)](https://doi.org/10.1890/12-1322.1), [Dunstan et al., (2013)](https://doi.org/10.1007/s13253-013-0146-x), and [Skipton Woolley's ecomix package](https://github.com/skiptoniam/ecomix) for more details about the formulations of SAMs.
 #' 
-#' The broad goal of this package is to construct a way of fitting SAMs that are, although approximate, more scalable in the number of sites and respones (though not necessarily faster), hence the name asSAMs. We prefer to the corresponding manuscript (in preparation) for details, but to summarize, asSAMs are formed by constructing an approximate likelihood function for a SAM based on using ingredients (i.e., point estimates and the associated observed information matrix) from stacked species distribution models (which are fitted initially in parallel), and then building what is essentially a finite mixture of multivariate Gaussian distributions from this. This is then maximized using an EM algorithm, which can be done scalably and very quickly.
+#' The broad goal of this package is to construct a way of fitting SAMs that are, although approximate, more scalable in the number of sites and species (though not necessarily faster), hence the name asSAMs. We prefer to the corresponding manuscript (in preparation) for details, but to summarize, asSAMs are formed by constructing an approximate likelihood function for a SAM based on using ingredients (i.e., point estimates and the associated observed information matrix) from stacked species distribution models (which are fitted initially in parallel), and then building what is essentially a finite mixture of multivariate Gaussian distributions from this. This is then maximized using an EM algorithm, which can be done scalably and very quickly.
 #' 
 #' For uncertainty quantification, a parametric bootstrap approach is taken along the lines of Section 2.16.2 in [McLachlan and Peel (2004)](https://www.wiley.com/en-us/Finite+Mixture+Models-p-9780471654063). While computationally slow, it is simply in design and often does a decent job for mixture modeling! 
 #' 
@@ -55,7 +55,7 @@
 #' }
 #' }
 #' 
-#' @return An object of class \code{assam\} with the following elements (as appropiriate, and not necessarily in the order below):
+#' @return An object of class \code{assam} with the following elements (as appropriate, and not necessarily in the order below):
 #' \item{call:}{The function call.}
 #' \item{formula:}{Same as input argument.}
 #' \item{family:}{Same as input argument.}
@@ -64,17 +64,17 @@
 #' \item{offset:}{Same as input argument.}
 #' \item{num_archetypes:}{Same as input argument.}
 #' \item{spp_intercepts:}{Estimated species-specific intercepts.}
-#' \item{spp_nuisance:}{Estimated matrix of species-specific nusiance parameters e.g., the dispersion parameter in the negative binomial distribution, and diserpsion and power parameters in the Tweedie distribution, and so on.}
+#' \item{spp_nuisance:}{Estimated matrix of species-specific nuisance parameters e.g., the dispersion parameter in the negative binomial distribution, and dispersion and power parameters in the Tweedie distribution, and so on.}
 #' \item{betas:}{Estimated matrix of archetypal regression coefficients corresponding to the model matrix created. The number of rows in \code{betas} is equal to the number of archetypes.}
 #' \item{mixture_proportion:}{Estimated vector of mixture proportions corresponding to the probability of belonging to each archetype.}
-#' \item{posterior_probability:}{Estimated matrix of posterior probabilites for each species belong to each archetype. The number of rows in \code{posterior_probability} is equal to the number of species.}
+#' \item{posterior_probability:}{Estimated matrix of posterior probabilities for each species belong to each archetype. The number of rows in \code{posterior_probability} is equal to the number of species.}
 #' \item{linear_predictor:}{Estimated array of archetype-specific linear predictors. The last dimension of the array corresponds to the number of archetypes.}
-#' \item{logL:}{Estimated log-likelihood value of the asSAM i.e. the value of the approximated log-likelihood function at convergence.]
+#' \item{logL:}{Estimated log-likelihood value of the asSAM i.e. the value of the approximated log-likelihood function at convergence.}
 #' \item{df:}{Number of the estimated (freely varying) parameters in the asSAM.}
 #' \item{linear_predictor:}{Estimated array of archetype-specific linear predictors. The last dimension of the array corresponds to the number of archetypes.}
 #' \item{control:}{Same as input argument.}
 #' \item{bootstrap_control:}{Same as input argument.}
-#' \item{confidence_intervals:}{A list of estimated parametric bootstrap confidence intervals for all the paramters in the asSAM, with each element in the list corresponding to one of the parameters e.g., the species-specific intercepts, the mixture proportions, and so on.}
+#' \item{confidence_intervals:}{A list of estimated parametric bootstrap confidence intervals for all the parameters in the asSAM, with each element in the list corresponding to one of the parameters e.g., the species-specific intercepts, the mixture proportions, and so on.}
 #' \item{bootstrap_paramters:}{A matrix of estimated (untransformed) parameters from the parametric bootstrap. *This output can be safely ignored by most users*, but those curious, it is used to uncertainty quantification for downstream predictions, say.}
 #' \item{bootstrap_posterior_probability:}{An array of estimated posterior probabilities from the parametric bootstrap. *This output can be safely ignored by most users*, but those curious, it is used to uncertainty quantification for downstream predictions, say.}
 #' 
@@ -85,43 +85,24 @@
 #' @importFrom abind abind
 #' @importFrom cluster pam
 #' @importFrom doParallel registerDoParallel
-#' @importFrom foreach foreach %dopar%
-#' @importFrom glmmTMB glmmTMB model.matrix
+#' @importFrom foreach foreach %dopar% %do%
+#' @importFrom glmmTMB glmmTMB 
 #' @importFrom label.switching pra
+#' @importFrom methods as
 #' @importFrom parallel detectCores
-#' @importFrom stats plogis
+#' @importFrom stats as.formula plogis qlogis model.matrix qt
+#' @importFrom utils setTxtProgressBar txtProgressBar
 #' @import Matrix
 #' @md
 
 
-
-function() {
-    formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) %>% as.formula
-    family <- nb2()
-    y = simdat$y
-    data = covariate_dat
-    offset = NULL
-    trial_size = 1
-    do_parallel = TRUE
-    num_archetypes = 5
-    num_cores = NULL
-    uncertainty_quantification <- TRUE
-    control = list(max_iter = 500, tol = 1e-5, temper_prob = 0.8, trace = TRUE)
-    bootstrap_control = list(num_boot = 100, ci_alpha = 0.05, seed = NULL, ci_type = "percentile")
-    }
-     
-     
-assam <- function(y, ...)
-     UseMethod("assam")
-
-     
-assam.default <- function(y, formula, data, family, offset = NULL, trial_size = 1, 
+assam <- function(y, formula, data, family, offset = NULL, trial_size = 1, 
                           num_archetypes, do_parallel = TRUE, num_cores = NULL, uncertainty_quantification = TRUE, 
                           control = list(max_iter = 500, tol = 1e-5, temper_prob = 0.85, trace = FALSE),
                           bootstrap_control = list(num_boot = 100, ci_alpha = 0.05, seed = NULL, ci_type = "percentile")) {
     
     ##----------------
-    #' # Checks and balances
+    # Checks and balances
     ##----------------
     if(!(family$family %in% c("Beta", "gaussian", "Gamma", "negative.binomial", "poisson", "binomial", "tweedie")))
         stop("family currently not supported. Sorry!")
@@ -158,7 +139,7 @@ assam.default <- function(y, formula, data, family, offset = NULL, trial_size = 
           
 
     ##----------------
-    #' # Construct quadratic approximations for each species, and set up relevant quantities
+    # Construct quadratic approximations for each species, and set up relevant quantities
     ##----------------
     message("Commencing fitting...")
     if(control$trace)
@@ -175,7 +156,7 @@ assam.default <- function(y, formula, data, family, offset = NULL, trial_size = 
     num_nuisance_perspp <- length(get_qa$parameters[1,]) - num_X - 1 # e.g., number of dispersion and power parameter per-species
      
     
-    #' ### Make mapping matrix, maps psi to long_parameters
+    ### Make mapping matrix, maps psi to long_parameters
     #' Psi sequence: species-specific intercepts; archetypal regression coefficients by archetype; species-specific nuisance parameters
     mapping_mat <- Matrix(0, nrow = length(get_qa$long_parameters), ncol = num_spp + num_X * num_archetypes + num_spp*num_nuisance_perspp)
     makecolnames <- c(paste0("spp_intercept",1:num_spp), 

@@ -17,11 +17,12 @@
 #' @param se_fit When this is set to \code{TRUE} (not default), then uncertainty intervals are returned for the point predictions.
 #' @param num_cores To speed up calculation of the uncertainty intervals, parallelization can be performed, in which case this argument can be used to supply the number of cores to use in the parallelization. Defaults to \code{detectCores()-2}.
 #' @param coverage The coverage probability of the uncertainty intervals for prediction. Defaults to 0.95, which corresponds to 95% uncertainty intervals.
+#' @param ... Not used.
 #' 
 #' @details 
 #' Uncertainty intervals produced by \code{predict.assam} are based on the bootstrapped parameter estimates, if available from the \code{object} itself. That is, predictions are constructed using the bootstrapped estimates and then quantiles as appropriate as used to construct the uncertainty intervals.
 #' 
-#' Note archetypal predictions are constructed on the scale of the linear predictions, while species-specific predictions are constructed on the scale of the respones. The latter is analogous to what is available from [fitted.assam()]. 
+#' Note archetypal predictions are constructed on the scale of the linear predictions, while species-specific predictions are constructed on the scale of the responses. The latter is analogous to what is available from [fitted.assam()]. 
 #' 
 #' @return If \code{se_fit = FALSE}, then a matrix of point predictions. If \code{se_fit = TRUE}, then a list with the following components is returned:
 #' \item{point_prediction:}{A matrix of predicted values.}
@@ -36,22 +37,14 @@
 #' @importFrom foreach foreach %dopar%
 #' @import Matrix
 #' @importFrom abind abind
-#' @importFrom doParallel registerDoParallel
-#' @importFrom glmmTMB glmmTMB model.matrix
-#' @importFrom parallel detectCores
 #' @importFrom collapse fquantile
+#' @importFrom doParallel registerDoParallel
+#' @importFrom glmmTMB glmmTMB
+#' @importFrom parallel detectCores
+#' @importFrom stats as.formula model.matrix
 #' @md
 
 
-function() {
-     object <- testfit
-     newdata = covariate_dat
-     newoffset = NULL
-     type = "archetype"
-     se_fit = TRUE
-     num_cores = 8
-     coverage = 0.95
-     }
     
 predict.assam <- function(object, 
                           newdata, 
@@ -59,7 +52,8 @@ predict.assam <- function(object,
                           type = c("species_max", "species_mean", "archetype"), 
                           se_fit = FALSE, 
                           num_cores = NULL,
-                          coverage = 0.95) {
+                          coverage = 0.95, 
+                          ...) {
     
     ##-----------------------
     #' # Checks and balances

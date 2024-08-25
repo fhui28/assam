@@ -12,9 +12,9 @@
 #' @param ... Not used.
 #' 
 #' @details 
-#' Of the two options available \code{type = "PIT"} returns the probability integral transform residuals that are also used in [DHARMa::simulateResiduals()] and [mpcmp::rPIT()], among other packages. If the (estimated) model is correct, then these residuals should behave as random variables from a standard uniform distribution (Dunn and Smyth, 1996)[https://doi.org/10.2307/1390802]. Note there is a level of jitting used in producing the PIT residuals. On the other hand, \code{type = "dunnsmyth"} returns the Dunn-Smyth residuals that are also used in [boral::ds.residuals()] and[gllvm::residuals.gllvm()], among other packages. If the (estimated) model is correct, then these residuals should behave as random variables from a standard normal distribution (Dunn and Smyth, 1996). Note there is a level of jittering used in producing the Dunn-Smyth residuals.
+#' Of the two options available \code{type = "PIT"} returns the probability integral transform residuals that are also used in [DHARMa::simulateResiduals()] and [mpcmp::rPIT()], among other packages. If the (estimated) model is correct, then these residuals should behave as random variables from a standard uniform distribution [Dunn and Smyth, 1996](https://doi.org/10.2307/1390802). Note there is a level of jittering used in producing the PIT residuals. On the other hand, \code{type = "dunnsmyth"} returns the Dunn-Smyth residuals that are also used in [boral::ds.residuals()] and[gllvm::residuals.gllvm()], among other packages. If the (estimated) model is correct, then these residuals should behave as random variables from a standard normal distribution (Dunn and Smyth, 1996). Note there is a level of jittering used in producing the Dunn-Smyth residuals.
 #' 
-#' Both PIT and Dunn-Smyth residuals were adapted by (Dunstan et al., (2013))[https://doi.org/10.1007/s13253-013-0146-x] to species archetype models, and we follow their developments in building this function.
+#' Both PIT and Dunn-Smyth residuals were adapted by [Dunstan et al., (2013)](https://doi.org/10.1007/s13253-013-0146-x) to species archetype models, and we follow their developments in building this function.
 #' 
 #' @return A matrix of residuals.
 #' 
@@ -32,7 +32,7 @@ residuals.assam <- function(object, y, type = "dunnsmyth", seed = NULL, ...) {
         stop("`object' is not of class \"assam\"")
     
     type <- match.arg(type, choices = c("dunnsmyth", "PIT"))
-    get_fitted <- fitted(object, type = "all")
+    get_fitted <- fitted.assam(object, type = "all")
     num_archetype <- ncol(object$posterior_probability)
     out <- matrix(0, nrow = nrow(y), ncol = ncol(y)) 
     

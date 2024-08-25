@@ -5,17 +5,17 @@
 #'
 #' The default print method for a \code{assam} object.
 #' 
-#' @param object An object of class \code{assam}.
+#' @param x An object of class \code{assam}.
 #' @param ... Not used.
 #'
 #' @details 
-#' Print out details such as the function call, assumed family/response distribution, number of observational units and species, response-environment relationship fitted as given by the formula, and which sets of basis functions are used.`
+#' Print out details such as the function call, assumed family/response distribution, number of sites and species, and archetypal response-environment relationship fitted.
 #'
-#' For a hurdle CBFM, details are provided for both of the component CBFMs separately. 
 #' 
 #' 
 #' @author Francis K.C. Hui <fhui28@gmail.com>
 #' 
+#' @method print assam 
 #' @export
 #' @md
 

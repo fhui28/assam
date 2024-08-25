@@ -1,3 +1,5 @@
+#' @noRd
+#' @noMd
 .fill_control <- function(control) {
     if(is.null(control$max.iter))
         control$max.iter <- 500
@@ -10,6 +12,8 @@
     }
 
 
+#' @noRd
+#' @noMd
 .fill_bootstrap_control <- function(control) {
     if(is.null(control$num_boot))
         control$num_boot <- 100
@@ -24,6 +28,8 @@
     }
 
 
+#' @noRd
+#' @noMd
 .check_offset <- function(offset = NULL, y) {
     if(!is.null(offset)) { 
         if(!is.matrix(offset)) 
@@ -36,6 +42,8 @@
     }
 
 
+#' @noRd
+#' @noMd
 .check_X_formula <- function(formula, data) {
     formulaX <- as.formula(formula)
     
