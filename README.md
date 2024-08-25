@@ -1,4 +1,4 @@
-# assam -- Approximate and scalable species archetype models
+# assam: Approximate and scalable species archetype models
 
 <!-- badges: start -->
 
