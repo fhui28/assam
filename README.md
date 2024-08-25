@@ -6,11 +6,15 @@
 
 <!-- badges: end -->
 
-`assam` is an R package associated with the manuscript with a *working title* "Approximate and scalable finite mixture models for clustering species environmental responses in ecology" by [Hui](https://francishui.netlify.app/) and others, which is currently in preparation. Such model-based clustering of species according to their environmental responses, into a small number of so-called "archetypal responses" is also known in ecology as species archetype models, after (Dunstan et al., 2011)[<https://doi.org/10.1016/j.ecolmodel.2010.11.030>], (Dunstan et al., 2013)[<https://link.springer.com/article/10.1007/s13253-013-0146-x>] and (Hui et al., 2013)[<https://doi.org/10.1890/12-1322.1>].
+`assam` is an R package associated with the manuscript with a *working title* "Approximate and scalable finite mixture models for clustering species environmental responses in ecology" by [Hui](https://francishui.netlify.app/) and others, which is currently in preparation. Such model-based clustering of species according to their environmental responses, into a small number of so-called "archetypal responses" is also known in ecology as species archetype models, after [Dunstan et al., (2011)](https://doi.org/10.1016/j.ecolmodel.2010.11.030), [Dunstan et al., (2013)](https://link.springer.com/article/10.1007/s13253-013-0146-x) and [Hui et al., (2013)](https://doi.org/10.1890/12-1322.1).
 
 # Installation
 
-Currently, `assam` is in development and only contains template code.
+Currently, `assam` is available and can be installed from Github with the help of devtools package using:
+
+```         
+devtools::install_github("fhui28/assam")
+```
 
 # If you find any bugs and issues...
 
