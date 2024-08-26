@@ -62,7 +62,7 @@ An object of class \code{assam} with the following elements (as appropriate, and
 \item{call:}{The function call.}
 \item{formula:}{Same as input argument.}
 \item{family:}{Same as input argument.}
-\item{num_nuisance_perspp:}{The number of "nuisance" parameters per species. For example, if \code{family = binomial()} then there are no nuisance parameters, for \code{family = nb2()} there is one nuisance parameter per species, and for \code{family = tweedielogfam()} there are two nuisance parameters per species.}
+\item{num_nuisance_perspp:}{The number of "nuisance" parameters per species. For example, if \code{family = binomial()} then there are no nuisance parameters, for \code{family = nbinom2()} there is one nuisance parameter per species, and for \code{family = tweedie()} there are two nuisance parameters per species.}
 \item{trial_size:}{Same as input argument.}
 \item{offset:}{Same as input argument.}
 \item{num_archetypes:}{Same as input argument.}
@@ -101,13 +101,13 @@ For uncertainty quantification, a parametric bootstrap approach is taken along t
 
 Currently the following response distributions are permitted:
 \describe{
-\item{\code{betalogitfam()}:}{Beta distribution using a logit link. The corresponding mean-variance relationship is given by \eqn{V = \mu(1-\mu)/(1+\phi)} where \eqn{\mu} denotes the mean and \eqn{\phi} is the dispersion parameter.}
+\item{\code{Beta()}:}{Beta distribution using a logit link. The corresponding mean-variance relationship is given by \eqn{V = \mu(1-\mu)/(1+\phi)} where \eqn{\mu} denotes the mean and \eqn{\phi} is the dispersion parameter.}
 \item{\code{binomial()}:}{Binomial distribution. The corresponding mean-variance relationship is given by \eqn{V = N_{trial}\mu(1-\mu)} where \eqn{\mu} denotes the mean and \eqn{N_{trial}} is the trial size.}
 \item{\code{Gamma()}:}{Gamma distribution, noting only the log link is permitted. The corresponding mean-variance relationship is given by \eqn{V = \phi\mu^2} where \eqn{\mu} denotes the mean and \eqn{\phi} is the dispersion parameter.}
 \item{\code{gaussian()}:}{Gaussian or normal distribution. The corresponding mean-variance relationship is given by \eqn{V = \phi^2}, where \eqn{\phi} is the standard deviation.}
 \item{\code{poisson()}:}{Poisson distribution. The corresponding mean-variance relationship is given by \eqn{V = \mu} where \eqn{\mu} denotes the mean.}
-\item{\code{nb2()}:}{Negative binomial distribution using a log link. The corresponding mean-variance relationship is given by \eqn{V = \mu + \mu^2/\phi} where \eqn{\mu} denotes the mean and \eqn{\phi} is the dispersion parameter.}
-\item{\code{tweedielogfam()}:}{Tweedie distribution using a log link. The corresponding mean-variance relationship is given by \eqn{V = \phi\mu^{\rho}} where \eqn{\mu} denotes the mean, \eqn{\phi} is the dispersion parameter, and \eqn{\rho} is the power parameter.}
+\item{\code{nbinom2()}:}{Negative binomial distribution using a log link. The corresponding mean-variance relationship is given by \eqn{V = \mu + \mu^2/\phi} where \eqn{\mu} denotes the mean and \eqn{\phi} is the dispersion parameter.}
+\item{\code{tweedie()}:}{Tweedie distribution using a log link. The corresponding mean-variance relationship is given by \eqn{V = \phi\mu^{\rho}} where \eqn{\mu} denotes the mean, \eqn{\phi} is the dispersion parameter, and \eqn{\rho} is the power parameter.}
 }
 }
 }
@@ -139,7 +139,7 @@ true_dispparam <- 1/runif(num_spp, 0, 5)
 true_powerparam <- runif(num_spp, 1.4, 1.8)
 true_mixprop <- c(0.2, 0.25, 0.3, 0.1, 0.15)
  
- simdat <- create_samlife(family = nb2(), 
+ simdat <- create_samlife(family = nbinom2(), 
  formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) \%>\% as.formula, 
  data = covariate_dat, 
  betas = true_betas, 
@@ -156,7 +156,7 @@ true_mixprop <- c(0.2, 0.25, 0.3, 0.1, 0.15)
  samfit <- assam(y = simdat$y,
  formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) \%>\% as.formula,
  data = covariate_dat,
- family = nb2(),
+ family = nbinom2(),
  num_archetypes = num_archetype,
  num_cores = 8)
  

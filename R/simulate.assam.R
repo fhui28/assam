@@ -46,7 +46,7 @@ simulate.assam <- function(object, data, nsim = 1, seed = NULL, ...) {
                      trial_size = object$trial_size, 
                      spp_dispparam = NULL, 
                      spp_powerparam = NULL) 
-    if(object$family$family[1] %in% c("beta","negative.binomial","Gamma","gaussian","tweedie"))
+    if(object$family$family[1] %in% c("Beta","nbinom2","Gamma","gaussian","tweedie"))
         use_model$spp_dispparam <- object$spp_nuisance$dispersion
     if(object$family$family[1] %in% c("tweedie"))
         use_model$spp_powerparam <- object$spp_nuisance$power
@@ -57,10 +57,10 @@ simulate.assam <- function(object, data, nsim = 1, seed = NULL, ...) {
     
     formula <- .check_X_formula(formula = use_model$formula, data = as.data.frame(use_model$data))          
     tmp_formula <- as.formula(paste("response", paste(as.character(formula),collapse = " ") ) )
-    nullfit <- glmmTMB(tmp_formula, 
-                       se = FALSE,
-                       data = data.frame(use_model$data, response = rnorm(nrow(use_model$data)))) #' This may not work in the future if smootihng terms are included, say, due to the standardization that needs to be applied    
-    useX <- model.matrix(nullfit)[,-1] # Remove the intercept term
+    nullfit <- sdmTMB(tmp_formula,
+                      spatial = FALSE,
+                      data = data.frame(use_model$data, response = rnorm(nrow(use_model$data)))) #' This may not work in the future if smootihng terms are included, say, due to the standardization that needs to be applied
+    useX <- model.matrix(nullfit$formula[[1]], data = nullfit$data)[,-1] # Remove the intercept term
     rm(tmp_formula, nullfit)
     
     out <- replicate(nsim, 

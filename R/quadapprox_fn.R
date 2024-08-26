@@ -1,3 +1,72 @@
+.quadapprox2_fn <- function(family, formula, resp, data, offset = NULL, 
+                           trial_size = 1, 
+                           do_parallel = TRUE) {     
+    
+    num_spp <- ncol(resp)
+    
+    spp_qa_fn <- function(l) {
+        tmp_formula <- as.formula(paste("response", paste(as.character(formula), collapse = " ") ) )
+        
+        if(family$family %in% c("binomial")) {
+            tmp_formula <- as.formula(paste("cbind(response, trial_size - response)", paste(as.character(formula), collapse = " ") ) )
+            }
+        new_offset <- offset[,l]
+        #Hmat <- diag(control$ridge+1e-15, nrow = num_X)
+        
+        if(family$family %in% c("gaussian", "poisson", "Gamma", "binomial")) {
+            fit0 <- sdmTMB(tmp_formula,
+                           data = data.frame(response = resp[,l], data, trial_size = trial_size), 
+                           #knots = knots, select = select, gamma = full_gamma[j]  
+                           spatial = FALSE,
+                           offset = new_offset, 
+                           family = family)
+            }
+        if(family$family %in% c("tweedie")) {
+            fit0 <- sdmTMB(tmp_formula,
+                           data = data.frame(response = resp[,l], data, trial_size = trial_size), 
+                           #knots = knots, select = select, gamma = full_gamma[j]
+                           spatial = FALSE,
+                           offset = new_offset, 
+                           family = sdmTMB::tweedie())
+            }
+        if(family$family %in% c("nbinom2")) {
+            fit0 <- sdmTMB(tmp_formula, 
+                           data = data.frame(response = resp[,l], data), 
+                           #knots = knots, select = select, gamma = full_gamma[j]
+                           spatial = FALSE,
+                           offset = new_offset, 
+                           family = sdmTMB::nbinom2())
+            }
+        if(family$family %in% c("Beta")) {
+            fit0 <- sdmTMB(tmp_formula, 
+                           data = data.frame(response = resp[,l], data), 
+                           #knots = knots, select = select, gamma = full_gamma[j]
+                           spatial = FALSE,
+                           offset = new_offset, 
+                           family = sdmTMB::Beta())
+            }
+        
+        fit0$parameters <- fit0$sd_report$par.fixed
+        fit0$hessian <- solve(fit0$sd_report$cov.fixed)
+        return(fit0)
+        }
+    
+    
+    if(do_parallel)
+        all_quadapprox <- foreach(l = 1:num_spp) %dopar% spp_qa_fn(l = l)          
+    if(!do_parallel)
+        all_quadapprox <- foreach(l = 1:num_spp) %do% spp_qa_fn(l = l)          
+    
+    out <- list(parameters = t(sapply(1:num_spp, function(k) all_quadapprox[[k]]$parameters)), 
+                hessian = lapply(1:num_spp, function(k) all_quadapprox[[k]]$hessian))
+    
+    #rownames(out$parameters) <- colnames(resp)
+    #names(out$hessian) <- colnames(resp)
+    return(out)
+    }
+
+
+function() {
 .quadapprox_fn <- function(family, formula, resp, data, offset = NULL, 
                           trial_size = 1, 
                           do_parallel = TRUE,
@@ -33,7 +102,7 @@
                             offset = new_offset, family = family, 
                             start = use_start)
             }
-        if(family$family %in% c("negative.binomial")) {
+        if(family$family %in% c("nbinom2")) {
             fit0 <- glmmTMB(tmp_formula, 
                             data = data.frame(response = resp[,l], data), 
                             #knots = knots, select = select, gamma = full_gamma[j]
@@ -66,4 +135,4 @@
     return(out)
     }
 
-          
+}          

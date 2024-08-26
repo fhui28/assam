@@ -60,7 +60,7 @@
 #' true_powerparam <- runif(num_spp, 1.4, 1.8)
 #' true_mixprop <- c(0.2, 0.25, 0.3, 0.1, 0.15)
 #'  
-#'  simdat <- create_samlife(family = nb2(), 
+#'  simdat <- create_samlife(family = nbinom2(), 
 #'  formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) %>% as.formula, 
 #'  data = covariate_dat, 
 #'  betas = true_betas, 
@@ -77,7 +77,7 @@
 #'  samfit <- assam(y = simdat$y,
 #'  formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) %>% as.formula,
 #'  data = covariate_dat,
-#'  family = nb2(),
+#'  family = nbinom2(),
 #'  num_archetypes = num_archetype,
 #'  num_cores = 8)
 #'  
@@ -97,7 +97,7 @@
 #' @importFrom abind abind
 #' @importFrom collapse fquantile
 #' @importFrom doParallel registerDoParallel
-#' @importFrom glmmTMB glmmTMB
+#' @importFrom sdmTMB sdmTMB
 #' @importFrom parallel detectCores
 #' @importFrom stats as.formula model.matrix
 #' @md
@@ -147,8 +147,10 @@ predict.assam <- function(object,
     #' # Construct X and associated point predictions
     ##-----------------------
     tmp_formula <- as.formula(paste("response", paste(as.character(object$formula),collapse = " ") ) )
-    nullfit <- glmmTMB(tmp_formula, se = FALSE, data = data.frame(newdata, response = rnorm(nrow(newdata)))) #' This may not work in the future if smootihng terms are included, say, due to the standardization that needs to be applied    
-    X <- model.matrix(nullfit)[,-1] # Remove the intercept term
+    nullfit <- sdmTMB(tmp_formula, 
+                      spatial = FALSE,
+                      data = data.frame(newdata, response = rnorm(nrow(newdata)))) #' This may not work in the future if smootihng terms are included, say, due to the standardization that needs to be applied    
+    X <- model.matrix(nullfit$formula[[1]], data = nullfit$data)[,-1] # Remove the intercept term
     num_units <- nrow(X)
     
     get_eta <- tcrossprod(X, object$betas)
