@@ -35,5 +35,7 @@ Imports:
     tweedie
 Depends: R (>= 4.1.0),
 Suggests: 
-    spelling
+    GGally,
+    spelling,
+    tidyverse
 Language: en-US
