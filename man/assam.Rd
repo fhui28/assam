@@ -139,59 +139,60 @@ true_dispparam <- 1/runif(num_spp, 0, 5)
 true_powerparam <- runif(num_spp, 1.4, 1.8)
 true_mixprop <- c(0.2, 0.25, 0.3, 0.1, 0.15)
  
- simdat <- create_samlife(family = nbinom2(), 
- formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) \%>\% as.formula, 
- data = covariate_dat, 
- betas = true_betas, 
- spp_intercept = true_intercepts, 
- spp_dispparam = true_dispparam, 
- spp_powerparam = true_powerparam, 
- mixture_proportion = true_mixprop)
+simdat <- create_samlife(family = nbinom2(), 
+formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) \%>\% as.formula, 
+data = covariate_dat, 
+betas = true_betas, 
+spp_intercept = true_intercepts, 
+spp_dispparam = true_dispparam, 
+spp_powerparam = true_powerparam, 
+mixture_proportion = true_mixprop)
  
  
- ##----------------------
- # Fit asSAM and assess results 
- #' **Most users should start here**
- ##----------------------
- samfit <- assam(y = simdat$y,
- formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) \%>\% as.formula,
- data = covariate_dat,
- family = nbinom2(),
- num_archetypes = num_archetype,
- num_cores = 8)
- 
- plot(true_intercepts, samfit$spp_intercepts); abline(0,1)
- plot(true_dispparam, samfit$spp_nuisance$dispersion, log = "xy"); abline(0,1)
- #' Note estimates for the archetypal responses and mixture proportions from (as)SAMs should be 
- #' close to the corresponding true values, *up to a reordering* of the mixture component
- #' s/archetypes (since the order is essentiually arbtirary)
- rbind(true_betas, samfit$betas) \%>\% 
- t \%>\% 
- as.data.frame \%>\%
- ggpairs
- table(simdat$archetype_label, apply(samfit$posterior_probability, 1, which.max))
+##----------------------
+# Fit asSAM and assess results 
+#' **Most users should start here**
+##----------------------
+samfit <- assam(y = simdat$y,
+formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) \%>\% as.formula,
+data = covariate_dat,
+family = nbinom2(),
+num_archetypes = num_archetype,
+num_cores = 8)
  
  
- ##----------------------
- # Demonstrating basic use of functions for asSAM 
- ##----------------------
- samfit
- summary(samfit)
+plot(true_intercepts, samfit$spp_intercepts); abline(0,1)
+plot(true_dispparam, samfit$spp_nuisance$dispersion, log = "xy"); abline(0,1)
+#' Note estimates for the archetypal responses and mixture proportions from (as)SAMs should be 
+#' close to the corresponding true values, *up to a reordering* of the mixture component
+#' s/archetypes (since the order is essentiually arbtirary)
+rbind(true_betas, samfit$betas) \%>\% 
+t \%>\% 
+as.data.frame \%>\%
+ggpairs
+table(simdat$archetype_label, apply(samfit$posterior_probability, 1, which.max))
+
  
- fitted(samfit)
+##----------------------
+# Demonstrating basic use of functions for asSAM 
+##----------------------
+samfit
+summary(samfit)
+
+fitted(samfit)
  
- simulate(samfit, data = covariate_dat)
+simulate(samfit, data = covariate_dat)
+
+residuals(samfit, y = simdat$y, type = "dunnsmyth")
  
- residuals(samfit, y = simdat$y, type = "dunnsmyth")
+#' Basic residual analysis
+plot(samfit, y = simdat$y, transform_fitted_values = TRUE)
  
- #' Basic residual analysis
- plot(samfit, y = simdat$y, transform_fitted_values = TRUE)
- 
- #' Archetype-level predictions
- predict(samfit, newdata = covariate_dat, type = "archetype", se_fit = TRUE) 
- 
- #' Species-level predictions
- predict(samfit,  newdata = covariate_dat, type = "species_max", num_cores = 8, se_fit = TRUE) 
+#' Archetype-level predictions
+predict(samfit, newdata = covariate_dat, type = "archetype", se_fit = TRUE) 
+
+#' Species-level predictions
+predict(samfit,  newdata = covariate_dat, type = "species_max", num_cores = 8, se_fit = TRUE) 
  
 }
 
