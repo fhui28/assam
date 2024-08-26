@@ -66,6 +66,12 @@ This function is heavily adapted from \code{\link[CBFM:plot.CBFM]{CBFM::plot.CBF
 \item the scale-location plot should not exhibit any trend.
 }
 }
+\examples{
+\dontrun{
+#' Please see the help file for assam for example.
+}
+
+}
 \author{
 Francis K.C. Hui \href{mailto:fhui28@gmail.com}{fhui28@gmail.com}
 }

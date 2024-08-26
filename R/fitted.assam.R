@@ -15,6 +15,12 @@
 #' @return A matrix of fitted values.
 #' 
 #' @author Francis K.C. Hui <fhui28@gmail.com>
+#' 
+#' @examples
+#' \dontrun{
+#' #' Please see the help file for assam for example.
+#' }
+#' 
 
 #' @export
 #' @md

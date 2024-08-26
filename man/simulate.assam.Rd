@@ -35,6 +35,12 @@ Simulates multivariate abundance data from a species archetype model (SAM). For 
 
 where \eqn{g(.)} is a known link function, \eqn{x_i} denotes a vector of predictors for unit \eqn{i} i.e., the \eqn{i}-th row from the created model matrix, \eqn{\beta_k} denotes the corresponding regression coefficients for archetype \eqn{k}. Based on the mean model given above, responses \eqn{y_{ij}} are then simulated from the assumed distribution, using the additional dispersion and power parameters as appropriate.
 }
+\examples{
+\dontrun{
+#' Please see the help file for assam for example.
+}
+
+}
 \author{
 Francis K.C. Hui \href{mailto:fhui28@gmail.com}{fhui28@gmail.com}
 }

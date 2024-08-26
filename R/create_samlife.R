@@ -49,6 +49,44 @@
 #' 
 #' @author Francis K.C. Hui <fhui28@gmail.com>
 #' 
+#' 
+#' @examples
+#' \dontrun{
+#' #' ##----------------------
+#' # Generate some multivariate abundance data from a SAM
+#' ##----------------------
+#' library(tidyverse)
+#' library(mvtnorm)
+#'
+#' set.seed(092024)
+#' 
+#' num_X <- 10
+#' num_units <- 1000
+#' num_spp <- 80
+#' num_archetype <- 5
+#' H <- outer(1:num_X, 1:num_X, "-")
+#' H <- 0.5^abs(H)
+#' covariate_dat <- rmvnorm(num_units, sigma = H) %>% 
+#'     as.data.frame %>% 
+#'     rename_with(., .fn = function(x) paste0("covariate", x))
+#' rm(H)
+#' 
+#' true_betas <- runif(num_archetype * num_X, -1, 1) %>% matrix(nrow = num_archetype)
+#' true_intercepts <- runif(num_spp, -3, 0)  
+#' true_dispparam <- 1/runif(num_spp, 0, 5) 
+#' true_powerparam <- runif(num_spp, 1.4, 1.8)
+#' true_mixprop <- c(0.2, 0.25, 0.3, 0.1, 0.15)
+#'  
+#'  simdat <- create_samlife(family = nb2(), 
+#'  formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) %>% as.formula, 
+#'  data = covariate_dat, 
+#'  betas = true_betas, 
+#'  spp_intercept = true_intercepts, 
+#'  spp_dispparam = true_dispparam, 
+#'  spp_powerparam = true_powerparam, 
+#'  mixture_proportion = true_mixprop)
+#' }
+#' 
 #' @export
 #' @import Matrix
 #' @importFrom glmmTMB glmmTMB

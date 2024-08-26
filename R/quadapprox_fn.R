@@ -1,5 +1,3 @@
-#' @noRd
-#' @noMd
 .quadapprox_fn <- function(family, formula, resp, data, offset = NULL, 
                           trial_size = 1, 
                           do_parallel = TRUE,
@@ -39,14 +37,14 @@
             fit0 <- glmmTMB(tmp_formula, 
                             data = data.frame(response = resp[,l], data), 
                             #knots = knots, select = select, gamma = full_gamma[j]
-                            offset = new_offset, family = "nbinom2",
+                            offset = new_offset, family = glmmTMB::nbinom2,
                             start = use_start)
             }
         if(family$family %in% c("Beta")) {
             fit0 <- glmmTMB(tmp_formula, 
                             data = data.frame(response = resp[,l], data), 
                             #knots = knots, select = select, gamma = full_gamma[j]
-                            offset = new_offset, family = "beta",
+                            offset = new_offset, family = glmmTMB::beta_family,
                             start = use_start)
             }
         fit0$parameters <- fit0$obj$env$last.par.best

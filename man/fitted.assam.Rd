@@ -24,6 +24,12 @@ Extracts fitted mean values from a \code{assam} object.
 \details{
 To clarify, the returned fitted values are on the response scale i.e., a matrix of the estimated means \eqn{\hat{\mu}_{ij}} after model fitting.
 }
+\examples{
+\dontrun{
+#' Please see the help file for assam for example.
+}
+
+}
 \author{
 Francis K.C. Hui \href{mailto:fhui28@gmail.com}{fhui28@gmail.com}
 }

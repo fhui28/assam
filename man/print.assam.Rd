@@ -19,6 +19,12 @@ The default print method for a \code{assam} object.
 \details{
 Print out details such as the function call, assumed family/response distribution, number of sites and species, and archetypal response-environment relationship fitted.
 }
+\examples{
+\dontrun{
+#' Please see the help file for assam for example.
+}
+
+}
 \author{
 Francis K.C. Hui \href{mailto:fhui28@gmail.com}{fhui28@gmail.com}
 }

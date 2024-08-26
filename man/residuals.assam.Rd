@@ -30,6 +30,12 @@ Of the two options available \code{type = "PIT"} returns the probability integra
 
 Both PIT and Dunn-Smyth residuals were adapted by \href{https://doi.org/10.1007/s13253-013-0146-x}{Dunstan et al., (2013)} to species archetype models, and we follow their developments in building this function.
 }
+\examples{
+\dontrun{
+#' Please see the help file for assam for example.
+}
+
+}
 \author{
 Francis K.C. Hui \href{mailto:fhui28@gmail.com}{fhui28@gmail.com}
 }

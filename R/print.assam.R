@@ -12,8 +12,12 @@
 #' Print out details such as the function call, assumed family/response distribution, number of sites and species, and archetypal response-environment relationship fitted.
 #'
 #' 
-#' 
 #' @author Francis K.C. Hui <fhui28@gmail.com>
+#' 
+#' @examples
+#' \dontrun{
+#' #' Please see the help file for assam for example.
+#' }
 #' 
 #' @method print assam 
 #' @export

@@ -20,8 +20,13 @@
 #' 
 #' @author Francis K.C. Hui <fhui28@gmail.com>
 #' 
-#' @export
 #' 
+#' @examples
+#' \dontrun{
+#' #' Please see the help file for assam for example.
+#' }
+#' 
+#' @export
 #' @importFrom stats runif qnorm pbeta pbinom pgamma plogis pnorm ppois pnbinom
 #' @importFrom tweedie ptweedie 
 #' @md

@@ -30,6 +30,11 @@
 #' 
 #' @author Francis K.C. Hui <fhui28@gmail.com>
 #' 
+#' @examples
+#' \dontrun{
+#' #' Please see the help file for assam for example.
+#' }
+#' 
 #' @export
 #' @importFrom graphics abline boxplot lines panel.smooth par plot points polygon
 #' @importFrom grDevices rainbow
