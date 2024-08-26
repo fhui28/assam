@@ -1,5 +1,6 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
 ^LICENSE\.md$
-^notes.R$
+^R/notes.R$
 ^testv0.R$
+^R/unusedfamilies.R$
