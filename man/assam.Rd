@@ -135,7 +135,7 @@ rm(H)
 
 true_betas <- runif(num_archetype * num_X, -1, 1) \%>\% matrix(nrow = num_archetype)
 true_intercepts <- runif(num_spp, -3, 0)  
-true_dispparam <- 1/runif(num_spp, 0, 5) 
+true_dispparam <- 1/runif(num_spp, 1, 5) 
 true_powerparam <- runif(num_spp, 1.4, 1.8)
 true_mixprop <- c(0.2, 0.25, 0.3, 0.1, 0.15)
  
@@ -157,6 +157,7 @@ samfit <- assam(y = simdat$y,
 formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) \%>\% as.formula,
 data = covariate_dat,
 family = nbinom2(),
+uncertainty_quantification = FALSE,
 num_archetypes = num_archetype,
 num_cores = 8)
  

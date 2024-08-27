@@ -6,7 +6,7 @@
 #' Used in assam.R
 function() {
     formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) %>% as.formula
-    family <- nbinom2()
+    family <- tweedie()
     y = simdat$y
     data = covariate_dat
     offset = NULL

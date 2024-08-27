@@ -76,17 +76,22 @@ residuals.assam <- function(object, y, type = "dunnsmyth", seed = NULL, ...) {
             }
         
         if(object$family$family[1] %in% c("tweedie")) {
-            a <- a + object$mixture_proportion[k0]*ptweedie(y, mu = get_fitted[,,k0], 
-                                                            phi = matrix(object$spp_nuisance$dispersion, nrow = nrow(y), ncol = ncol(y), byrow = TRUE), 
-                                                            power = matrix(object$spp_nuisance$power, nrow = nrow(y), ncol = ncol(y), byrow = TRUE))
-            a[y == 0] <- 0
-            b <- b + object$mixture_proportion[k0]*ptweedie(y, mu = get_fitted[,,k0], 
-                                                            phi = matrix(object$spp_nuisance$dispersion, nrow = nrow(y), ncol = ncol(y), byrow = TRUE), 
-                                                            power = matrix(object$spp_nuisance$power, nrow = nrow(y), ncol = ncol(y), byrow = TRUE))
+            for(j in 1:ncol(y)) {
+                a[,j] <- a[,j] + object$mixture_proportion[k0]*tweedie::ptweedie(y[,j], 
+                                                                                 mu = get_fitted[,j,k0],
+                                                                                 phi = object$spp_nuisance$dispersion[j],
+                                                                                 power = object$spp_nuisance$power[j])
+                b[,j] <- b[,j] + object$mixture_proportion[k0]*tweedie::ptweedie(y[,j], 
+                                                                                 mu = get_fitted[,j,k0],
+                                                                                 phi = object$spp_nuisance$dispersion[j],
+                                                                                 power = object$spp_nuisance$power[j])
             }
+            a[y == 0] <- 0
+            }
+        
         }
-    
-    if(object$family$family[1] %in% c("binomial", "poisson","nbinom2","tweedie")) {
+
+    if(object$family$family[1] %in% c("binomial","poisson","nbinom2","tweedie")) {
         out <- matrix(runif(length(y), min = a, max = b), nrow = nrow(y), ncol = ncol(y))
         out[out < 1e-12] <- 1e-12        
         out[out > (1-1e-12)] <- 1-1e-12        
