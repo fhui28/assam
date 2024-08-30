@@ -1,8 +1,14 @@
-#' **TODO**
-#' - Speed up glmmTMB [why does initial values not make much of a difference? Probably because of overhead on glmmTMB, but hard to change this givne things like mgcv::gam will be slower in the actual fitting process...]
-#' 
-#' 
-#' 
+#' General testing
+library(sdmTMB)
+
+sdmfit <- sdmTMB(formula = paste("response ~ ", paste0("s(", colnames(covariate_dat)[1:3], ")", collapse = "+")) %>% as.formula,
+                 data = data.frame(response = simdat$y[,1], covariate_dat),
+                 family = nbinom2(),
+                 spatial = FALSE)
+
+summary(sdmfit)
+
+
 #' Used in assam.R
 function() {
     formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) %>% as.formula
