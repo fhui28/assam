@@ -1,12 +1,33 @@
 #' General testing
-library(sdmTMB)
+function(){
+    library(sdmTMB)
+    library(glmmTMB)
+    library(mgcv)
+    
+    sdmfit <- sdmTMB(formula = paste("response ~ ", paste0("s(", colnames(covariate_dat)[1:3], ")", collapse = "+"), "+", paste0(colnames(covariate_dat)[4:7], collapse = "+")) %>% as.formula,
+                     data = data.frame(response = simdat$y[,1], covariate_dat),
+                     family = nbinom2(),
+                     spatial = FALSE)
+    
+    summary(sdmfit)
+    sdmfit_covariance <- sdmfit$sd_report$jointPrecision %>% solve
 
-sdmfit <- sdmTMB(formula = paste("response ~ ", paste0("s(", colnames(covariate_dat)[1:3], ")", collapse = "+")) %>% as.formula,
+    
+    gamfit <- gam(formula = paste("response ~ ", paste0("s(", colnames(covariate_dat)[1:3], ")", collapse = "+"), "+", paste0(colnames(covariate_dat)[4:7], collapse = "+")) %>% as.formula,
                  data = data.frame(response = simdat$y[,1], covariate_dat),
-                 family = nbinom2(),
-                 spatial = FALSE)
-
-summary(sdmfit)
+                 family = nb(),
+                 method = "ML")
+    
+    summary(gamfit)
+    summary(sdmfit)
+    vcov(gamfit) %>% diag %>% sqrt
+    sdmfit_covariance %>% diag %>% sqrt #' Need to rearrange such that all the smoothers are put together?
+    
+    
+    glmmfit <- glmmTMB(formula = paste("response ~ ", paste0("s(", colnames(covariate_dat)[1:3], ")", collapse = "+"), "+", paste0(colnames(covariate_dat)[4:7], collapse = "+")) %>% as.formula,
+                     data = data.frame(response = simdat$y[,1], covariate_dat),
+                     family = nbinom2())
+    }
 
 
 #' Used in assam.R
