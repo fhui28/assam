@@ -2,6 +2,6 @@
 ^\.Rproj\.user$
 ^LICENSE\.md$
 ^R/notes.R$
-^R/notes_comparingsdmfittomgcv.R$
+^R/note_comparingsdmfittomgcv.R
 ^testv0.R$
 ^R/unusedfamilies.R$

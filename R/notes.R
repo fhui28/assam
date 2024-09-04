@@ -23,10 +23,6 @@ function(){
     vcov(gamfit) %>% diag %>% sqrt
     sdmfit_covariance %>% diag %>% sqrt #' Need to rearrange such that all the smoothers are put together?
     
-    
-    glmmfit <- glmmTMB(formula = paste("response ~ ", paste0("s(", colnames(covariate_dat)[1:3], ")", collapse = "+"), "+", paste0(colnames(covariate_dat)[4:7], collapse = "+")) %>% as.formula,
-                     data = data.frame(response = simdat$y[,1], covariate_dat),
-                     family = nbinom2())
     }
 
 
