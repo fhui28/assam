@@ -66,9 +66,11 @@
 #' num_archetype <- 5
 #' H <- outer(1:num_X, 1:num_X, "-")
 #' H <- 0.5^abs(H)
-#' covariate_dat <- rmvnorm(num_units, sigma = H) %>% 
+#' covariate_dat <- data.frame(x = runif(num_units), y = runif(num_units))
+#' covariate_dat <- bind_cols(covariate_dat,
+#'     rmvnorm(num_units, sigma = H) %>% 
 #'     as.data.frame %>% 
-#'     rename_with(., .fn = function(x) paste0("covariate", x))
+#'     rename_with(., .fn = function(x) paste0("covariate", x)))
 #' rm(H)
 #' 
 #' true_betas <- runif(num_archetype * num_X, -1, 1) %>% matrix(nrow = num_archetype)
@@ -76,19 +78,27 @@
 #' true_dispparam <- 1/runif(num_spp, 0, 5) 
 #' true_powerparam <- runif(num_spp, 1.4, 1.8)
 #' true_mixprop <- c(0.2, 0.25, 0.3, 0.1, 0.15)
+#' true_spatial_sd <- runif(num_spp)
+#' true_spatial_range <- runif(num_spp, 0.1, 0.5)
+#' 
 #'  
 #' simdat <- create_samlife(family = nbinom2(), 
-#' formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) %>% as.formula, 
+#' formula = paste("~", paste0(colnames(covariate_dat)[-(1:2)], collapse = "+")) %>% as.formula, 
 #' data = covariate_dat, 
 #' betas = true_betas, 
 #' spp_intercept = true_intercepts, 
 #' spp_dispparam = true_dispparam, 
 #' spp_powerparam = true_powerparam, 
+#' spatial_coordinates = covariate_dat %>% dplyr::select(x,y),
+#' spp_spatial_sd = true_spatial_sd,
+#' spp_spatial_range = true_spatial_range,
 #' mixture_proportion = true_mixprop)
+#' 
 #' }
 #' 
 #' @export
 #' @import Matrix
+#' @importFrom geoR grf
 #' @importFrom sdmTMB sdmTMB nbinom2 tweedie Beta
 #' @importFrom stats as.formula binomial model.matrix rbeta rbinom rgamma rnorm rnbinom rpois plogis
 #' @importFrom tweedie rtweedie
@@ -103,7 +113,10 @@ create_samlife <- function(family = binomial(),
                            betas, 
                            spp_intercepts, 
                            spp_dispparam = NULL, 
-                           spp_powerparam = NULL, 
+                           spp_powerparam = NULL,
+                           spatial_coordinates = NULL,
+                           spp_spatial_sd = NULL,
+                           spp_spatial_range = NULL,
                            mixture_proportion, 
                            trial_size = 1, 
                            archetype_label = NULL) {
@@ -129,6 +142,19 @@ create_samlife <- function(family = binomial(),
     if(!(family$family %in% c("gaussian","Gamma","binomial","poisson","nbinom2","tweedie","Beta")))
         stop("family currently not supported. Sorry!")
     
+    if(!is.null(spp_spatial_range)) {
+        if(is.null(spp_spatial_sd) | is.null(spatial_coordinates))
+            stop("If species-specific spatial fields are to be included, then spatial_coordinates, spp_spatial_range, spp_spatial_sd must all be supplied.")
+        if(length(spp_spatial_range) != length(spp_intercepts))
+            stop("Both spp_spatial_range and spp_spatial_sd must be vectors of length equal to length(spp_intercepts).")
+        }
+    if(!is.null(spp_spatial_sd)) {
+        if(is.null(spp_spatial_range) | is.null(spatial_coordinates))
+            stop("If species-specific spatial fields are to be included, then spatial_coordinates, spp_spatial_range, spp_spatial_sd must all be supplied.")
+        if(length(spp_spatial_sd) != length(spp_intercepts))
+            stop("Both spp_spatial_range and spp_spatial_sd must be vectors of length equal to length(spp_intercepts).")
+        }
+    
     
     if(is.null(rownames(X)))
         rownames(X) <- paste0("unit", 1:nrow(X))
@@ -146,7 +172,24 @@ create_samlife <- function(family = binomial(),
     
     spp_eta <- tcrossprod(cbind(1, X), cbind(spp_intercepts, betas[archetype_label,]))
     if(!is.null(offset))
-        true_eta <- true_eta + offset
+        spp_eta <- spp_eta + offset
+    
+    get_spatial_fields <- NULL
+    if(!is.null(spp_spatial_sd)) {
+        for(j in 1:num_spp) {
+            get_spatial_fields <- cbind(get_spatial_fields,
+                                        grf(grid = spatial_coordinates,
+                                            nsim = 1,
+                                            cov.model = "matern",
+                                            cov.pars = c(spp_spatial_sd[j]^2, spp_spatial_range[j]/sqrt(8)), # grf parametrizes matern in terms of marginal variance and spatial range phi, where the conversion to the sdmTMB parametrization is given by variance = sd^2 and sdmTMB_range = \sqrt{8}/kappa = \sqrt{8}*phi; see (https://pbs-assess.github.io/sdmTMB/articles/model-description.html) 
+                                            kappa = 1, # Smoothness set to 1 to exploit SPDE approach for estimation via sdmTMB later on
+                                            messages = FALSE)$data
+                                        ) 
+            }
+        
+        spp_eta <- spp_eta + get_spatial_fields
+        }
+    
     
     for(j in 1:num_spp) {
         if(family$family == "Beta")
@@ -166,5 +209,8 @@ create_samlife <- function(family = binomial(),
             }
         }
     
-    return(list(y = resp, archetype_label = archetype_label, linear_predictor = spp_eta)) 
+    return(list(y = resp, 
+                archetype_label = archetype_label, 
+                linear_predictor = spp_eta, 
+                spatial_fields = get_spatial_fields)) 
     }
