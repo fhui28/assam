@@ -14,6 +14,9 @@
 #' @param spp_intercepts A vector of species-specific intercept.  
 #' @param spp_dispparam A vector of species-specific dispersion parameters, to be used for distributions that require one.  
 #' @param spp_powerparam A vector of species-specific power parameters, to be used for distributions that require one. 
+#' @param spatial_coordinates A data with two containing containing spatial coordinates, from which species-specific spatial fields can be constructed and added to the linear predictor.
+#' @param spp_spatial_sd A vector of standard deviations corresponding to the species-specific spatial fields. This corresponds to the \eqn{\tau} parameters described in [sdmTMB's parametrization of Gaussian random fields](https://pbs-assess.github.io/sdmTMB/articles/model-description.html#gaussian-random-fields).
+#' @param spp_spatial_range A vector of range parameters corresponding to the species-specific spatial fields. This is equal to \eqn{1/\kappa} where \eqn{\kappa} is described in [sdmTMB's parametrization of Gaussian random fields](https://pbs-assess.github.io/sdmTMB/articles/model-description.html#gaussian-random-fields).
 #' @param mixture_proportion A vector of mixture proportions corresponding to the probability of belonging to each archetype.
 #' @param trial_size Trial sizes to use for binomial distribution. This should equal to a scalar.
 #' @param archetype_label If desired, the user can manually supply the archetype labels for each species. In this case, \code{mixture_proportion} must still be supplied but is subsequently ignored.
@@ -45,6 +48,7 @@
 #' \item{y:}{The simulated multivariate abundance response matrix.}
 #' \item{archetype_label:}{A vector of archetype labels for each species.}
 #' \item{linear_predictor:}{The matrix of linear predictors corresponding to the simulated multivariate abundance response matrix.}
+#' \item{spatial_fields:}{If applicable, a matrix of species-specific spatial fields.}
 #' }
 #' 
 #' @author Francis K.C. Hui <fhui28@gmail.com>
@@ -181,7 +185,7 @@ create_samlife <- function(family = binomial(),
                                         grf(grid = spatial_coordinates,
                                             nsim = 1,
                                             cov.model = "matern",
-                                            cov.pars = c(spp_spatial_sd[j]^2, spp_spatial_range[j]/sqrt(8)), # grf parametrizes matern in terms of marginal variance and spatial range phi, where the conversion to the sdmTMB parametrization is given by variance = sd^2 and sdmTMB_range = \sqrt{8}/kappa = \sqrt{8}*phi; see (https://pbs-assess.github.io/sdmTMB/articles/model-description.html) 
+                                            cov.pars = c(spp_spatial_sd[j]^2, spp_spatial_range[j]), # grf parametrizes matern in terms of variance (sd^2) and spatial range phi, where the former is the same as tau and the latter is 1/kappa in (https://pbs-assess.github.io/sdmTMB/articles/model-description.html#gaussian-random-fields). 
                                             kappa = 1, # Smoothness set to 1 to exploit SPDE approach for estimation via sdmTMB later on
                                             messages = FALSE)$data
                                         ) 

@@ -21,6 +21,7 @@ Imports:
     collapse,
     doParallel,
     foreach,
+    geoR,
     label.switching,
     lifecycle,
     Matrix,

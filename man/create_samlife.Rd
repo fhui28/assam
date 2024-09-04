@@ -14,6 +14,9 @@ create_samlife(
   spp_intercepts,
   spp_dispparam = NULL,
   spp_powerparam = NULL,
+  spatial_coordinates = NULL,
+  spp_spatial_sd = NULL,
+  spp_spatial_range = NULL,
   mixture_proportion,
   trial_size = 1,
   archetype_label = NULL
@@ -38,6 +41,12 @@ create_samlife(
 
 \item{spp_powerparam}{A vector of species-specific power parameters, to be used for distributions that require one.}
 
+\item{spatial_coordinates}{A data with two containing containing spatial coordinates, from which species-specific spatial fields can be constructed and added to the linear predictor.}
+
+\item{spp_spatial_sd}{A vector of standard deviations corresponding to the species-specific spatial fields. This corresponds to the \eqn{\tau} parameters described in \href{https://pbs-assess.github.io/sdmTMB/articles/model-description.html#gaussian-random-fields}{sdmTMB's parametrization of Gaussian random fields}.}
+
+\item{spp_spatial_range}{A vector of range parameters corresponding to the species-specific spatial fields. This is equal to \eqn{1/\kappa} where \eqn{\kappa} is described in \href{https://pbs-assess.github.io/sdmTMB/articles/model-description.html#gaussian-random-fields}{sdmTMB's parametrization of Gaussian random fields}.}
+
 \item{mixture_proportion}{A vector of mixture proportions corresponding to the probability of belonging to each archetype.}
 
 \item{trial_size}{Trial sizes to use for binomial distribution. This should equal to a scalar.}
@@ -50,6 +59,7 @@ A list with the following components:
 \item{y:}{The simulated multivariate abundance response matrix.}
 \item{archetype_label:}{A vector of archetype labels for each species.}
 \item{linear_predictor:}{The matrix of linear predictors corresponding to the simulated multivariate abundance response matrix.}
+\item{spatial_fields:}{If applicable, a matrix of species-specific spatial fields.}
 }
 }
 \description{
@@ -94,9 +104,11 @@ num_spp <- 80
 num_archetype <- 5
 H <- outer(1:num_X, 1:num_X, "-")
 H <- 0.5^abs(H)
-covariate_dat <- rmvnorm(num_units, sigma = H) \%>\% 
+covariate_dat <- data.frame(x = runif(num_units), y = runif(num_units))
+covariate_dat <- bind_cols(covariate_dat,
+    rmvnorm(num_units, sigma = H) \%>\% 
     as.data.frame \%>\% 
-    rename_with(., .fn = function(x) paste0("covariate", x))
+    rename_with(., .fn = function(x) paste0("covariate", x)))
 rm(H)
 
 true_betas <- runif(num_archetype * num_X, -1, 1) \%>\% matrix(nrow = num_archetype)
@@ -104,15 +116,22 @@ true_intercepts <- runif(num_spp, -3, 0)
 true_dispparam <- 1/runif(num_spp, 0, 5) 
 true_powerparam <- runif(num_spp, 1.4, 1.8)
 true_mixprop <- c(0.2, 0.25, 0.3, 0.1, 0.15)
+true_spatial_sd <- runif(num_spp)
+true_spatial_range <- runif(num_spp, 0.1, 0.5)
+
  
 simdat <- create_samlife(family = nbinom2(), 
-formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) \%>\% as.formula, 
+formula = paste("~", paste0(colnames(covariate_dat)[-(1:2)], collapse = "+")) \%>\% as.formula, 
 data = covariate_dat, 
 betas = true_betas, 
 spp_intercept = true_intercepts, 
 spp_dispparam = true_dispparam, 
 spp_powerparam = true_powerparam, 
+spatial_coordinates = covariate_dat \%>\% dplyr::select(x,y),
+spp_spatial_sd = true_spatial_sd,
+spp_spatial_range = true_spatial_range,
 mixture_proportion = true_mixprop)
+
 }
 
 }
