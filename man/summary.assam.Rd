@@ -63,7 +63,7 @@ true_dispparam <- 1/runif(num_spp, 0, 5)
 true_powerparam <- runif(num_spp, 1.4, 1.8)
 true_mixprop <- c(0.2, 0.25, 0.3, 0.1, 0.15)
  
- simdat <- create_samlife(family = nb2(), 
+ simdat <- create_samlife(family = nbinom2(), 
  formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) \%>\% as.formula, 
  data = covariate_dat, 
  betas = true_betas, 
@@ -80,7 +80,7 @@ true_mixprop <- c(0.2, 0.25, 0.3, 0.1, 0.15)
  samfit <- assam(y = simdat$y,
  formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) \%>\% as.formula,
  data = covariate_dat,
- family = nb2(),
+ family = nbinom2(),
  num_archetypes = num_archetype,
  num_cores = 8)
  

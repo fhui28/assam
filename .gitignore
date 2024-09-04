@@ -2,3 +2,6 @@
 .Rhistory
 .RData
 .Ruserdata
+^R/notes_comparingsdmfittomgcv.R$
+^R/notes.R$
+

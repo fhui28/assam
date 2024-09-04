@@ -29,13 +29,13 @@
 #' 
 #' Currently the following response distributions are permitted: 
 #' \describe{
-#' \item{\code{betalogitfam()}:}{Beta distribution using a logit link. The corresponding mean-variance relationship is given by \eqn{V = \mu(1-\mu)/(1+\phi)} where \eqn{\mu} denotes the mean and \eqn{\phi} is the dispersion parameter.}
+#' \item{\code{Beta()}:}{Beta distribution using a logit link. The corresponding mean-variance relationship is given by \eqn{V = \mu(1-\mu)/(1+\phi)} where \eqn{\mu} denotes the mean and \eqn{\phi} is the dispersion parameter.}
 #' \item{\code{binomial()}:}{Binomial distribution. The corresponding mean-variance relationship is given by \eqn{V = N_{trial}\mu(1-\mu)} where \eqn{\mu} denotes the mean and \eqn{N_{trial}} is the trial size.}
 #' \item{\code{Gamma()}:}{Gamma distribution, noting only the log link is permitted. The corresponding mean-variance relationship is given by \eqn{V = \phi\mu^2} where \eqn{\mu} denotes the mean and \eqn{\phi} is the dispersion parameter.}
 #' \item{\code{gaussian()}:}{Gaussian or normal distribution. The corresponding mean-variance relationship is given by \eqn{V = \phi^2}, where \eqn{\phi} is the standard deviation.}
 #' \item{\code{poisson()}:}{Poisson distribution. The corresponding mean-variance relationship is given by \eqn{V = \mu} where \eqn{\mu} denotes the mean.}
-#' \item{\code{nb2()}:}{Negative binomial distribution using a log link. The corresponding mean-variance relationship is given by \eqn{V = \mu + \mu^2/\phi} where \eqn{\mu} denotes the mean and \eqn{\phi} is the dispersion parameter.}
-#' \item{\code{tweedielogfam()}:}{Tweedie distribution using a log link. The corresponding mean-variance relationship is given by \eqn{V = \phi\mu^{\rho}} where \eqn{\mu} denotes the mean, \eqn{\phi} is the dispersion parameter, and \eqn{\rho} is the power parameter.}
+#' \item{\code{nbinom2()}:}{Negative binomial distribution using a log link. The corresponding mean-variance relationship is given by \eqn{V = \mu + \mu^2/\phi} where \eqn{\mu} denotes the mean and \eqn{\phi} is the dispersion parameter.}
+#' \item{\code{tweedie()}:}{Tweedie distribution using a log link. The corresponding mean-variance relationship is given by \eqn{V = \phi\mu^{\rho}} where \eqn{\mu} denotes the mean, \eqn{\phi} is the dispersion parameter, and \eqn{\rho} is the power parameter.}
 #' }
 #' }
 #' 
@@ -77,36 +77,45 @@
 #' true_powerparam <- runif(num_spp, 1.4, 1.8)
 #' true_mixprop <- c(0.2, 0.25, 0.3, 0.1, 0.15)
 #'  
-#'  simdat <- create_samlife(family = nb2(), 
-#'  formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) %>% as.formula, 
-#'  data = covariate_dat, 
-#'  betas = true_betas, 
-#'  spp_intercept = true_intercepts, 
-#'  spp_dispparam = true_dispparam, 
-#'  spp_powerparam = true_powerparam, 
-#'  mixture_proportion = true_mixprop)
+#' simdat <- create_samlife(family = nbinom2(), 
+#' formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) %>% as.formula, 
+#' data = covariate_dat, 
+#' betas = true_betas, 
+#' spp_intercept = true_intercepts, 
+#' spp_dispparam = true_dispparam, 
+#' spp_powerparam = true_powerparam, 
+#' mixture_proportion = true_mixprop)
 #' }
 #' 
 #' @export
 #' @import Matrix
-#' @importFrom glmmTMB glmmTMB
+#' @importFrom sdmTMB sdmTMB nbinom2 tweedie Beta
 #' @importFrom stats as.formula binomial model.matrix rbeta rbinom rgamma rnorm rnbinom rpois plogis
 #' @importFrom tweedie rtweedie
 #' @md
 
 ## Data generation mechanism - intercept included by default
-create_samlife <- function(family = binomial(), formula, data, override_X = NULL, offset = NULL, 
-                           betas, spp_intercepts, spp_dispparam = NULL, spp_powerparam = NULL, 
-                           mixture_proportion, trial_size = 1, archetype_label = NULL) {
+create_samlife <- function(family = binomial(), 
+                           formula, 
+                           data, 
+                           override_X = NULL, 
+                           offset = NULL, 
+                           betas, 
+                           spp_intercepts, 
+                           spp_dispparam = NULL, 
+                           spp_powerparam = NULL, 
+                           mixture_proportion, 
+                           trial_size = 1, 
+                           archetype_label = NULL) {
     
     formula <- .check_X_formula(formula = formula, data = as.data.frame(data))          
     tmp_formula <- as.formula(paste("response", paste(as.character(formula),collapse = " ") ) )
     if(is.null(override_X)) {
-        nullfit <- glmmTMB(tmp_formula, 
-                           se = FALSE,
+        nullfit <- sdmTMB(tmp_formula, 
+                           spatial = FALSE,
                            data = data.frame(data, response = rnorm(nrow(data))))
-        X <- model.matrix(nullfit)[,-1] # Remove the intercept term
-    }
+        X <- model.matrix(nullfit$formula[[1]], data = nullfit$data)[,-1] # Remove the intercept term
+        }
     if(!is.null(override_X))
         X <- override_X
     
@@ -117,7 +126,7 @@ create_samlife <- function(family = binomial(), formula, data, override_X = NULL
         stop("No. of columns in betas should be equal to the number of columns in X. Note the latter should not contain an intercept term.")
     if(any(mixture_proportion < 0) || any(mixture_proportion > 1) || abs(sum(mixture_proportion) - 1) > 1e-12)
         stop("The mixture proportions mixture_proportion should be a vector with all elements between 0 and 1, and should sum to 1.")
-    if(!(family$family %in% c("gaussian","Gamma","binomial","poisson","negative.binomial","tweedie","beta")))
+    if(!(family$family %in% c("gaussian","Gamma","binomial","poisson","nbinom2","tweedie","Beta")))
         stop("family currently not supported. Sorry!")
     
     
@@ -140,7 +149,7 @@ create_samlife <- function(family = binomial(), formula, data, override_X = NULL
         true_eta <- true_eta + offset
     
     for(j in 1:num_spp) {
-        if(family$family == "beta")
+        if(family$family == "Beta")
             resp[,j] <- rbeta(num_units, shape1 = spp_dispparam[j]*binomial()$linkinv(spp_eta[,j]), shape2 = spp_dispparam[j]*(1-binomial()$linkinv(spp_eta[,j])))
         if(family$family == "binomial")
             resp[,j] <- rbinom(num_units, size = trial_size, prob = family$linkinv(spp_eta[,j]))
@@ -148,14 +157,14 @@ create_samlife <- function(family = binomial(), formula, data, override_X = NULL
             resp[,j] <- rnorm(num_units, mean = family$linkinv(spp_eta[,j]), sd = sqrt(spp_dispparam[j]))
         if(family$family == "Gamma")
             resp[,j] <- rgamma(num_units, scale = exp(spp_eta[,j])*spp_dispparam[j], shape = 1/spp_dispparam[j])
-        if(family$family == "negative.binomial")
+        if(family$family == "nbinom2")
             resp[,j] <- rnbinom(num_units, mu = exp(spp_eta[,j]), size = spp_dispparam[j])
         if(family$family == "poisson")
             resp[,j] <- rpois(num_units, lambda = family$linkinv(spp_eta[,j]))
         if(family$family == "tweedie") {
             resp[,j] <- tweedie::rtweedie(num_units, mu = exp(spp_eta[,j]), phi = spp_dispparam[j], power = spp_powerparam[j])
             }
-    }
+        }
     
     return(list(y = resp, archetype_label = archetype_label, linear_predictor = spp_eta)) 
     }

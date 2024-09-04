@@ -45,13 +45,13 @@
 #' 
 #' Currently the following response distributions are permitted: 
 #' \describe{
-#' \item{\code{betalogitfam()}:}{Beta distribution using a logit link. The corresponding mean-variance relationship is given by \eqn{V = \mu(1-\mu)/(1+\phi)} where \eqn{\mu} denotes the mean and \eqn{\phi} is the dispersion parameter.}
+#' \item{\code{Beta()}:}{Beta distribution using a logit link. The corresponding mean-variance relationship is given by \eqn{V = \mu(1-\mu)/(1+\phi)} where \eqn{\mu} denotes the mean and \eqn{\phi} is the dispersion parameter.}
 #' \item{\code{binomial()}:}{Binomial distribution. The corresponding mean-variance relationship is given by \eqn{V = N_{trial}\mu(1-\mu)} where \eqn{\mu} denotes the mean and \eqn{N_{trial}} is the trial size.}
 #' \item{\code{Gamma()}:}{Gamma distribution, noting only the log link is permitted. The corresponding mean-variance relationship is given by \eqn{V = \phi\mu^2} where \eqn{\mu} denotes the mean and \eqn{\phi} is the dispersion parameter.}
 #' \item{\code{gaussian()}:}{Gaussian or normal distribution. The corresponding mean-variance relationship is given by \eqn{V = \phi^2}, where \eqn{\phi} is the standard deviation.}
 #' \item{\code{poisson()}:}{Poisson distribution. The corresponding mean-variance relationship is given by \eqn{V = \mu} where \eqn{\mu} denotes the mean.}
-#' \item{\code{nb2()}:}{Negative binomial distribution using a log link. The corresponding mean-variance relationship is given by \eqn{V = \mu + \mu^2/\phi} where \eqn{\mu} denotes the mean and \eqn{\phi} is the dispersion parameter.}
-#' \item{\code{tweedielogfam()}:}{Tweedie distribution using a log link. The corresponding mean-variance relationship is given by \eqn{V = \phi\mu^{\rho}} where \eqn{\mu} denotes the mean, \eqn{\phi} is the dispersion parameter, and \eqn{\rho} is the power parameter.}
+#' \item{\code{nbinom2()}:}{Negative binomial distribution using a log link. The corresponding mean-variance relationship is given by \eqn{V = \mu + \mu^2/\phi} where \eqn{\mu} denotes the mean and \eqn{\phi} is the dispersion parameter.}
+#' \item{\code{tweedie()}:}{Tweedie distribution using a log link. The corresponding mean-variance relationship is given by \eqn{V = \phi\mu^{\rho}} where \eqn{\mu} denotes the mean, \eqn{\phi} is the dispersion parameter, and \eqn{\rho} is the power parameter.}
 #' }
 #' }
 #' 
@@ -59,7 +59,7 @@
 #' \item{call:}{The function call.}
 #' \item{formula:}{Same as input argument.}
 #' \item{family:}{Same as input argument.}
-#' \item{num_nuisance_perspp:}{The number of "nuisance" parameters per species. For example, if \code{family = binomial()} then there are no nuisance parameters, for \code{family = nb2()} there is one nuisance parameter per species, and for \code{family = tweedielogfam()} there are two nuisance parameters per species.}
+#' \item{num_nuisance_perspp:}{The number of "nuisance" parameters per species. For example, if \code{family = binomial()} then there are no nuisance parameters, for \code{family = nbinom2()} there is one nuisance parameter per species, and for \code{family = tweedie()} there are two nuisance parameters per species.}
 #' \item{trial_size:}{Same as input argument.}
 #' \item{offset:}{Same as input argument.}
 #' \item{num_archetypes:}{Same as input argument.}
@@ -104,63 +104,65 @@
 #' 
 #' true_betas <- runif(num_archetype * num_X, -1, 1) %>% matrix(nrow = num_archetype)
 #' true_intercepts <- runif(num_spp, -3, 0)  
-#' true_dispparam <- 1/runif(num_spp, 0, 5) 
+#' true_dispparam <- 1/runif(num_spp, 1, 5) 
 #' true_powerparam <- runif(num_spp, 1.4, 1.8)
 #' true_mixprop <- c(0.2, 0.25, 0.3, 0.1, 0.15)
 #'  
-#'  simdat <- create_samlife(family = nb2(), 
-#'  formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) %>% as.formula, 
-#'  data = covariate_dat, 
-#'  betas = true_betas, 
-#'  spp_intercept = true_intercepts, 
-#'  spp_dispparam = true_dispparam, 
-#'  spp_powerparam = true_powerparam, 
-#'  mixture_proportion = true_mixprop)
+#' simdat <- create_samlife(family = nbinom2(), 
+#' formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) %>% as.formula, 
+#' data = covariate_dat, 
+#' betas = true_betas, 
+#' spp_intercept = true_intercepts, 
+#' spp_dispparam = true_dispparam, 
+#' spp_powerparam = true_powerparam, 
+#' mixture_proportion = true_mixprop)
 #'  
 #'  
-#'  ##----------------------
-#'  # Fit asSAM and assess results 
-#'  #' **Most users should start here**
-#'  ##----------------------
-#'  samfit <- assam(y = simdat$y,
-#'  formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) %>% as.formula,
-#'  data = covariate_dat,
-#'  family = nb2(),
-#'  num_archetypes = num_archetype,
-#'  num_cores = 8)
-#'  
-#'  plot(true_intercepts, samfit$spp_intercepts); abline(0,1)
-#'  plot(true_dispparam, samfit$spp_nuisance$dispersion, log = "xy"); abline(0,1)
-#'  #' Note estimates for the archetypal responses and mixture proportions from (as)SAMs should be 
-#'  #' close to the corresponding true values, *up to a reordering* of the mixture component
-#'  #' s/archetypes (since the order is essentiually arbtirary)
-#'  rbind(true_betas, samfit$betas) %>% 
-#'  t %>% 
-#'  as.data.frame %>%
-#'  ggpairs
-#'  table(simdat$archetype_label, apply(samfit$posterior_probability, 1, which.max))
+#' ##----------------------
+#' # Fit asSAM and assess results 
+#' #' **Most users should start here**
+#' ##----------------------
+#' samfit <- assam(y = simdat$y,
+#' formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) %>% as.formula,
+#' data = covariate_dat,
+#' family = nbinom2(),
+#' uncertainty_quantification = FALSE,
+#' num_archetypes = num_archetype,
+#' num_cores = 8)
 #'  
 #'  
-#'  ##----------------------
-#'  # Demonstrating basic use of functions for asSAM 
-#'  ##----------------------
-#'  samfit
-#'  summary(samfit)
+#' plot(true_intercepts, samfit$spp_intercepts); abline(0,1)
+#' plot(true_dispparam, samfit$spp_nuisance$dispersion, log = "xy"); abline(0,1)
+#' #' Note estimates for the archetypal responses and mixture proportions from (as)SAMs should be 
+#' #' close to the corresponding true values, *up to a reordering* of the mixture component
+#' #' s/archetypes (since the order is essentiually arbtirary)
+#' rbind(true_betas, samfit$betas) %>% 
+#' t %>% 
+#' as.data.frame %>%
+#' ggpairs
+#' table(simdat$archetype_label, apply(samfit$posterior_probability, 1, which.max))
+#' 
 #'  
-#'  fitted(samfit)
+#' ##----------------------
+#' # Demonstrating basic use of functions for asSAM 
+#' ##----------------------
+#' samfit
+#' summary(samfit)
+#' 
+#' fitted(samfit)
 #'  
-#'  simulate(samfit, data = covariate_dat)
+#' simulate(samfit, data = covariate_dat)
+#' 
+#' residuals(samfit, y = simdat$y, type = "dunnsmyth")
 #'  
-#'  residuals(samfit, y = simdat$y, type = "dunnsmyth")
+#' #' Basic residual analysis
+#' plot(samfit, y = simdat$y, transform_fitted_values = TRUE)
 #'  
-#'  #' Basic residual analysis
-#'  plot(samfit, y = simdat$y, transform_fitted_values = TRUE)
-#'  
-#'  #' Archetype-level predictions
-#'  predict(samfit, newdata = covariate_dat, type = "archetype", se_fit = TRUE) 
-#'  
-#'  #' Species-level predictions
-#'  predict(samfit,  newdata = covariate_dat, type = "species_max", num_cores = 8, se_fit = TRUE) 
+#' #' Archetype-level predictions
+#' predict(samfit, newdata = covariate_dat, type = "archetype", se_fit = TRUE) 
+#' 
+#' #' Species-level predictions
+#' predict(samfit,  newdata = covariate_dat, type = "species_max", num_cores = 8, se_fit = TRUE) 
 #'  
 #' }
 #' 
@@ -172,7 +174,7 @@
 #' @importFrom cluster pam
 #' @importFrom doParallel registerDoParallel
 #' @importFrom foreach foreach %dopar% %do%
-#' @importFrom glmmTMB glmmTMB nbinom2
+#' @importFrom sdmTMB sdmTMB nbinom2 tweedie Beta
 #' @importFrom label.switching pra
 #' @importFrom methods as
 #' @importFrom parallel detectCores
@@ -190,7 +192,7 @@ assam <- function(y, formula, data, family, offset = NULL, trial_size = 1,
     ##----------------
     # Checks and balances
     ##----------------
-    if(!(family$family %in% c("Beta", "gaussian", "Gamma", "negative.binomial", "poisson", "binomial", "tweedie")))
+    if(!(family$family %in% c("Beta", "gaussian", "Gamma", "nbinom2", "poisson", "binomial", "tweedie")))
         stop("family currently not supported. Sorry!")
 
     if(length(trial_size) > 1)
@@ -211,8 +213,10 @@ assam <- function(y, formula, data, family, offset = NULL, trial_size = 1,
         offset <- matrix(0, nrow = nrow(y), ncol = ncol(y))
     formula <- .check_X_formula(formula = formula, data = as.data.frame(data))     
     tmp_formula <- as.formula(paste("response", paste(as.character(formula),collapse = " ") ) )
-    nullfit <- glmmTMB(tmp_formula, se = FALSE, data = data.frame(data, response = rnorm(nrow(data))))
-    X <- model.matrix(nullfit)[,-1] # Remove the intercept term
+    nullfit <- sdmTMB(tmp_formula, 
+                      spatial = FALSE, 
+                      data = data.frame(data, response = rnorm(nrow(data))))
+    X <- model.matrix(nullfit$formula[[1]], data = nullfit$data)[,-1] # Remove the intercept term
     num_X <- ncol(X)
     rm(tmp_formula, nullfit) 
      
@@ -231,13 +235,20 @@ assam <- function(y, formula, data, family, offset = NULL, trial_size = 1,
     if(control$trace)
         message("Forming local quadratic approximation...")
      
-    get_qa <- .quadapprox_fn(family = family,
+    get_qa <- .quadapprox2_fn(family = family,
                              formula = formula, 
                              resp = y, 
                              data = data, 
                              offset = offset, 
                              trial_size = trial_size,
                              do_parallel = do_parallel) 
+    # get_qa <- .quadapprox2_fn(family = family,
+    #                           formula = formula, 
+    #                           resp = y, 
+    #                           data = data, 
+    #                           offset = offset, 
+    #                           trial_size = trial_size,
+    #                           do_parallel = do_parallel) 
     get_qa$long_parameters <- apply(get_qa$parameters, 1, function(x) kronecker(rep(1,num_archetypes), x)) # Repeats species-specific estimates num_archetypes types. Object has num_spp columns
     num_nuisance_perspp <- length(get_qa$parameters[1,]) - num_X - 1 # e.g., number of dispersion and power parameter per-species
      
@@ -245,11 +256,11 @@ assam <- function(y, formula, data, family, offset = NULL, trial_size = 1,
     ### Make mapping matrix, maps psi to long_parameters
     #' Psi sequence: species-specific intercepts; archetypal regression coefficients by archetype; species-specific nuisance parameters
     mapping_mat <- Matrix(0, nrow = length(get_qa$long_parameters), ncol = num_spp + num_X * num_archetypes + num_spp*num_nuisance_perspp)
-    makecolnames <- c(paste0("spp_intercept",1:num_spp), 
-                      paste0(rep(paste0("archetype",1:num_archetypes), each = num_X), rep(paste0("_beta", 1:num_X), num_archetypes)))
+    makecolnames <- c(paste0("spp_intercept", 1:num_spp), 
+                      paste0(rep(paste0("archetype", 1:num_archetypes), each = num_X), rep(paste0("_beta", 1:num_X), num_archetypes)))
     if(num_nuisance_perspp > 0)
         makecolnames <- c(makecolnames,
-                          paste0(rep(paste0("sppnuisance",1:num_spp), each = num_nuisance_perspp), rep(colnames(get_qa$parameters)[num_X + 1 + 1:num_nuisance_perspp], num_spp))
+                          paste0(rep(paste0("spp_nuisance", 1:num_spp), each = num_nuisance_perspp), rep(colnames(get_qa$parameters)[num_X + 1 + 1:num_nuisance_perspp], num_spp))
                           )
     colnames(mapping_mat) <- makecolnames
     rm(makecolnames)
@@ -258,7 +269,7 @@ assam <- function(y, formula, data, family, offset = NULL, trial_size = 1,
         out <- c(paste0("spp_intercept", j), 
                  paste0("archetype", k, "_beta", 1:num_X))
         if(num_nuisance_perspp > 0)
-            out <- c(out, paste0("sppnuisance", j, colnames(get_qa$parameters)[num_X + 1 + 1:num_nuisance_perspp]))
+            out <- c(out, paste0("spp_nuisance", j, colnames(get_qa$parameters)[num_X + 1 + 1:num_nuisance_perspp]))
         
         return(out)
         }
@@ -338,7 +349,7 @@ assam <- function(y, formula, data, family, offset = NULL, trial_size = 1,
              new_betas <- matrix(new_params[grep("archetype", names(new_params))], nrow = num_archetypes, byrow = TRUE)
              new_nuisance <- NULL
              if(num_nuisance_perspp > 0)
-                new_nuisance <- matrix(new_params[grep("sppnuisance", names(new_params))], nrow = num_spp, byrow = TRUE)          
+                new_nuisance <- matrix(new_params[grep("spp_nuisance", names(new_params))], nrow = num_spp, byrow = TRUE)
              rm(bigW, MtWM)
 
              ##-------------------
@@ -405,9 +416,11 @@ assam <- function(y, formula, data, family, offset = NULL, trial_size = 1,
                       posterior_probability = do_em$post_prob)
     
     if(num_nuisance_perspp > 0) {
-        do_em$new_nuisance[,1] <- exp(do_em$new_nuisance[,1])
+        tmp_nuisance <- do_em$new_nuisance
+        do_em$new_nuisance[,1] <- exp(tmp_nuisance[, 1 + (family$family == "tweedie")]) #' sdmTMB sets up tweedie to do dispersion parameter second, which is annoying
         if(family$family[1] == "tweedie") 
-            do_em$new_nuisance[,2] <- plogis(do_em$new_nuisance[,2]) + 1
+            do_em$new_nuisance[,2] <- plogis(tmp_nuisance[,1]) + 1
+        rm(tmp_nuisance)
           
         if(num_nuisance_perspp == 1) 
             colnames(do_em$new_nuisance) <- "dispersion"
@@ -457,16 +470,13 @@ assam <- function(y, formula, data, family, offset = NULL, trial_size = 1,
             #' ## Construct quadratic approximations for each species in bootstrap dataset, and set up relevant quantities
             #' Mapping matrix has already being created. Recall -- Psi sequence: species-specific intercepts; archetypal regression coefficients by archetype; species-specific nuisance parameters
             ##----------------
-            get_boot_qa <- .quadapprox_fn(family = family, 
+            get_boot_qa <- .quadapprox2_fn(family = family, 
                                           formula = formula, 
                                           resp = bootresp[,b0]$y, 
                                           data = data, 
                                           offset = offset,
                                           trial_size = trial_size,
-                                          do_parallel = do_parallel,
-                                          num_nuisance_perspp = num_nuisance_perspp,
-                                          start_archetype_labels = bootresp[,b0]$archetype_label, 
-                                          start = out_assam) 
+                                          do_parallel = do_parallel) 
             get_boot_qa$long_parameters <- apply(get_boot_qa$parameters, 1, function(x) kronecker(rep(1,num_archetypes), x))
 
                
@@ -482,7 +492,7 @@ assam <- function(y, formula, data, family, offset = NULL, trial_size = 1,
         pb <- txtProgressBar(min = 0, max = bootstrap_control$num_boot, style = 3)
         #bootrun <- foreach(b0 = 1:bootstrap_control$num_boot) %do% bootcov_fn(b0 = b0, control = control, start = get_qa) 
         bootrun <- lapply(1:bootstrap_control$num_boot, bootcov_fn, control = control) 
-        close(pb)
+        close(pb) 
         rm(pb)
 
         find_errors <- which(sapply(bootrun, function(x) inherits(x, "try-error")))
@@ -504,10 +514,12 @@ assam <- function(y, formula, data, family, offset = NULL, trial_size = 1,
             bootrun[[k0]]$new_betas <- bootrun[[k0]]$new_betas[switch_labels[k0,],]
             #bootrun[[k0]]$post_prob <- bootrun[[k0]]$post_prob[,switch_labels[k0,]] #' Not actually used later on so omit!
             
-            if(num_nuisance_perspp > 0)
-                bootrun[[k0]]$new_nuisance[,1] <- exp(bootrun[[k0]]$new_nuisance[,1])
-            if(family$family[1] == "tweedie") 
-                bootrun[[k0]]$new_nuisance[,2] <- plogis(bootrun[[k0]]$new_nuisance[,2]) + 1
+            if(num_nuisance_perspp > 0) {
+                tmp_nuisance <- bootrun[[k0]]$new_nuisance
+                bootrun[[k0]]$new_nuisance[,1] <- exp(tmp_nuisance[, 1 + (family$family == "tweedie")])
+                if(family$family[1] == "tweedie") 
+                    bootrun[[k0]]$new_nuisance[,2] <- plogis(tmp_nuisance[,1]) + 1
+                }
             
             #' A vector of all parameters ordered in the same way as the columns of the mapping matrix, plus the mixture proportions
             bootrun[[k0]]$boot_params <- c(bootrun[[k0]]$new_spp_intercept, t(bootrun[[k0]]$new_betas), bootrun[[k0]]$new_nuisance, bootrun[[k0]]$new_mixprop)

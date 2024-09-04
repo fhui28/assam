@@ -41,13 +41,13 @@ residuals.assam <- function(object, y, type = "dunnsmyth", seed = NULL, ...) {
     num_archetype <- ncol(object$posterior_probability)
     out <- matrix(0, nrow = nrow(y), ncol = ncol(y)) 
     
-    if(object$family$family[1] %in% c("binomial", "poisson", "negative.binomial", "tweedie"))
+    if(object$family$family[1] %in% c("binomial", "poisson", "nbinom2", "tweedie"))
         a <- b <- matrix(0, nrow = nrow(y), ncol = ncol(y)) 
     
     set.seed(seed)
     
     for(k0 in 1:num_archetype) {
-        if(object$family$family[1] %in% c("beta")) 
+        if(object$family$family[1] %in% c("Beta")) 
             out <- out + object$mixture_proportion[k0]*pbeta(y, 
                                                              shape1 = matrix(object$spp_nuisance$dispersion, nrow = nrow(y), ncol = ncol(y), byrow = TRUE) * get_fitted[,,k0],
                                                              shape2 = matrix(object$spp_nuisance$dispersion, nrow = nrow(y), ncol = ncol(y), byrow = TRUE) * (1-get_fitted[,,k0]))
@@ -70,23 +70,28 @@ residuals.assam <- function(object, y, type = "dunnsmyth", seed = NULL, ...) {
             b <- b + object$mixture_proportion[k0]*pbinom(y, size = object$trial_size, prob = get_fitted[,,k0])
             }
         
-        if(object$family$family[1] %in% c("negative.binomial")) {
+        if(object$family$family[1] %in% c("nbinom2")) {
             a <- a + object$mixture_proportion[k0]*pnbinom(y-1, mu = get_fitted[,,k0], size = matrix(object$spp_nuisance$dispersion, nrow = nrow(y), ncol = ncol(y), byrow = TRUE))
             b <- b + object$mixture_proportion[k0]*pnbinom(y, mu = get_fitted[,,k0], size = matrix(object$spp_nuisance$dispersion, nrow = nrow(y), ncol = ncol(y), byrow = TRUE))
             }
         
         if(object$family$family[1] %in% c("tweedie")) {
-            a <- a + object$mixture_proportion[k0]*ptweedie(y, mu = get_fitted[,,k0], 
-                                                            phi = matrix(object$spp_nuisance$dispersion, nrow = nrow(y), ncol = ncol(y), byrow = TRUE), 
-                                                            power = matrix(object$spp_nuisance$power, nrow = nrow(y), ncol = ncol(y), byrow = TRUE))
-            a[y == 0] <- 0
-            b <- b + object$mixture_proportion[k0]*ptweedie(y, mu = get_fitted[,,k0], 
-                                                            phi = matrix(object$spp_nuisance$dispersion, nrow = nrow(y), ncol = ncol(y), byrow = TRUE), 
-                                                            power = matrix(object$spp_nuisance$power, nrow = nrow(y), ncol = ncol(y), byrow = TRUE))
+            for(j in 1:ncol(y)) {
+                a[,j] <- a[,j] + object$mixture_proportion[k0]*tweedie::ptweedie(y[,j], 
+                                                                                 mu = get_fitted[,j,k0],
+                                                                                 phi = object$spp_nuisance$dispersion[j],
+                                                                                 power = object$spp_nuisance$power[j])
+                b[,j] <- b[,j] + object$mixture_proportion[k0]*tweedie::ptweedie(y[,j], 
+                                                                                 mu = get_fitted[,j,k0],
+                                                                                 phi = object$spp_nuisance$dispersion[j],
+                                                                                 power = object$spp_nuisance$power[j])
             }
+            a[y == 0] <- 0
+            }
+        
         }
-    
-    if(object$family$family[1] %in% c("binomial", "poisson","negative.binomial","tweedie")) {
+
+    if(object$family$family[1] %in% c("binomial","poisson","nbinom2","tweedie")) {
         out <- matrix(runif(length(y), min = a, max = b), nrow = nrow(y), ncol = ncol(y))
         out[out < 1e-12] <- 1e-12        
         out[out > (1-1e-12)] <- 1-1e-12        
