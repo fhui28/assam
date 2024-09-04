@@ -9,14 +9,14 @@ dat <- gamSim(1,
               dist = "normal",
               scale = 1)
 
-gamfit <- gam(y ~ s(x0) + s(x1) + s(x2) + s(x3),
+gamfit <- gam(y ~ s(x0) + s(x1) + s(x2) + x3,
          family = gaussian(),
          data = dat,
          method = "ML")
 summary(gamfit)
 
 
-sdmfit <- sdmTMB(y ~ s(x0) + s(x1) + s(x2) + s(x3),
+sdmfit <- sdmTMB(y ~ s(x0) + s(x1) + s(x2) + x3,
               family = gaussian(),
               data = dat,
               reml = FALSE,
@@ -25,7 +25,7 @@ summary(sdmfit)
 
 
 gam.vcomp(gamfit)
-sdmfit$sd_report$par.fixed[6:10] %>% exp
+sdmfit$sd_report$par.fixed
 
 coef(gamfit)
 sdmfit$sd_report$par.fixed
@@ -39,3 +39,8 @@ plot_smooth(sdmfit, select = 1)
 plot_smooth(sdmfit, select = 2)
 plot_smooth(sdmfit, select = 3)
 plot_smooth(sdmfit, select = 4)
+
+sdmfit$sd_report$par.fixed
+sdmfit$sd_report$cov.fixed %>% solve
+sdmfit$smoothers$has_smooths
+sdmfit$smoothers$sm_dims
