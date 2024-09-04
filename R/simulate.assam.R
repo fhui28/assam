@@ -6,7 +6,7 @@
 #' Simulate multivariate abundance data based on a fitted \code{assam} object.
 #' 
 #' @param object An object of class \code{assam}.
-#' @param data The data frame used as part of the \code{assam} object. This needs to be supplied since currently \code{assam} objects do not save the data to save memory. Having said that, a user can in principle supply a new data frame to \code{data}, all the other arguments and parameter estimates from the \code{assam} object are compatible.
+#' @param data The data frame used as part of the \code{assam} object. This needs to be supplied since currently \code{assam} objects do not save the data to save memory. 
 #' @param nsim A positive integer specifying the number of simulated datasets. Defaults to 1.
 #' @param seed An integer to set seed number. Defaults to a random seed number.
 #' @param ... Not used.
@@ -55,19 +55,10 @@ simulate.assam <- function(object, data, nsim = 1, seed = NULL, ...) {
         set.seed(seed[1])
     
     
-    formula <- .check_X_formula(formula = use_model$formula, data = as.data.frame(use_model$data))          
-    tmp_formula <- as.formula(paste("response", paste(as.character(formula),collapse = " ") ) )
-    nullfit <- sdmTMB(tmp_formula,
-                      spatial = FALSE,
-                      data = data.frame(use_model$data, response = rnorm(nrow(use_model$data)))) #' This may not work in the future if smootihng terms are included, say, due to the standardization that needs to be applied
-    useX <- model.matrix(nullfit$formula[[1]], data = nullfit$data)[,-1] # Remove the intercept term
-    rm(tmp_formula, nullfit)
-    
     out <- replicate(nsim, 
                      create_samlife(family = use_model$family, 
                                     formula = use_model$formula, 
                                     data = data,
-                                    override_X = useX,
                                     betas = use_model$betas, 
                                     spp_intercepts = use_model$spp_intercepts, 
                                     spp_dispparam = use_model$spp_dispparam, 
