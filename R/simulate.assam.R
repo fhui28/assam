@@ -70,25 +70,25 @@ simulate.assam <- function(object,
     if(object$family$family[1] %in% c("tweedie"))
         use_model$spp_powerparam <- object$spp_nuisance$power
     
-    if(!is.null(seed) || length(seed) > 0) 
-        set.seed(seed[1])
-    
+    create_seeds <- NULL
+    if(!is.null(seed))
+        create_seeds <- seed + 1:nsim
     
     out <- foreach::foreach(k0 = 1:nsim,
                             .combine = "cbind") %dopar% create_samlife(family = use_model$family, 
-                                                                       formula = use_model$formula,
-                                                                       data = data,
-                                                                       betas = use_model$betas, 
-                                                                       spp_intercepts = use_model$spp_intercepts, 
-                                                                       spp_dispparam = use_model$spp_dispparam, 
-                                                                       spp_powerparam = use_model$spp_powerparam, 
-                                                                       mixture_proportion = use_model$mixture_proportion, 
-                                                                       mesh = use_model$mesh,
-                                                                       spp_spatial_sd = use_model$spp_spatial_sd,
-                                                                       spp_spatial_range = use_model$spp_spatial_range,
-                                                                       trial_size = use_model$trial_size)
-
-    set.seed(NULL)
+                                                                    formula = use_model$formula,
+                                                                    data = data,
+                                                                    betas = use_model$betas, 
+                                                                    spp_intercepts = use_model$spp_intercepts, 
+                                                                    spp_dispparam = use_model$spp_dispparam, 
+                                                                    spp_powerparam = use_model$spp_powerparam, 
+                                                                    mixture_proportion = use_model$mixture_proportion, 
+                                                                    mesh = use_model$mesh,
+                                                                    spp_spatial_sd = use_model$spp_spatial_sd,
+                                                                    spp_spatial_range = use_model$spp_spatial_range,
+                                                                    trial_size = use_model$trial_size,
+                                                                    seed = create_seeds[k0])
+    
     return(out)
     }   
 

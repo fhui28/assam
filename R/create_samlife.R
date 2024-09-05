@@ -19,6 +19,7 @@
 #' @param mixture_proportion A vector of mixture proportins corresponding to the probability of belonging to each archetype.
 #' @param trial_size Trial sizes to use for binomial distribution. This should equal to a scalar.
 #' @param archetype_label If desired, the user can manually supply the archetype labels for each species. In this case, \code{mixture_proportion} must still be supplied but is subsequently ignored.
+#' @param seed A seed that can be set for simulating datasets.
 #'
 #' @details 
 #' Simulates multivariate abundance data from a species archetype model (SAM). For the purposes of the package, the SAM is characterized by the following mean regression model: for observational unit \eqn{i=1,\ldots,N} and species \eqn{j=1,\ldots,M}, conditional on the species belong to archetype \eqn{k},
@@ -123,8 +124,6 @@ create_samlife <- function(family = binomial(),
                            archetype_label = NULL,
                            seed = NULL) {
     
-    set.seed(seed)
-    
     ##----------------
     # Checks and balances
     ##----------------
@@ -166,9 +165,13 @@ create_samlife <- function(family = binomial(),
     resp <- spp_eta <- matrix(0, nrow = num_units, ncol = num_spp)
     rownames(resp) <- rownames(spp_eta) <- rownames(data)
     colnames(resp) <- colnames(spp_eta) <- paste0("spp", 1:num_spp)
+    
+    set.seed(seed)
     if(is.null(archetype_label))
         archetype_label <- sample(1:num_archetypes, size = num_spp, prob = mixture_proportion, replace = TRUE)
+    set.seed(NULL)
     
+
     # spp_eta <- tcrossprod(cbind(1, X), cbind(spp_intercepts, betas[archetype_label,]))
     # if(!is.null(offset))
     #     spp_eta <- spp_eta + offset
@@ -190,6 +193,10 @@ create_samlife <- function(family = binomial(),
     #     }
     
     for(j in 1:num_spp) {
+        cw_seed <- NULL
+        if(!is.null(seed))
+            cw_seed <- seed + j
+        
         sim_resp <- sdmTMB::sdmTMB_simulate(formula = formula,
                                             data = data,
                                             mesh = mesh,
@@ -199,7 +206,7 @@ create_samlife <- function(family = binomial(),
                                             sigma_O =  spp_spatial_sd[j],
                                             tweedie_p = spp_powerparam[j],
                                             phi = spp_dispparam[j],
-                                            seed = seed)
+                                            seed = cw_seed)
 
         resp[,j] <- sim_resp$observed
         spp_eta[,j] <- sim_resp$eta
@@ -228,7 +235,6 @@ create_samlife <- function(family = binomial(),
         colnames(get_spatial_fields) <- paste0("spp", 1:num_spp)
         }
     
-    set.seed(NULL)
     return(list(y = resp, 
                 archetype_label = archetype_label, 
                 linear_predictor = spp_eta, 
