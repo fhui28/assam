@@ -28,11 +28,11 @@ function(){
 
 #' Used in assam.R
 function() {
-    formula = paste("~ ", paste0(colnames(covariate_dat)[-c(1:2)], collapse = "+")) %>% as.formula
-    family <- nbinom2()
+    formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) %>% as.formula
+    family <- tweedie()
     y = simdat$y
     data = covariate_dat
-    mesh = sdmTMB::make_mesh(covariate_dat, xy_cols = c("x", "y"), n_knots = 50)
+    mesh = NULL #sdmTMB::make_mesh(covariate_dat, xy_cols = c("x", "y"), n_knots = 50)
     offset = NULL
     trial_size = 1
     do_parallel = TRUE

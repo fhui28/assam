@@ -115,8 +115,9 @@
 #' spp_intercept = true_intercepts, 
 #' spp_dispparam = true_dispparam, 
 #' spp_powerparam = true_powerparam, 
-#' mixture_proportion = true_mixprop)
-#'  
+#' mixture_proportion = true_mixprop,
+#' seed = 092024)
+#'
 #'  
 #' ##----------------------
 #' # Fit asSAM and assess results 
@@ -126,10 +127,10 @@
 #' formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) %>% as.formula,
 #' data = covariate_dat,
 #' family = nbinom2(),
-#' uncertainty_quantification = FALSE,
+#' uncertainty_quantification = TRUE,
 #' num_archetypes = num_archetype,
 #' num_cores = 8)
-#'  
+#' 
 #'  
 #' plot(true_intercepts, samfit$spp_intercepts); abline(0,1)
 #' plot(true_dispparam, samfit$spp_nuisance$dispersion, log = "xy"); abline(0,1)
@@ -174,7 +175,7 @@
 #' @importFrom cluster pam
 #' @importFrom doParallel registerDoParallel
 #' @importFrom foreach foreach %dopar% %do%
-#' @importFrom sdmTMB sdmTMB nbinom2 tweedie Beta
+#' @importFrom sdmTMB sdmTMB make_mesh nbinom2 tweedie Beta
 #' @importFrom label.switching pra
 #' @importFrom methods as
 #' @importFrom parallel detectCores
@@ -184,10 +185,19 @@
 #' @md
 
 
-assam <- function(y, formula, data, family, offset = NULL, trial_size = 1, 
-                          num_archetypes, do_parallel = TRUE, num_cores = NULL, uncertainty_quantification = TRUE, 
-                          control = list(max_iter = 500, tol = 1e-5, temper_prob = 0.85, trace = FALSE),
-                          bootstrap_control = list(num_boot = 100, ci_alpha = 0.05, seed = NULL, ci_type = "percentile")) {
+assam <- function(y, 
+                  formula, 
+                  data, 
+                  family, 
+                  offset = NULL, 
+                  trial_size = 1, 
+                  num_archetypes,
+                  mesh = NULL, 
+                  do_parallel = TRUE, 
+                  num_cores = NULL, 
+                  uncertainty_quantification = TRUE, 
+                  control = list(max_iter = 500, tol = 1e-5, temper_prob = 0.85, trace = FALSE),
+                  bootstrap_control = list(num_boot = 100, ci_alpha = 0.05, seed = NULL, ci_type = "percentile")) {
     
     ##----------------
     # Checks and balances
@@ -239,22 +249,16 @@ assam <- function(y, formula, data, family, offset = NULL, trial_size = 1,
                              formula = formula, 
                              resp = y, 
                              data = data, 
-                             offset = offset, 
+                             mesh = mesh,
+                             offset = offset,
                              trial_size = trial_size,
                              do_parallel = do_parallel) 
-    # get_qa <- .quadapprox2_fn(family = family,
-    #                           formula = formula, 
-    #                           resp = y, 
-    #                           data = data, 
-    #                           offset = offset, 
-    #                           trial_size = trial_size,
-    #                           do_parallel = do_parallel) 
     get_qa$long_parameters <- apply(get_qa$parameters, 1, function(x) kronecker(rep(1,num_archetypes), x)) # Repeats species-specific estimates num_archetypes types. Object has num_spp columns
-    num_nuisance_perspp <- length(get_qa$parameters[1,]) - num_X - 1 # e.g., number of dispersion and power parameter per-species
-     
+    num_nuisance_perspp <- length(get_qa$parameters[1,]) - num_X - 1 # e.g., number of dispersion and power parameter per-species, along with parameters for species-specific spatial fields
+    
     
     ### Make mapping matrix, maps psi to long_parameters
-    #' Psi sequence: species-specific intercepts; archetypal regression coefficients by archetype; species-specific nuisance parameters
+    #' Psi sequence: species-specific intercepts; archetypal regression coefficients by archetype; species-specific nuisance parameters; species-specific parameters for spatial fields
     mapping_mat <- Matrix(0, nrow = length(get_qa$long_parameters), ncol = num_spp + num_X * num_archetypes + num_spp*num_nuisance_perspp)
     makecolnames <- c(paste0("spp_intercept", 1:num_spp), 
                       paste0(rep(paste0("archetype", 1:num_archetypes), each = num_X), rep(paste0("_beta", 1:num_X), num_archetypes)))
@@ -348,8 +352,10 @@ assam <- function(y, formula, data, family, offset = NULL, trial_size = 1,
              new_spp_intercept <- as.vector(new_params[grep("spp_intercept", names(new_params))])
              new_betas <- matrix(new_params[grep("archetype", names(new_params))], nrow = num_archetypes, byrow = TRUE)
              new_nuisance <- NULL
-             if(num_nuisance_perspp > 0)
-                new_nuisance <- matrix(new_params[grep("spp_nuisance", names(new_params))], nrow = num_spp, byrow = TRUE)
+             if(num_nuisance_perspp > 0) {
+                 new_nuisance <- matrix(new_params[grep("spp_nuisance", names(new_params))], nrow = num_spp, byrow = TRUE)
+                 colnames(new_nuisance) <- colnames(get_qa$parameters)[num_X + 1 + 1:num_nuisance_perspp]  
+                 }
              rm(bigW, MtWM)
 
              ##-------------------
@@ -369,19 +375,30 @@ assam <- function(y, formula, data, family, offset = NULL, trial_size = 1,
              cw_params <- new_params
              counter <- counter + 1          
              }
-
          
          names(new_spp_intercept) <- colnames(y)
          rownames(new_betas) <- names(new_mixprop)
          colnames(new_betas) <- colnames(X)
-         if(num_nuisance_perspp > 0)
-            rownames(new_nuisance) <- colnames(y)
+         
+         tmp_nuisance <- NULL
+         if(num_nuisance_perspp > 0) {
+             tmp_nuisance <- data.frame(dispersion = exp(new_nuisance[,grep("ln_phi", colnames(new_nuisance))]))
+             if(family$family[1] == "tweedie")
+                 tmp_nuisance$power <- plogis(new_nuisance[,grep("thetaf", colnames(new_nuisance))]) + 1
+             if(!is.null(mesh)) { #' I think this is correct, although based on the simulations the parameters estimates do not look that good?!
+                 tmp_nuisance$spatial_SD <- sqrt(exp(new_nuisance[,grep("ln_tau_O", colnames(new_nuisance))]))
+                 tmp_nuisance$spatial_range <- 1/exp(new_nuisance[,grep("ln_kappa", colnames(new_nuisance))])
+                }
+             
+             rownames(new_nuisance) <- rownames(tmp_nuisance) <- colnames(y)
+             }
          
          return(list(new_logL = new_logL, 
                      new_mixprop = new_mixprop, 
                      new_spp_intercept = new_spp_intercept, 
                      new_betas = new_betas, 
                      new_nuisance = new_nuisance, 
+                     new_transformed_nuisance = tmp_nuisance,
                      new_params = new_params, 
                      counter = counter, 
                      post_prob = post_prob))          
@@ -394,7 +411,7 @@ assam <- function(y, formula, data, family, offset = NULL, trial_size = 1,
         message("Mixture component is being emptied...altering initial temp probability and restarting EM-algorithm to try and fix this.")
         control$temper_prob <- control$temper_prob + 0.025
           
-        do_em <- em_fn()
+        do_em <- em_fn(qa_object = get_qa)
         try_counter <- try_counter + 1
         }
 
@@ -408,42 +425,30 @@ assam <- function(y, formula, data, family, offset = NULL, trial_size = 1,
                       num_nuisance_perspp = num_nuisance_perspp,
                       trial_size = trial_size,
                       offset = as(offset, "sparseMatrix"),
+                      mesh = mesh,
                       num_archetypes = num_archetypes,
                       uncertainty_quantification = uncertainty_quantification,
                       spp_intercepts = do_em$new_spp_intercept,
                       betas = do_em$new_betas,
                       mixture_proportion = do_em$new_mixprop,
+                      spp_nuisance = as.data.frame(do_em$new_transformed_nuisance),
                       posterior_probability = do_em$post_prob)
-    
-    if(num_nuisance_perspp > 0) {
-        tmp_nuisance <- do_em$new_nuisance
-        do_em$new_nuisance[,1] <- exp(tmp_nuisance[, 1 + (family$family == "tweedie")]) #' sdmTMB sets up tweedie to do dispersion parameter second, which is annoying
-        if(family$family[1] == "tweedie") 
-            do_em$new_nuisance[,2] <- plogis(tmp_nuisance[,1]) + 1
-        rm(tmp_nuisance)
-          
-        if(num_nuisance_perspp == 1) 
-            colnames(do_em$new_nuisance) <- "dispersion"
-        if(num_nuisance_perspp == 2) 
-            colnames(do_em$new_nuisance) <- c("dispersion","power")
-        out_assam$spp_nuisance <- as.data.frame(do_em$new_nuisance)
-        }
-     
-     get_eta <- tcrossprod(X, do_em$new_betas) 
-     out_assam$linear_predictor <- array(NA, dim = c(num_unit, num_spp, num_archetypes),
-          dimnames = list(units = rownames(y), spp = colnames(y), archetype = names(out_assam$mixture_proportion)))
-     for(k0 in 1:num_archetypes)    
-          out_assam$linear_predictor[,,k0] <- matrix(out_assam$spp_intercepts, nrow = num_unit, ncol = num_spp, byrow = TRUE) + matrix(get_eta[,k0], nrow = num_unit, ncol = num_spp, byrow = FALSE) + offset
-    
-     rm(get_eta)
-     
-     out_assam$logL <- do_em$new_logL
-     out_assam$df <- num_spp*(num_nuisance_perspp + 1) + prod(dim(out_assam$betas)) + (num_archetypes - 1)
-     out_assam$control <- control
-     out_assam$bootstrap_control <- bootstrap_control
-     gc()
-     
 
+    ## UP TO HERE!!! Need to predict the spatial field somehow..
+    get_eta <- tcrossprod(X, out_assam$betas) 
+    out_assam$linear_predictor <- array(NA, dim = c(num_unit, num_spp, num_archetypes),
+                                        dimnames = list(units = rownames(y), spp = colnames(y), archetype = names(out_assam$mixture_proportion)))
+    for(k0 in 1:num_archetypes)   
+        out_assam$linear_predictor[,,k0] <- matrix(out_assam$spp_intercepts, nrow = num_unit, ncol = num_spp, byrow = TRUE) + matrix(get_eta[,k0], nrow = num_unit, ncol = num_spp, byrow = FALSE) + offset
+    rm(get_eta)
+     
+    out_assam$logL <- do_em$new_logL
+    out_assam$df <- num_spp*(num_nuisance_perspp + 1) + prod(dim(out_assam$betas)) + (num_archetypes - 1)
+    out_assam$control <- control
+    out_assam$bootstrap_control <- bootstrap_control
+    gc()
+    
+     
     ##----------------
     #' # Standard Error using parametric bootstrap 
     #' Computation time not great on this at the moment unless you have a HPC!!! Starts from estimated parameters to give a little speed on for the quadratic approximations 
@@ -452,12 +457,14 @@ assam <- function(y, formula, data, family, offset = NULL, trial_size = 1,
         message("Performing parametric bootstrap to obtain uncertainty quantification...this will take a while so go a brew a cup of tea (or two)!")
         bootstrap_control$ci_type <- match.arg(bootstrap_control$ci_type, choices = c("percentile", "expanded")) 
         
-        
-        #' ## Bootstrap datasets
+        #' ## Bootstrap datasets -- This is *very* slow due to to sdmTMB_simulate
         class(out_assam) <- "assam"
         bootresp <- simulate.assam(out_assam,
                                    data = data, 
+                                   mesh = mesh,
                                    nsim = bootstrap_control$num_boot,
+                                   do_parallel = TRUE,
+                                   num_cores = num_cores,
                                    seed = bootstrap_control$seed)
 
         
@@ -468,12 +475,12 @@ assam <- function(y, formula, data, family, offset = NULL, trial_size = 1,
                
             ##----------------
             #' ## Construct quadratic approximations for each species in bootstrap dataset, and set up relevant quantities
-            #' Mapping matrix has already being created. Recall -- Psi sequence: species-specific intercepts; archetypal regression coefficients by archetype; species-specific nuisance parameters
             ##----------------
             get_boot_qa <- .quadapprox2_fn(family = family, 
                                           formula = formula, 
                                           resp = bootresp[,b0]$y, 
                                           data = data, 
+                                          mesh = mesh,
                                           offset = offset,
                                           trial_size = trial_size,
                                           do_parallel = do_parallel) 
@@ -488,7 +495,7 @@ assam <- function(y, formula, data, family, offset = NULL, trial_size = 1,
             setTxtProgressBar(pb, b0)
             return(do_em)
             }          
-          
+         
         pb <- txtProgressBar(min = 0, max = bootstrap_control$num_boot, style = 3)
         #bootrun <- foreach(b0 = 1:bootstrap_control$num_boot) %do% bootcov_fn(b0 = b0, control = control, start = get_qa) 
         bootrun <- lapply(1:bootstrap_control$num_boot, bootcov_fn, control = control) 
@@ -513,16 +520,12 @@ assam <- function(y, formula, data, family, offset = NULL, trial_size = 1,
             bootrun[[k0]]$new_mixprop <- bootrun[[k0]]$new_mixprop[switch_labels[k0,]]
             bootrun[[k0]]$new_betas <- bootrun[[k0]]$new_betas[switch_labels[k0,],]
             #bootrun[[k0]]$post_prob <- bootrun[[k0]]$post_prob[,switch_labels[k0,]] #' Not actually used later on so omit!
-            
-            if(num_nuisance_perspp > 0) {
-                tmp_nuisance <- bootrun[[k0]]$new_nuisance
-                bootrun[[k0]]$new_nuisance[,1] <- exp(tmp_nuisance[, 1 + (family$family == "tweedie")])
-                if(family$family[1] == "tweedie") 
-                    bootrun[[k0]]$new_nuisance[,2] <- plogis(tmp_nuisance[,1]) + 1
-                }
-            
+
             #' A vector of all parameters ordered in the same way as the columns of the mapping matrix, plus the mixture proportions
-            bootrun[[k0]]$boot_params <- c(bootrun[[k0]]$new_spp_intercept, t(bootrun[[k0]]$new_betas), bootrun[[k0]]$new_nuisance, bootrun[[k0]]$new_mixprop)
+            bootrun[[k0]]$boot_params <- c(bootrun[[k0]]$new_spp_intercept, 
+                                           as.vector(t(bootrun[[k0]]$new_betas)), 
+                                           as.vector(unlist(bootrun[[k0]]$new_nuisance)), # Note untransformed parameters passed here as this is what comes out of EM alg
+                                           bootrun[[k0]]$new_mixprop)
             names(bootrun[[k0]]$boot_params) <- c(colnames(mapping_mat), paste0(names(out_assam$mixture_proportion), "_", "mixture_proportion"))
             
             bootrun[[k0]]$new_logL <- bootrun[[k0]]$post_prob <- bootrun[[k0]]$new_params <- NULL
@@ -540,8 +543,8 @@ assam <- function(y, formula, data, family, offset = NULL, trial_size = 1,
         form_cis$betas <- apply(abind::abind(lapply(bootrun, function(x) x$new_betas), along = 0), c(2,3), quantile, prob = c(modified_alpha/2, 1 - modified_alpha/2))
         form_cis$betas <- list(lower = form_cis$betas[1,,], upper = form_cis$betas[2,,])
         if(num_nuisance_perspp > 0) {
-            form_cis$spp_nuisance <- apply(abind::abind(lapply(bootrun, function(x) x$new_nuisance), along = 0), c(2,3), quantile, prob = c(modified_alpha/2, 1 - modified_alpha/2))
-            form_cis$spp_nuisance <- list(lower = form_cis$spp_nuisance[1,,,drop=FALSE], upper = form_cis$spp_nuisance[2,,,drop=FALSE])
+            form_cis$spp_nuisance <- apply(abind::abind(lapply(bootrun, function(x) x$new_transformed_nuisance), along = 0), c(2,3), quantile, prob = c(modified_alpha/2, 1 - modified_alpha/2))
+            form_cis$spp_nuisance <- list(lower = form_cis$spp_nuisance[1,,,drop = FALSE], upper = form_cis$spp_nuisance[2,,,drop = FALSE])
             }
         form_cis$mixture_proportion <- data.frame( t(apply(sapply(bootrun, function(x) x$new_mixprop), 1, quantile, prob = c(modified_alpha/2, 1 - modified_alpha/2))))
         
@@ -551,7 +554,7 @@ assam <- function(y, formula, data, family, offset = NULL, trial_size = 1,
             dimnames(form_cis$spp_nuisance$lower)[[3]] <- dimnames(form_cis$spp_nuisance$upper)[[3]] <- colnames(out_assam$spp_nuisance)
         
         out_assam$confidence_intervals <- form_cis
-        out_assam$bootsrap_parameters <- t(sapply(bootrun, function(x) x$boot_params))
+        out_assam$bootstrap_parameters <- t(sapply(bootrun, function(x) x$boot_params))
         
         
         #' ## Calculate bootstrapped posterior probabilities of *original species data* belong to each archetype
@@ -583,7 +586,7 @@ assam <- function(y, formula, data, family, offset = NULL, trial_size = 1,
                                  cw_bootstrap_mixprop = bootrun[[k0]]$new_mixprop, 
                                  qa_object = get_qa)),
             along = 3)
-            } 
+        } 
           
     ##----------------
     #' # Done! Final touches if any
