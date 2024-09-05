@@ -1,8 +1,18 @@
-.quadapprox2_fn <- function(family, formula, resp, data, offset = NULL, 
-                           trial_size = 1, 
-                           do_parallel = TRUE) {     
+.quadapprox2_fn <- function(family, 
+                            formula, 
+                            resp, 
+                            data, 
+                            mesh = NULL, 
+                            offset = NULL, 
+                            trial_size = 1, 
+                            do_parallel = TRUE) {     
     
     num_spp <- ncol(resp)
+    add_spatial <- FALSE
+    if(!is.null(mesh))
+        add_spatial <- TRUE
+    if(!add_spatial)
+        mesh <- sdmTMB::make_mesh(data = data, xy_cols = colnames(data)[1:2], n_knots = 5) # Make any old mesh as sdmTMB must supplied this
     
     spp_qa_fn <- function(l) {
         tmp_formula <- as.formula(paste("response", paste(as.character(formula), collapse = " ") ) )
@@ -16,40 +26,40 @@
         if(family$family %in% c("gaussian", "poisson", "Gamma", "binomial")) {
             fit0 <- sdmTMB(tmp_formula,
                            data = data.frame(response = resp[,l], data, trial_size = trial_size), 
-                           #knots = knots, select = select, gamma = full_gamma[j]  
-                           spatial = FALSE,
+                           spatial = add_spatial,
+                           mesh =  mesh,
                            offset = new_offset, 
                            family = family)
             }
         if(family$family %in% c("tweedie")) {
             fit0 <- sdmTMB(tmp_formula,
                            data = data.frame(response = resp[,l], data, trial_size = trial_size), 
-                           #knots = knots, select = select, gamma = full_gamma[j]
-                           spatial = FALSE,
+                           spatial = add_spatial,
+                           mesh =  mesh,
                            offset = new_offset, 
                            family = sdmTMB::tweedie())
-            }
+        }
         if(family$family %in% c("nbinom2")) {
             fit0 <- sdmTMB(tmp_formula, 
                            data = data.frame(response = resp[,l], data), 
-                           #knots = knots, select = select, gamma = full_gamma[j]
-                           spatial = FALSE,
+                           spatial = add_spatial,
+                           mesh =  mesh,
                            offset = new_offset, 
                            family = sdmTMB::nbinom2())
-            }
+        }
         if(family$family %in% c("Beta")) {
             fit0 <- sdmTMB(tmp_formula, 
                            data = data.frame(response = resp[,l], data), 
-                           #knots = knots, select = select, gamma = full_gamma[j]
-                           spatial = FALSE,
+                           spatial = add_spatial,
+                           mesh =  mesh,
                            offset = new_offset, 
                            family = sdmTMB::Beta())
-            }
+        }
         
         fit0$parameters <- fit0$sd_report$par.fixed
         fit0$hessian <- solve(fit0$sd_report$cov.fixed)
         return(fit0)
-        }
+    }
     
     
     if(do_parallel)
@@ -67,7 +77,8 @@
 
 
 function() {
-.quadapprox_fn <- function(family, formula, resp, data, offset = NULL, 
+#' Old function using glmmTMB
+    .quadapprox_fn <- function(family, formula, resp, data, offset = NULL, 
                           trial_size = 1, 
                           do_parallel = TRUE,
                           num_nuisance_perspp = NULL,
