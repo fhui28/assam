@@ -7,6 +7,7 @@
 #' 
 #' @param object An object of class \code{assam}.
 #' @param data The data frame used as part of the \code{assam} object. This needs to be supplied since currently \code{assam} objects do not save the data to save memory. 
+#' @param mesh The mesh used as part of the \code{assam} object. This needs to be supplied since currently \code{assam} objects do not save the data to save memory. 
 #' @param nsim A positive integer specifying the number of simulated datasets. Defaults to 1.
 #' @param do_parallel Should parallel computing be used to fit the asSAM. Defaults to \code{TRUE}, and should be kept this way as much as possible as parallel computing is one of the key ingredients in making asSAMs scalable. 
 #' @param num_cores If \code{do_parallel = TRUE}, then this argument controls the number of cores used. Defaults to \code{NULL}, in which case it is set to \code{parallel::detectCores() - 2}.
@@ -73,8 +74,8 @@ simulate.assam <- function(object,
     create_seeds <- NULL
     if(!is.null(seed))
         create_seeds <- seed + 1:nsim
-    
-    out <- foreach::foreach(k0 = 1:nsim,
+
+    out <- foreach::foreach(l = 1:nsim,
                             .combine = "cbind") %dopar% create_samlife(family = use_model$family, 
                                                                     formula = use_model$formula,
                                                                     data = data,
@@ -87,7 +88,7 @@ simulate.assam <- function(object,
                                                                     spp_spatial_sd = use_model$spp_spatial_sd,
                                                                     spp_spatial_range = use_model$spp_spatial_range,
                                                                     trial_size = use_model$trial_size,
-                                                                    seed = create_seeds[k0])
+                                                                    seed = create_seeds[l])
     
     return(out)
     }   

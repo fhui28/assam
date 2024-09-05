@@ -12,6 +12,7 @@
 #' @param offset A matrix of offset terms, of the same dimension as \code{y}.
 #' @param trial_size Trial sizes to use for binomial distribution. This should equal to a scalar.
 #' @param num_archetypes Number of archetypes (clusters) to assume in the asSAM.
+#' @param mesh Output from [sdmTMB::make_mesh()], used for adding species-specific spatial fields to the linear predictor.
 #' @param do_parallel Should parallel computing be used to fit the asSAM. Defaults to \code{TRUE}, and should be kept this way as much as possible as parallel computing is one of the key ingredients in making asSAMs scalable. 
 #' @param num_cores If \code{do_parallel = TRUE}, then this argument controls the number of cores used. Defaults to \code{NULL}, in which case it is set to \code{parallel::detectCores() - 2}.
 #' @param uncertainty_quantification Should uncertainly intervals be computed via parametric bootstrap?
@@ -183,7 +184,6 @@
 #' @importFrom utils setTxtProgressBar txtProgressBar
 #' @import Matrix
 #' @md
-
 
 assam <- function(y, 
                   formula, 

@@ -16,7 +16,7 @@
 #' @param mesh Output from [sdmTMB::make_mesh()], from which species-specific spatial fields can be constructed and added to the linear predictor.
 #' @param spp_spatial_sd A vector of standard deviations corresponding to the species-specific spatial fields. This corresponds to the \eqn{\sigma} parameters described in [sdmTMB's parametrization of Gaussian random fields](https://pbs-assess.github.io/sdmTMB/articles/model-description.html#gaussian-random-fields).
 #' @param spp_spatial_range A vector of range parameters corresponding to the species-specific spatial fields. This is equal to \eqn{1/\kappa} where \eqn{\kappa} is described in [sdmTMB's parametrization of Gaussian random fields](https://pbs-assess.github.io/sdmTMB/articles/model-description.html#gaussian-random-fields).
-#' @param mixture_proportion A vector of mixture proportins corresponding to the probability of belonging to each archetype.
+#' @param mixture_proportion A vector of mixture proportions corresponding to the probability of belonging to each archetype.
 #' @param trial_size Trial sizes to use for binomial distribution. This should equal to a scalar.
 #' @param archetype_label If desired, the user can manually supply the archetype labels for each species. In this case, \code{mixture_proportion} must still be supplied but is subsequently ignored.
 #' @param seed A seed that can be set for simulating datasets.
