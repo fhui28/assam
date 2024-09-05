@@ -88,7 +88,8 @@ betas = true_betas,
 spp_intercept = true_intercepts, 
 spp_dispparam = true_dispparam, 
 spp_powerparam = true_powerparam, 
-mixture_proportion = true_mixprop)
+mixture_proportion = true_mixprop,
+seed = 092024)
  
  
 ##----------------------

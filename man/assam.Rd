@@ -12,6 +12,7 @@ assam(
   offset = NULL,
   trial_size = 1,
   num_archetypes,
+  mesh = NULL,
   do_parallel = TRUE,
   num_cores = NULL,
   uncertainty_quantification = TRUE,
@@ -34,6 +35,8 @@ assam(
 \item{trial_size}{Trial sizes to use for binomial distribution. This should equal to a scalar.}
 
 \item{num_archetypes}{Number of archetypes (clusters) to assume in the asSAM.}
+
+\item{mesh}{Output from \code{\link[sdmTMB:make_mesh]{sdmTMB::make_mesh()}}, used for adding species-specific spatial fields to the linear predictor.}
 
 \item{do_parallel}{Should parallel computing be used to fit the asSAM. Defaults to \code{TRUE}, and should be kept this way as much as possible as parallel computing is one of the key ingredients in making asSAMs scalable.}
 
@@ -146,8 +149,9 @@ betas = true_betas,
 spp_intercept = true_intercepts, 
 spp_dispparam = true_dispparam, 
 spp_powerparam = true_powerparam, 
-mixture_proportion = true_mixprop)
- 
+mixture_proportion = true_mixprop,
+seed = 092024)
+
  
 ##----------------------
 # Fit asSAM and assess results 
@@ -157,10 +161,10 @@ samfit <- assam(y = simdat$y,
 formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) \%>\% as.formula,
 data = covariate_dat,
 family = nbinom2(),
-uncertainty_quantification = FALSE,
+uncertainty_quantification = TRUE,
 num_archetypes = num_archetype,
 num_cores = 8)
- 
+
  
 plot(true_intercepts, samfit$spp_intercepts); abline(0,1)
 plot(true_dispparam, samfit$spp_nuisance$dispersion, log = "xy"); abline(0,1)

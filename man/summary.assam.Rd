@@ -70,7 +70,8 @@ true_mixprop <- c(0.2, 0.25, 0.3, 0.1, 0.15)
  spp_intercept = true_intercepts, 
  spp_dispparam = true_dispparam, 
  spp_powerparam = true_powerparam, 
- mixture_proportion = true_mixprop)
+ mixture_proportion = true_mixprop,
+seed = 092024)
  
  
  ##----------------------

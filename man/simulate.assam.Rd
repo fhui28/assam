@@ -5,23 +5,38 @@
 \alias{simulate}
 \title{Simulate data from approximate and scalable SAM object}
 \usage{
-\method{simulate}{assam}(object, data, nsim = 1, seed = NULL, ...)
+\method{simulate}{assam}(
+  object,
+  data,
+  mesh = NULL,
+  nsim = 1,
+  do_parallel = TRUE,
+  num_cores = NULL,
+  seed = NULL,
+  ...
+)
 
 simulate(object, ...)
 }
 \arguments{
 \item{object}{An object of class \code{assam}.}
 
-\item{data}{The data frame used as part of the \code{assam} object. This needs to be supplied since currently \code{assam} objects do not save the data to save memory. Having said that, a user can in principle supply a new data frame to \code{data}, all the other arguments and parameter estimates from the \code{assam} object are compatible.}
+\item{data}{The data frame used as part of the \code{assam} object. This needs to be supplied since currently \code{assam} objects do not save the data to save memory.}
+
+\item{mesh}{The mesh used as part of the \code{assam} object. This needs to be supplied since currently \code{assam} objects do not save the data to save memory.}
 
 \item{nsim}{A positive integer specifying the number of simulated datasets. Defaults to 1.}
+
+\item{do_parallel}{Should parallel computing be used to fit the asSAM. Defaults to \code{TRUE}, and should be kept this way as much as possible as parallel computing is one of the key ingredients in making asSAMs scalable.}
+
+\item{num_cores}{If \code{do_parallel = TRUE}, then this argument controls the number of cores used. Defaults to \code{NULL}, in which case it is set to \code{parallel::detectCores() - 2}.}
 
 \item{seed}{An integer to set seed number. Defaults to a random seed number.}
 
 \item{...}{Not used.}
 }
 \value{
-A matrix with two rows and \code{nsim} columns, where the first row contains the simulated multivariate abundance response matrix, and the second row contains the vector of archetype labels for each species.
+A matrix and \code{nsim} columns, where each column contains the output from one run of \code{\link[=create_samlife]{create_samlife()}}.
 }
 \description{
 \ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#stable}{\figure{lifecycle-stable.svg}{options: alt='[Stable]'}}}{\strong{[Stable]}}
