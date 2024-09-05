@@ -198,8 +198,8 @@ predict.assam <- function(object,
     #' Currently the posterior probabilities of belonging to species belonging to archetypes, but don't know; see (https://github.com/skiptoniam/ecomix/issues/36)
     ##-----------------------
     if(se_fit) {
-        construction_predictions_per_bootsrap <- function(k0) {
-            cw_bootstrap_parameters <- object$bootsrap_parameters[k0,]
+        construction_predictions_per_bootstrap <- function(k0) {
+            cw_bootstrap_parameters <- object$bootstrap_parameters[k0,]
             cw_spp_intercepts <- cw_bootstrap_parameters[grep("spp_intercept", names(cw_bootstrap_parameters))]
             cw_mixture_proportions <- cw_bootstrap_parameters[grep("mixture_proportion", names(cw_bootstrap_parameters))]
             cw_betas <- cw_bootstrap_parameters[grep("beta[1-9]", names(cw_bootstrap_parameters))]             
@@ -240,7 +240,7 @@ predict.assam <- function(object,
             return(pt_pred)
             }
         
-        all_predictions <- foreach(k0 = 1:nrow(object$bootsrap_parameters)) %dopar% construction_predictions_per_bootsrap(k0 = k0)
+        all_predictions <- foreach(k0 = 1:nrow(object$bootstrap_parameters)) %dopar% construction_predictions_per_bootstrap(k0 = k0)
         all_predictions <- abind::abind(all_predictions, along = 3)
         
         ci_alpha <- (1 - coverage)/2
