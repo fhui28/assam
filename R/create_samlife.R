@@ -82,8 +82,8 @@
 #' true_dispparam <- 1/runif(num_spp, 0, 5) 
 #' true_powerparam <- runif(num_spp, 1.4, 1.8)
 #' true_mixprop <- c(0.2, 0.25, 0.3, 0.1, 0.15)
-#' true_spatial_sd <- runif(num_spp, 0.1, 1)
-#' true_spatial_range <- runif(num_spp, 0, 0.25)
+#' true_spatial_sd <- runif(num_spp, 0.2, 1)
+#' true_spatial_range <- runif(num_spp, 0.1, 0.4)
 #' 
 #' 
 #' simdat <- create_samlife(family = nbinom2(), 
@@ -139,6 +139,11 @@ create_samlife <- function(family = binomial(),
         stop("The mixture proportions mixture_proportion should be a vector with all elements between 0 and 1, and should sum to 1.")
     if(!(family$family %in% c("gaussian","Gamma","binomial","poisson","nbinom2","tweedie","Beta")))
         stop("family currently not supported. Sorry!")
+    
+    if(!is.null(mesh)) {
+        if(class(mesh) != "sdmTMBmesh")
+            stop("If mesh is supplied for species-specific spatial fields, then the mesh argument must be an object class of \"sdmTMBmesh\".")
+        }
     
     .check_spp_spatial_parameters(spp_spatial_range = spp_spatial_range,
                                   spp_spatial_sd = spp_spatial_sd,
