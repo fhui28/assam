@@ -3,5 +3,6 @@
 ^LICENSE\.md$
 ^R/notes.R$
 ^R/note_comparingsdmfittomgcv.R
+^R/note_testingsdmTMBparallel.R
 ^testv0.R$
 ^R/unusedfamilies.R$
