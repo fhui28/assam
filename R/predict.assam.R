@@ -195,7 +195,6 @@ predict.assam <- function(object,
     
     ##-----------------------
     #' # Uncertainty quantification
-    #' Currently the posterior probabilities of belonging to species belonging to archetypes, but don't know; see (https://github.com/skiptoniam/ecomix/issues/36)
     ##-----------------------
     if(se_fit) {
         construction_predictions_per_bootstrap <- function(k0) {
