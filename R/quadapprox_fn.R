@@ -5,7 +5,8 @@
                             mesh = NULL, 
                             offset = NULL, 
                             trial_size = 1, 
-                            do_parallel = TRUE) {     
+                            do_parallel = TRUE,
+                            return_fits = TRUE) {     
     
     num_spp <- ncol(resp)
     add_spatial <- FALSE
@@ -30,7 +31,7 @@
                            mesh =  mesh,
                            offset = new_offset, 
                            family = family)
-            }
+                }
         if(family$family %in% c("tweedie")) {
             fit0 <- sdmTMB(tmp_formula,
                            data = data.frame(response = resp[,l], data, trial_size = trial_size), 
@@ -38,7 +39,7 @@
                            mesh =  mesh,
                            offset = new_offset, 
                            family = sdmTMB::tweedie())
-        }
+            }
         if(family$family %in% c("nbinom2")) {
             fit0 <- sdmTMB(tmp_formula, 
                            data = data.frame(response = resp[,l], data), 
@@ -46,7 +47,7 @@
                            mesh =  mesh,
                            offset = new_offset, 
                            family = sdmTMB::nbinom2())
-        }
+            }
         if(family$family %in% c("Beta")) {
             fit0 <- sdmTMB(tmp_formula, 
                            data = data.frame(response = resp[,l], data), 
@@ -54,24 +55,23 @@
                            mesh =  mesh,
                            offset = new_offset, 
                            family = sdmTMB::Beta())
-        }
+            }
         
         fit0$parameters <- fit0$sd_report$par.fixed
         fit0$hessian <- solve(fit0$sd_report$cov.fixed)
         return(fit0)
-    }
-    
+        }
     
     if(do_parallel)
-        all_quadapprox <- foreach(l = 1:num_spp) %dopar% spp_qa_fn(l = l)          
+        all_quadapprox <- foreach(l = 1:num_spp) %dopar% spp_qa_fn(l = l) 
     if(!do_parallel)
         all_quadapprox <- foreach(l = 1:num_spp) %do% spp_qa_fn(l = l)          
-    
+
     out <- list(parameters = t(sapply(1:num_spp, function(k) all_quadapprox[[k]]$parameters)), 
                 hessian = lapply(1:num_spp, function(k) all_quadapprox[[k]]$hessian))
+    if(return_fits)
+        out$sdmTMB_fits <- all_quadapprox
     
-    #rownames(out$parameters) <- colnames(resp)
-    #names(out$hessian) <- colnames(resp)
     return(out)
     }
 
