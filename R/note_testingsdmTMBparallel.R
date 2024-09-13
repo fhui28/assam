@@ -1,4 +1,6 @@
-reprex({
+function() {
+    
+    reprex({
     rm(list = ls())
     library(foreach)
     library(doParallel)
@@ -48,5 +50,5 @@ reprex({
     
     sessioninfo::session_info()
     })
-
+}
 

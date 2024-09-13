@@ -1,13 +1,13 @@
 #' Used in assam.R
 function() {
     formula = paste("~ ", paste0(colnames(covariate_dat)[-c(1:2)], collapse = "+")) %>% as.formula
-    family <- nbinom2()
+    family <- binomial()
     y = simdat$y
     data = covariate_dat
-    mesh = sdmTMB::make_mesh(covariate_dat, xy_cols = c("x", "y"), n_knots = 50)
+    mesh = sdmTMB::make_mesh(covariate_dat, xy_cols = c("x", "y"), n_knots = 40)
     offset = NULL
     trial_size = 1
-    do_parallel = TRUE
+    do_parallel = FALSE
     num_archetypes = 5
     num_cores = 8
     uncertainty_quantification <- TRUE
