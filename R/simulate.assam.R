@@ -70,6 +70,14 @@ simulate.assam <- function(object,
         use_model$spp_dispparam <- object$spp_nuisance$dispersion
     if(object$family$family[1] %in% c("tweedie"))
         use_model$spp_powerparam <- object$spp_nuisance$power
+    if(!is.null(mesh)) {
+        use_model$spp_spatial_sd[!is.finite(use_model$spp_spatial_sd)] <- 1e-6 # This is arbitrary!!!
+        use_model$spp_spatial_sd[use_model$spp_spatial_sd < 1e-6] <- 1e-6
+        use_model$spp_spatial_sd[use_model$spp_spatial_sd > 1e6] <- 1e6
+        use_model$spp_spatial_range[!is.finite(use_model$spp_spatial_range)] <- 1e6 # This is arbitrary!!!
+        use_model$spp_spatial_range[use_model$spp_spatial_range < 1e-6] <- 1e-6
+        use_model$spp_spatial_range[use_model$spp_spatial_range > 1e6] <- 1e6
+        }
     
     create_seeds <- NULL
     if(!is.null(seed))
