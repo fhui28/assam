@@ -1,10 +1,12 @@
 #' @noRd
 #' @noMd
 .fill_control <- function(control) {
-    if(is.null(control$max.iter))
-        control$max.iter <- 500
+    if(is.null(control$max_iter))
+        control$max_iter <- 500
     if(is.null(control$tol))
         control$tol <- 1e-5
+    if(is.null(control$temper_prob))
+        control$temper_prob <- 0.8
     if(is.null(control$trace))
         control$trace <- FALSE
     

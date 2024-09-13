@@ -7,12 +7,25 @@ function() {
     mesh = sdmTMB::make_mesh(covariate_dat, xy_cols = c("x", "y"), n_knots = 50)
     offset = NULL
     trial_size = 1
-    do_parallel = FALSE
+    do_parallel = TRUE
     num_archetypes = 5
     num_cores = 8
     uncertainty_quantification <- TRUE
     control = list(max_iter = 500, tol = 1e-5, temper_prob = 0.8, trace = TRUE)
     bootstrap_control = list(num_boot = 100, ci_alpha = 0.05, seed = NULL, ci_type = "percentile")
+
+    
+    samfit <- assam(y = simdat$y,
+                    formula = paste("~ ", paste0(colnames(covariate_dat)[-(1:2)], collapse = "+")) %>% as.formula,
+                    data = covariate_dat,
+                    mesh = sdmTMB::make_mesh(covariate_dat, xy_cols = c("x", "y"), n_knots = 50),
+                    family = binomial(),
+                    do_parallel = FALSE,
+                    uncertainty_quantification = TRUE,
+                    num_archetypes = num_archetype,
+                    num_cores = 8,
+                    control = list(trace = 1),
+                    bootstrap_control = list(num_boot = 20))
     }
 
 #'
