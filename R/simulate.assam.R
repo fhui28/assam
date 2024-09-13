@@ -6,8 +6,6 @@
 #' Simulate multivariate abundance data based on a fitted \code{assam} object.
 #' 
 #' @param object An object of class \code{assam}.
-#' @param data The data frame used as part of the \code{assam} object. This needs to be supplied since currently \code{assam} objects do not save the data to save memory. 
-#' @param mesh The mesh used as part of the \code{assam} object. This needs to be supplied since currently \code{assam} objects do not save the data to save memory. 
 #' @param nsim A positive integer specifying the number of simulated datasets. Defaults to 1.
 #' @param do_parallel Should parallel computing be used to fit the asSAM. Defaults to \code{TRUE}, and should be kept this way as much as possible as parallel computing is one of the key ingredients in making asSAMs scalable. 
 #' @param num_cores If \code{do_parallel = TRUE}, then this argument controls the number of cores used. Defaults to \code{NULL}, in which case it is set to \code{parallel::detectCores() - 2}.
@@ -38,8 +36,6 @@
 
 
 simulate.assam <- function(object, 
-                           data, 
-                           mesh = NULL,
                            nsim = 1, 
                            do_parallel = TRUE, 
                            num_cores = NULL, 
@@ -55,12 +51,12 @@ simulate.assam <- function(object,
     
     use_model <- list(family = object$family, 
                      formula = object$formula,
-                     data = data,
+                     data = object$sdmTMB_fits[[1]]$data[,-which(colnames(object$sdmTMB_fits[[1]]$data) == "response")],
                      offset = object$offset,
                      betas = object$betas, 
                      spp_intercepts = object$spp_intercepts, 
                      mixture_proportion = object$mixture_proportion, 
-                     mesh = mesh,
+                     mesh = object$mesh,
                      spp_spatial_sd = object$spp_nuisance$spatial_SD,
                      spp_spatial_range = object$spp_nuisance$spatial_range,
                      trial_size = object$trial_size, 
@@ -70,7 +66,7 @@ simulate.assam <- function(object,
         use_model$spp_dispparam <- object$spp_nuisance$dispersion
     if(object$family$family[1] %in% c("tweedie"))
         use_model$spp_powerparam <- object$spp_nuisance$power
-    if(!is.null(mesh)) {
+    if(!is.null(object$mesh)) {
         use_model$spp_spatial_sd[!is.finite(use_model$spp_spatial_sd)] <- 1e-6 # This is arbitrary!!!
         use_model$spp_spatial_sd[use_model$spp_spatial_sd < 1e-6] <- 1e-6
         use_model$spp_spatial_sd[use_model$spp_spatial_sd > 1e6] <- 1e6
@@ -86,7 +82,7 @@ simulate.assam <- function(object,
     out <- foreach::foreach(l = 1:nsim,
                             .combine = "cbind") %dopar% create_samlife(family = use_model$family, 
                                                                     formula = use_model$formula,
-                                                                    data = data,
+                                                                    data = use_model$data,
                                                                     betas = use_model$betas, 
                                                                     spp_intercepts = use_model$spp_intercepts, 
                                                                     spp_dispparam = use_model$spp_dispparam, 
