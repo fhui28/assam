@@ -6,7 +6,7 @@
 #' Fits approximate and scalable species archetype modeling (asSAMs) for model-based clustering of species based on their environmental response, into a small number of so-called archetypal responses. The basic idea is take the log-likelihood function of SAM, and then construct an approximation of this which (hopefully) is more scalable in both the number of sites and species.
 #' 
 #' @param y A multivariate abundance response matrix.
-#' @param formula An object of class "formula", which represents a symbolicx description of the model matrix to be created (based on using this argument along with the \code{data} argument). *Note there should be nothing on the left hand side of the "~". It should also include an intercept term.*
+#' @param formula An object of class "formula", which represents a symbolic description of the model matrix to be created (based on using this argument along with the \code{data} argument). *Note there should be nothing on the left hand side of the "~". It should also include an intercept term.*
 #' @param data A data frame containing covariate information, from which the model matrix is to be created (based on this argument along with the \code{formula} argument). 
 #' @param family a description of the response distribution to be used in the model, as specified by a family function. Please see details below for more information on the distributions currently permitted.
 #' @param offset A matrix of offset terms, of the same dimension as \code{y}.
@@ -455,7 +455,8 @@ assam <- function(y,
     get_spatial_fields <- foreach(l = 1:num_spp, .combine = "cbind") %dopar% .predict_spatial_fields(l = l, 
                                                                                                      mesh = mesh,
                                                                                                      qa_object = get_qa, 
-                                                                                                     em_object = do_em)
+                                                                                                     em_object = do_em, 
+                                                                                                     family = family)
     if(!is.null(mesh)) {
         rownames(get_spatial_fields) <- rownames(y)
         colnames(get_spatial_fields) <- colnames(y)
@@ -627,10 +628,11 @@ assam <- function(y,
     }
      
 
-
-#' # Hidden function to predict species-specific spatial fields from an assam fit. 
-#' An ad-hoc but computationally scalable approach is adopted where the field is predicted based on the most likely archetype the species is in.
-.predict_spatial_fields <- function(l, mesh, qa_object, em_object) {
+# Hidden function to predict species-specific spatial fields from an assam fit. 
+# An ad-hoc but computationally scalable approach is adopted where the field is predicted based on the most likely archetype the species is in.
+#' @noMd
+#' @noRd
+.predict_spatial_fields <- function(l, mesh, qa_object, em_object, family) {
     if(is.null(mesh))
         return(NULL)
     

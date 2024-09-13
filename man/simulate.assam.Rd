@@ -7,8 +7,6 @@
 \usage{
 \method{simulate}{assam}(
   object,
-  data,
-  mesh = NULL,
   nsim = 1,
   do_parallel = TRUE,
   num_cores = NULL,
@@ -20,10 +18,6 @@ simulate(object, ...)
 }
 \arguments{
 \item{object}{An object of class \code{assam}.}
-
-\item{data}{The data frame used as part of the \code{assam} object. This needs to be supplied since currently \code{assam} objects do not save the data to save memory.}
-
-\item{mesh}{The mesh used as part of the \code{assam} object. This needs to be supplied since currently \code{assam} objects do not save the data to save memory.}
 
 \item{nsim}{A positive integer specifying the number of simulated datasets. Defaults to 1.}
 

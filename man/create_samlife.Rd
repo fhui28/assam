@@ -112,12 +112,12 @@ covariate_dat <- bind_cols(covariate_dat,
 rm(H)
 
 true_betas <- runif(num_archetype * num_X, -1, 1) \%>\% matrix(nrow = num_archetype)
-true_intercepts <- runif(num_spp, -3, 0)  
+true_intercepts <- runif(num_spp, -2, 0)  
 true_dispparam <- 1/runif(num_spp, 0, 5) 
 true_powerparam <- runif(num_spp, 1.4, 1.8)
 true_mixprop <- c(0.2, 0.25, 0.3, 0.1, 0.15)
-true_spatial_sd <- runif(num_spp, 0.1, 1)
-true_spatial_range <- runif(num_spp, 0, 0.25)
+true_spatial_sd <- runif(num_spp, 0.2, 1)
+true_spatial_range <- runif(num_spp, 0.1, 0.3)
 
 
 simdat <- create_samlife(family = nbinom2(), 
