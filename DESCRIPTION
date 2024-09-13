@@ -33,6 +33,7 @@ Imports:
     sdmTMB,
     stats,
     tdigest,
+    TMB,
     tweedie
 Depends: R (>= 4.1.0),
 Suggests: 

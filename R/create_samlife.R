@@ -145,14 +145,12 @@ create_samlife <- function(family = binomial(),
             stop("If mesh is supplied for species-specific spatial fields, then the mesh argument must be an object class of \"sdmTMBmesh\".")
         }
     
+    ## Check and set spatial parameters -- Note these and a mesh need to be set due to the nature of sdmTMB_simulate (which is annoying!)
     .check_spp_spatial_parameters(spp_spatial_range = spp_spatial_range,
                                   spp_spatial_sd = spp_spatial_sd,
                                   mesh = mesh,
                                   spp_intercepts = spp_intercepts)
     
-    ##----------------
-    # Check and set spatial parameters -- Note these and a mesh need to be set due to the nature of sdmTMB_simulate (which is annoying!)
-    ##----------------
     do_spatial <- TRUE
     if(is.null(mesh)) {
         do_spatial <- FALSE
@@ -233,7 +231,6 @@ create_samlife <- function(family = binomial(),
         #     resp[,j] <- tweedie::rtweedie(num_units, mu = exp(spp_eta[,j]), phi = spp_dispparam[j], power = spp_powerparam[j])
         #     }
         }
-    
     
     if(do_spatial) {
         rownames(get_spatial_fields) <- rownames(data)
