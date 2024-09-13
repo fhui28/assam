@@ -16,7 +16,7 @@ assam(
   do_parallel = TRUE,
   num_cores = NULL,
   uncertainty_quantification = TRUE,
-  control = list(max_iter = 500, tol = 1e-05, temper_prob = 0.85, trace = FALSE),
+  control = list(max_iter = 500, tol = 1e-05, temper_prob = 0.8, trace = FALSE),
   bootstrap_control = list(num_boot = 100, ci_alpha = 0.05, seed = NULL, ci_type =
     "percentile")
 )
@@ -118,6 +118,11 @@ Currently the following response distributions are permitted:
 }
 }
 }
+\section{A note on parallelization}{
+
+The scalability of asSAMs relies on being able to deploy \code{\link[sdmTMB:sdmTMB]{sdmTMB::sdmTMB()}} is an efficient and faily optimized manner. Along these lines, please see \href{https://github.com/pbs-assess/sdmTMB/issues/368}{using sdmTMB in parallel} and \href{https://gist.github.com/seananderson/08a51e296a854f227a908ddd365fb9c1}{using OpenBLAS} and references therein for some tips to ensure things on your machine are more optimized. Thanks to Sean Anderson for this advice!
+}
+
 \examples{
 \dontrun{
 ##----------------------

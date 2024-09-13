@@ -56,6 +56,10 @@
 #' }
 #' }
 #' 
+#' @section A note on parallelization: 
+#' The scalability of asSAMs relies on being able to deploy [sdmTMB::sdmTMB()] is an efficient and faily optimized manner. Along these lines, please see [using sdmTMB in parallel](https://github.com/pbs-assess/sdmTMB/issues/368) and [using OpenBLAS](https://gist.github.com/seananderson/08a51e296a854f227a908ddd365fb9c1) and references therein for some tips to ensure things on your machine are more optimized. Thanks to Sean Anderson for this advice!
+#' 
+#' 
 #' @return An object of class \code{assam} with the following elements (as appropriate, and not necessarily in the order below):
 #' \item{call:}{The function call.}
 #' \item{formula:}{Same as input argument.}
@@ -201,7 +205,7 @@ assam <- function(y,
                   do_parallel = TRUE, 
                   num_cores = NULL, 
                   uncertainty_quantification = TRUE, 
-                  control = list(max_iter = 500, tol = 1e-5, temper_prob = 0.85, trace = FALSE),
+                  control = list(max_iter = 500, tol = 1e-5, temper_prob = 0.8, trace = FALSE),
                   bootstrap_control = list(num_boot = 100, ci_alpha = 0.05, seed = NULL, ci_type = "percentile")) {
 
     
@@ -490,8 +494,8 @@ assam <- function(y,
         
         #' ## Bootstrap datasets -- This is *very* slow due to to sdmTMB_simulate
         class(out_assam) <- "assam"
+        out_assam$sdmTMB_fits <- get_qa$sdmTMB_fits
         bootresp <- simulate.assam(out_assam,
-                                   data = data, 
                                    nsim = bootstrap_control$num_boot,
                                    do_parallel = TRUE,
                                    num_cores = num_cores,
@@ -535,7 +539,7 @@ assam <- function(y,
 
         find_errors <- which(sapply(bootrun, function(x) inherits(x, "try-error")))
         if(length(find_errors) > 0) {
-            warnings("Bootstrapped datasets ", find_errors, "had problems during fitting, and subsequently ignored...\nIf the number of datasets with fitting problems is large, they may point deeper issues with the asSAM")
+            warning("Bootstrapped datasets ", find_errors, "had problems during fitting, and subsequently ignored...\nIf the number of datasets with fitting problems is large, they may point deeper issues with the asSAM")
             bootrun <- bootrun[-find_errors]
             }
         rm(find_errors)
@@ -622,7 +626,6 @@ assam <- function(y,
     ##----------------
     #' # Done! Final touches if any
     ##----------------
-    out_assam$sdmTMB_fits <- get_qa$sdmTMB_fits
     class(out_assam) <- "assam"
     return(out_assam)
     }
