@@ -687,4 +687,15 @@ assam <- function(y,
 
 
 
+# Hidden function taken directly from sdmTMB utils.R
+#' @noMd
+#' @noRd
+.get_pars <- function(object) {
+    # based on glmmTMB:
+    ee <- object$tmb_obj$env
+    x <- ee$last.par.best
+    if (length(ee$random) > 0) x <- x[-ee$random]
+    p <- ee$parList(x = x)
+    p
+    }
 
