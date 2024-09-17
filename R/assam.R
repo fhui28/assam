@@ -673,11 +673,16 @@ assam <- function(y,
                                       DLL = "sdmTMB",
                                       silent = TRUE)
 
+        #' Method 1 -- Based on predict.sdmTMB but slower due to the use of sdreport to extract random effects
+        # new_tmb_obj$fn(new_tmb_obj$par) # need to initialize the new TMB object once
+        # new_tmb_sdreport <- TMB::sdreport(new_tmb_obj, par.fixed = new_tmb_obj$par) # Update random effects
+        # r <- new_tmb_obj$report(new_tmb_obj$env$last.par) # last.par taken since it is the newest set of parameters
+        
+        #' Method 2 -- Own approach which is faster but requires running a new, single optimization
         new_fit0 <- nlminb(start = new_tmb_obj$par,
                            objective = new_tmb_obj$fn,
                            gradient = new_tmb_obj$gr,
                            control = qa_object$sdmTMB_fits[[l]]$nlminb_control)
-        
 
         #' Use TMB's report function to return the estimated field of assam
         r <- new_tmb_obj$report(new_tmb_obj$env$last.par.best)
