@@ -2,5 +2,7 @@
 .Rhistory
 .RData
 .Ruserdata
-^R/note
-samfitbernoulli_testing.RData
+^samfitbernoulli_testing.RData
+^R/notes_manualpredictionlearningfromsdmTMB\.R$
+^R/note_comparingsdmfittomgcv\.R$
+^R/notes\.R$
