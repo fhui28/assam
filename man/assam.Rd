@@ -120,7 +120,7 @@ Currently the following response distributions are permitted:
 }
 \section{A note on parallelization}{
 
-The scalability of asSAMs relies on being able to deploy \code{\link[sdmTMB:sdmTMB]{sdmTMB::sdmTMB()}} is an efficient and faily optimized manner. Along these lines, please see \href{https://github.com/pbs-assess/sdmTMB/issues/368}{using sdmTMB in parallel} and \href{https://gist.github.com/seananderson/08a51e296a854f227a908ddd365fb9c1}{using OpenBLAS} and references therein for some tips to ensure things on your machine are more optimized. Thanks to Sean Anderson for this advice!
+The scalability of asSAMs relies on being able to deploy \code{\link[sdmTMB:sdmTMB]{sdmTMB::sdmTMB()}} is an efficient and fully optimized manner. Along these lines, please see \href{https://github.com/pbs-assess/sdmTMB/issues/368}{using sdmTMB in parallel} and \href{https://gist.github.com/seananderson/08a51e296a854f227a908ddd365fb9c1}{using OpenBLAS} and references therein for some tips to ensure things on your machine are more optimized. Thanks to Sean Anderson for this advice!
 }
 
 \examples{
