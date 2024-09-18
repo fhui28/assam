@@ -1,7 +1,6 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
 ^LICENSE\.md$
-^samfitbernoulli_testing.RData
-^R/notes_manualpredictionlearningfromsdmTMB\.R$
-^R/note_comparingsdmfittomgcv\.R$
-^R/notes\.R$
+samfitbernoulli_testing.RData
+R/notes_manualpredictionlearningfromsdmTMB.R
+R/note_comparingsdmfittomgcv.R
