@@ -166,17 +166,18 @@ predict.assam <- function(object,
         }
     
     if(type %in% c("species_max", "species_mean")) {
-        all_spp_mu <- array(NA, dim = c(num_units, num_spp, object$num_archetypes),
-                            dimnames = list(units = rownames(newdata), spp = names(object$spp_intercepts), archetype = names(object$mixture_proportion)))
-        
-        #' Note this is not parallelized since uncertainty quantification later on is!
-        for(k0 in 1:object$num_archetypes) {
-            all_spp_mu[,,k0] <- .predict_eta_sdmTMB(object = object, newdata = newdata, k0 = k0)
-            
+        pred_per_archetype <- function(k0) {
+            out <- .predict_eta_sdmTMB(object = object, newdata = newdata, k0 = k0)
             if(!is.null(newoffset))
-                all_spp_mu[,,k0] <- all_spp_mu[,,k0] + newoffset
-            }
+                out <- out + newoffset
             
+            return(out)
+            }
+        all_spp_mu <- foreach(k0 = 1:object$num_archetypes) %dopar% pred_per_archetype(k0 = k0) 
+        rm(pred_per_archetype)
+        all_spp_mu <- abind::abind(all_spp_mu, along = 3)
+        dimnames(all_spp_mu) <- list(units = rownames(newdata), spp = names(object$spp_intercepts), archetype = names(object$mixture_proportion))
+        
         all_spp_mu <- object$family$linkinv(all_spp_mu)
         
         if(type == "species_max") {
@@ -194,7 +195,8 @@ predict.assam <- function(object,
     
     if(!se_fit)
         return(pt_pred)
-    
+
+        
     ##-----------------------
     #' # Uncertainty quantification
     ##-----------------------
@@ -267,7 +269,7 @@ predict.assam <- function(object,
 
 
 
-# Hidden function to predict species-specific predictions for
+# Hidden function to construct species-specific predictions, potentially to new data
 # The sdmTMB object is extracted and then manipulated into a new TMB object fixed at the asSAM parameter estimates. This is then used as the basis for prediction
 #' @noMd
 #' @noRd
