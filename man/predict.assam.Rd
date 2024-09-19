@@ -25,9 +25,7 @@
 \item{type}{The type of prediction required:
 If \code{type = "archetype"}, then archetypal predictions are constructed on the scale of the linear predictors i.e., \eqn{x_i^\top\beta_k};
 If \code{type = "species_max"}, then species-specific predictions on the scale of the responses i.e., \eqn{\mu_{ij}}, are constructed based on the most likely archetype the species belongs to (as based on the posterior probabilities);
-If \code{type = "species_mean"}, then species-specific predictions on the scale of the responses i.e., \eqn{\mu_{ij}}, are constructed based on a weighted mean of the predictions from each archetype, where the weights are given by the posterior probabilities.
-
-Note for both types of species-specific predictions, \strong{currently uncertainty of the posterior probabilities are not taken into account...this is on the to-do list!}}
+If \code{type = "species_mean"}, then species-specific predictions on the scale of the responses i.e., \eqn{\mu_{ij}}, are constructed based on a weighted mean of the predictions from each archetype, where the weights are given by the posterior probabilities.}
 
 \item{se_fit}{When this is set to \code{TRUE} (not default), then uncertainty intervals are returned for the point predictions.}
 

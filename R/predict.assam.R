@@ -100,7 +100,7 @@
 #' @importFrom doParallel registerDoParallel
 #' @importFrom sdmTMB sdmTMB
 #' @importFrom parallel detectCores
-#' @importFrom stats as.formula model.matrix
+#' @importFrom stats as.formula model.matrix predict
 #' @importFrom TMB MakeADFun sdreport
 #' @md
 
