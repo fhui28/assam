@@ -481,6 +481,7 @@ assam <- function(y,
     out_assam$df <- num_spp*(num_nuisance_perspp + 1) + prod(dim(out_assam$betas)) + (num_archetypes - 1)
     out_assam$control <- control
     out_assam$bootstrap_control <- bootstrap_control
+    out_assam$sdmTMB_fits <- get_qa$sdmTMB_fits
     gc()
     
     
@@ -494,7 +495,6 @@ assam <- function(y,
         
         #' ## Bootstrap datasets -- This is *very* slow due to to sdmTMB_simulate
         class(out_assam) <- "assam"
-        out_assam$sdmTMB_fits <- get_qa$sdmTMB_fits
         bootresp <- simulate.assam(out_assam,
                                    nsim = bootstrap_control$num_boot,
                                    do_parallel = TRUE,
@@ -539,7 +539,7 @@ assam <- function(y,
 
         find_errors <- which(sapply(bootrun, function(x) inherits(x, "try-error")))
         if(length(find_errors) > 0) {
-            warning("Bootstrapped datasets ", find_errors, "had problems during fitting, and subsequently ignored...\nIf the number of datasets with fitting problems is large, they may point deeper issues with the asSAM")
+            warning("Bootstrapped datasets ", find_errors, " had problems during fitting, and subsequently ignored...\nIf the number of datasets with fitting problems is large, it may point to deeper issues with the asSAM itself.")
             bootrun <- bootrun[-find_errors]
             }
         rm(find_errors)
@@ -667,7 +667,7 @@ assam <- function(y,
 
         new_tmb_obj <- TMB::MakeADFun(data = qa_object$sdmTMB_fits[[l]]$tmb_data,
                                       profile = qa_object$sdmTMB_fits[[l]]$control$profile,
-                                      parameters = qa_object$sdmTMB_fits[[l]]$tmb_params,
+                                      parameters = use_pars,
                                       map = use_map,
                                       random = qa_object$sdmTMB_fits[[l]]$tmb_random,
                                       DLL = "sdmTMB",
