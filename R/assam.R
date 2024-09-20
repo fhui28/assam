@@ -233,8 +233,8 @@ assam <- function(y,
         offset <- matrix(0, nrow = nrow(y), ncol = ncol(y))
     formula <- .check_X_formula(formula = formula, data = as.data.frame(data))     
     tmp_formula <- as.formula(paste("response", paste(as.character(formula),collapse = " ") ) )
-    nullfit <- sdmTMB(tmp_formula, #' Currently not even sure you need this...at least it is not needed for spatial models!
-                      spatial = FALSE, 
+    nullfit <- sdmTMB(tmp_formula,
+                      spatial = FALSE,
                       data = data.frame(data, response = rnorm(nrow(data))))
     X <- model.matrix(nullfit$formula[[1]], data = nullfit$data)[,-1] # Remove the intercept term
     num_X <- ncol(X)

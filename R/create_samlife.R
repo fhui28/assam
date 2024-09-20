@@ -106,7 +106,7 @@
 #' @export
 #' @import Matrix
 #' @importFrom sdmTMB make_mesh sdmTMB sdmTMB_simulate nbinom2 tweedie Beta
-#' @importFrom stats as.formula binomial model.matrix rbeta rbinom rgamma rnorm rnbinom rpois plogis
+#' @importFrom stats as.formula binomial rbeta rbinom rgamma rnorm rnbinom rpois plogis
 #' @importFrom tweedie rtweedie
 #' @md
 
@@ -135,7 +135,7 @@ create_samlife <- function(family = binomial(),
     formula <- .check_X_formula(formula = formula, data = as.data.frame(data))          
     tmp_formula <- as.formula(paste("response", paste(as.character(formula), collapse = " ")))
     
-    if(nrow(betas) != length(mixture_proportion)) 
+    if(nrow(betas) != length(mixture_proportion))
         stop("No. of mixing proportions should be equal to the number of rows in betas.")
     if(any(mixture_proportion < 0) || any(mixture_proportion > 1) || abs(sum(mixture_proportion) - 1) > 1e-12)
         stop("The mixture proportions mixture_proportion should be a vector with all elements between 0 and 1, and should sum to 1.")
