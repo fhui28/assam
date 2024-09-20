@@ -12,10 +12,11 @@ assam(
   offset = NULL,
   trial_size = 1,
   num_archetypes,
+  mesh = NULL,
   do_parallel = TRUE,
   num_cores = NULL,
   uncertainty_quantification = TRUE,
-  control = list(max_iter = 500, tol = 1e-05, temper_prob = 0.85, trace = FALSE),
+  control = list(max_iter = 500, tol = 1e-05, temper_prob = 0.8, trace = FALSE),
   bootstrap_control = list(num_boot = 100, ci_alpha = 0.05, seed = NULL, ci_type =
     "percentile")
 )
@@ -35,7 +36,9 @@ assam(
 
 \item{num_archetypes}{Number of archetypes (clusters) to assume in the asSAM.}
 
-\item{do_parallel}{Should parallel computing be used to fit the asSAM. Defaults to \code{TRUE}, and should be kept this way as much as possible as parallel computing is one of the key ingredients in making asSAMs scalable.}
+\item{mesh}{Output from \code{\link[sdmTMB:make_mesh]{sdmTMB::make_mesh()}}, used for adding species-specific spatial fields to the linear predictor.}
+
+\item{do_parallel}{Should parallel computing be used to fit the asSAM. Defaults to \code{FALSE}.}
 
 \item{num_cores}{If \code{do_parallel = TRUE}, then this argument controls the number of cores used. Defaults to \code{NULL}, in which case it is set to \code{parallel::detectCores() - 2}.}
 
@@ -62,16 +65,19 @@ An object of class \code{assam} with the following elements (as appropriate, and
 \item{call:}{The function call.}
 \item{formula:}{Same as input argument.}
 \item{family:}{Same as input argument.}
-\item{num_nuisance_perspp:}{The number of "nuisance" parameters per species. For example, if \code{family = binomial()} then there are no nuisance parameters, for \code{family = nbinom2()} there is one nuisance parameter per species, and for \code{family = tweedie()} there are two nuisance parameters per species.}
+\item{num_nuisance_perspp:}{The number of "nuisance" parameters per species. For example, if \code{family = binomial()} and species-specific spatial fields are not included, then there are no nuisance parameters. If \code{family = nbinom2()} and species-specific spatial fields are included, say, then there are three nuisance parameters per species.}
 \item{trial_size:}{Same as input argument.}
 \item{offset:}{Same as input argument.}
+\item{mesh:}{Same as input argument.}
 \item{num_archetypes:}{Same as input argument.}
+\item{uncertainty_quantification:}{Same as input argument.}
 \item{spp_intercepts:}{Estimated species-specific intercepts.}
-\item{spp_nuisance:}{Estimated matrix of species-specific nuisance parameters e.g., the dispersion parameter in the negative binomial distribution, and dispersion and power parameters in the Tweedie distribution, and so on.}
 \item{betas:}{Estimated matrix of archetypal regression coefficients corresponding to the model matrix created. The number of rows in \code{betas} is equal to the number of archetypes.}
 \item{mixture_proportion:}{Estimated vector of mixture proportions corresponding to the probability of belonging to each archetype.}
+\item{spp_nuisance:}{Estimated matrix of species-specific nuisance parameters e.g., the dispersion parameter in the negative binomial distribution, and dispersion and power parameters in the Tweedie distribution, and so on.}
 \item{posterior_probability:}{Estimated matrix of posterior probabilities for each species belong to each archetype. The number of rows in \code{posterior_probability} is equal to the number of species.}
-\item{linear_predictor:}{Estimated array of archetype-specific linear predictors. The last dimension of the array corresponds to the number of archetypes.}
+\item{linear_predictor:}{Estimated array of archetype-specific linear predictors for all species. The last dimension of the array corresponds to the number of archetypes.}
+\item{spatial_fields:}{Predicted matrix species-specific spatial fields, if included. The spatial field prediction is developed based on the most likely archetype that the species belongs to, as judged by the posterior probabilities.}
 \item{logL:}{Estimated log-likelihood value of the asSAM i.e. the value of the approximated log-likelihood function at convergence.}
 \item{df:}{Number of the estimated (freely varying) parameters in the asSAM.}
 \item{linear_predictor:}{Estimated array of archetype-specific linear predictors. The last dimension of the array corresponds to the number of archetypes.}
@@ -80,6 +86,7 @@ An object of class \code{assam} with the following elements (as appropriate, and
 \item{confidence_intervals:}{A list of estimated parametric bootstrap confidence intervals for all the parameters in the asSAM, with each element in the list corresponding to one of the parameters e.g., the species-specific intercepts, the mixture proportions, and so on.}
 \item{bootstrap_paramters:}{A matrix of estimated (untransformed) parameters from the parametric bootstrap. \emph{This output can be safely ignored by most users}, but those curious, it is used to uncertainty quantification for downstream predictions, say.}
 \item{bootstrap_posterior_probability:}{An array of estimated posterior probabilities from the parametric bootstrap. \emph{This output can be safely ignored by most users}, but those curious, it is used to uncertainty quantification for downstream predictions, say.}
+\item{sdmTMB_fits}{A list of the set of stacked species distribution models fitted using \code{\link[sdmTMB:sdmTMB]{sdmTMB::sdmTMB()}}. \emph{This output can be safely ignored by most users}.}
 }
 \description{
 \ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
@@ -87,11 +94,11 @@ An object of class \code{assam} with the following elements (as appropriate, and
 Fits approximate and scalable species archetype modeling (asSAMs) for model-based clustering of species based on their environmental response, into a small number of so-called archetypal responses. The basic idea is take the log-likelihood function of SAM, and then construct an approximation of this which (hopefully) is more scalable in both the number of sites and species.
 }
 \details{
-or the purposes of the package, the SAM is characterized by the following mean regression model: for observational unit \eqn{i=1,\ldots,N} and species \eqn{j=1,\ldots,M}, conditional on the species belong to archetype \eqn{k},
+For the purposes of the package, the SAM is characterized by the following mean regression model: for observational unit \eqn{i=1,\ldots,N} and species \eqn{j=1,\ldots,M}, conditional on the species belong to archetype \eqn{k},
 
 \deqn{g(\mu_{ij}) = \eta_{ij} = x_i^\top\beta_k,}
 
-where \eqn{g(.)} is a known link function, \eqn{x_i} denotes a vector of predictors for unit \eqn{i} i.e., the \eqn{i}-th row from the created model matrix, \eqn{\beta_k} denotes the corresponding regression coefficients for archetype \eqn{k}. Based on the mean model given above, responses \eqn{y_{ij}} are then simulated from the assumed distribution, using the additional dispersion and power parameters as appropriate. We refer the reader to \href{https://doi.org/10.1016/j.ecolmodel.2010.11.030}{Dunstan et al., (2011)}, \href{https://doi.org/10.1890/12-1322.1}{Hui et al., (2013)}, \href{https://doi.org/10.1007/s13253-013-0146-x}{Dunstan et al., (2013)}, and \href{https://github.com/skiptoniam/ecomix}{Skipton Woolley's ecomix package} for more details about the formulations of SAMs.
+where \eqn{g(.)} is a known link function, \eqn{\eta_{ij}} denotes the linear predictor, \eqn{x_i} denotes a vector of predictors for unit \eqn{i} i.e., the \eqn{i}-th row from the created model matrix, \eqn{\beta_k} denotes the corresponding regression coefficients for archetype \eqn{k}. Based on the mean model given above, responses \eqn{y_{ij}} are then simulated from the assumed distribution, using the additional dispersion and power parameters as appropriate. We refer the reader to \href{https://doi.org/10.1016/j.ecolmodel.2010.11.030}{Dunstan et al., (2011)}, \href{https://doi.org/10.1890/12-1322.1}{Hui et al., (2013)}, \href{https://doi.org/10.1007/s13253-013-0146-x}{Dunstan et al., (2013)}, and \href{https://github.com/skiptoniam/ecomix}{Skipton Woolley's ecomix package} for more details about the formulations of SAMs. Additionally, species-specific spatial fields can be included in the linear predictor e.g., to account for residual spatial correlation above and beyond that explained by the archetypal responses.
 
 The broad goal of this package is to construct a way of fitting SAMs that are, although approximate, more scalable in the number of sites and species (though not necessarily faster), hence the name asSAMs. We prefer to the corresponding manuscript (in preparation) for details, but to summarize, asSAMs are formed by constructing an approximate likelihood function for a SAM based on using ingredients (i.e., point estimates and the associated observed information matrix) from stacked species distribution models (which are fitted initially in parallel), and then building what is essentially a finite mixture of multivariate Gaussian distributions from this. This is then maximized using an EM algorithm, which can be done scalably and very quickly.
 
@@ -111,6 +118,11 @@ Currently the following response distributions are permitted:
 }
 }
 }
+\section{A note on parallelization}{
+
+The scalability of asSAMs relies on being able to deploy \code{\link[sdmTMB:sdmTMB]{sdmTMB::sdmTMB()}} is an efficient and fully optimized manner. Along these lines, please see \href{https://github.com/pbs-assess/sdmTMB/issues/368}{using sdmTMB in parallel} and \href{https://gist.github.com/seananderson/08a51e296a854f227a908ddd365fb9c1}{using OpenBLAS} and references therein for some tips to ensure things on your machine are more optimized. Thanks to Sean Anderson for this advice!
+}
+
 \examples{
 \dontrun{
 ##----------------------
@@ -134,7 +146,7 @@ covariate_dat <- rmvnorm(num_units, sigma = H) \%>\%
 rm(H)
 
 true_betas <- runif(num_archetype * num_X, -1, 1) \%>\% matrix(nrow = num_archetype)
-true_intercepts <- runif(num_spp, -3, 0)  
+true_intercepts <- runif(num_spp, -2, 0)  
 true_dispparam <- 1/runif(num_spp, 1, 5) 
 true_powerparam <- runif(num_spp, 1.4, 1.8)
 true_mixprop <- c(0.2, 0.25, 0.3, 0.1, 0.15)
@@ -146,8 +158,9 @@ betas = true_betas,
 spp_intercept = true_intercepts, 
 spp_dispparam = true_dispparam, 
 spp_powerparam = true_powerparam, 
-mixture_proportion = true_mixprop)
- 
+mixture_proportion = true_mixprop,
+seed = 092024)
+
  
 ##----------------------
 # Fit asSAM and assess results 
@@ -157,16 +170,16 @@ samfit <- assam(y = simdat$y,
 formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) \%>\% as.formula,
 data = covariate_dat,
 family = nbinom2(),
-uncertainty_quantification = FALSE,
+uncertainty_quantification = TRUE,
 num_archetypes = num_archetype,
 num_cores = 8)
- 
+
  
 plot(true_intercepts, samfit$spp_intercepts); abline(0,1)
 plot(true_dispparam, samfit$spp_nuisance$dispersion, log = "xy"); abline(0,1)
 #' Note estimates for the archetypal responses and mixture proportions from (as)SAMs should be 
 #' close to the corresponding true values, *up to a reordering* of the mixture component
-#' s/archetypes (since the order is essentiually arbtirary)
+#' s/archetypes (since the order is essentially arbitrary)
 rbind(true_betas, samfit$betas) \%>\% 
 t \%>\% 
 as.data.frame \%>\%
@@ -182,9 +195,9 @@ summary(samfit)
 
 fitted(samfit)
  
-simulate(samfit, data = covariate_dat)
+simulate(samfit)
 
-residuals(samfit, y = simdat$y, type = "dunnsmyth")
+residuals(samfit, type = "dunnsmyth")
  
 #' Basic residual analysis
 plot(samfit, y = simdat$y, transform_fitted_values = TRUE)

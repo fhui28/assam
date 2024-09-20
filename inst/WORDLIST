@@ -2,6 +2,7 @@ Dunstan
 Github
 Lifecycle
 McLachlan
+OpenBLAS
 SAMs
 Skipton
 Smyth
@@ -15,6 +16,7 @@ devtools
 dunnsmyth
 ecomix
 et
+faily
 fhui
 gmail
 iter
@@ -22,8 +24,11 @@ lifecycle
 num
 parallelization
 reprex
+scalability
 scalable
 scalably
+sdmTMB
+sdmTMB's
 spatio
 th
 tol

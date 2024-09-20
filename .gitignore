@@ -1,7 +1,8 @@
+samfitbernoulli_testing.RData
 .Rproj.user
 .Rhistory
 .RData
 .Ruserdata
-^R/note_comparingsdmfittomgcv.R
-^R/notes.R$
-
+R/notes_manualpredictionlearningfromsdmTMB.R
+R/note_comparingsdmfittomgcv.R
+R/notes.R

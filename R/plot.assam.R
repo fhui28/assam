@@ -6,7 +6,6 @@
 #' Five potential plots are currently available for some basic residual diagnostics for a fitted \code{assam} model: 1) a plot of residuals against (potentially transformed) fitted values; 2) a normal probability plot of residuals with simulated point-wise 95\% confidence interval envelope; 3) plot of residuals against observational unit index; 4) a plot of residuals again column index; 5) scale-location plot using (potentially transformed) fitted values.
 #' 
 #' @param x An object of class \code{assam}.
-#' @param y The multivariate abundance data used as part of the \code{assam} object. This needs to be supplied since currently \code{assam} objects do not save the responses to save memory.
 #' @param which_plot If a subset of the plots is desired, then a vector containing subset of the integers 1, 2, 3, 4, 5.
 #' @param type The type of residuals to be used in constructing the plots. Currently the options available are: "PIT" and "dunnsmyth".
 #' @param transform_fitted_values For plots 1 and 5, should the fitted values be transformed using the link function specified in the asSAM i.e.. what is available in \code{x$family$linkfun}. This can be useful visually so that observations are not too bunched up on the x-axis of plots 1 and 5.  
@@ -45,7 +44,6 @@
 #' @md
 
 plot.assam <- function(x, 
-                       y,
                        which_plot = 1:5, 
                        type = "dunnsmyth", 
                        transform_fitted_values = FALSE,
@@ -61,6 +59,7 @@ plot.assam <- function(x,
     
     num_units <- dim(x$linear_predictor)[1]
     num_spp <- dim(x$linear_predictor)[2]
+    y <- sapply(x$sdmTMB_fits, function(x) x$data$response)
     
     sppind <- 1:num_spp
     if(!is.null(which_species))

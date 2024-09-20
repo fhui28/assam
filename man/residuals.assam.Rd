@@ -4,12 +4,10 @@
 \alias{residuals.assam}
 \title{Extract residuals from an approximate and scalable SAM object}
 \usage{
-\method{residuals}{assam}(object, y, type = "dunnsmyth", seed = NULL, ...)
+\method{residuals}{assam}(object, type = "dunnsmyth", seed = NULL, ...)
 }
 \arguments{
 \item{object}{An object of class \code{assam}.}
-
-\item{y}{The multivariate abundance data used as part of the \code{assam} object. This needs to be supplied since currently \code{assam} objects do not save the responses to save memory.}
 
 \item{type}{The type of residuals which should be returned. The options currently available are "PIT" and "dunnsmyth".}
 

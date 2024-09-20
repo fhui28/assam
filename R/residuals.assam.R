@@ -6,7 +6,6 @@
 #' Calculate either probability integral transform (PIT) residuals and Dunn-Smyth residuals residuals from a fitted \code{assam} object.
 #' 
 #' @param object An object of class \code{assam}.
-#' @param y The multivariate abundance data used as part of the \code{assam} object. This needs to be supplied since currently \code{assam} objects do not save the responses to save memory.
 #' @param type The type of residuals which should be returned. The options currently available are "PIT" and "dunnsmyth".
 #' @param seed This can be used set the seed when constructing the PIT and Dunn-Smyth residuals, which for discrete responses involve some degree of jittering.  
 #' @param ... Not used.
@@ -32,9 +31,11 @@
 #' @md
 
 
-residuals.assam <- function(object, y, type = "dunnsmyth", seed = NULL, ...) {
+residuals.assam <- function(object, type = "dunnsmyth", seed = NULL, ...) {
     if(!inherits(object, "assam")) 
         stop("`object' is not of class \"assam\"")
+    
+    y <- sapply(object$sdmTMB_fits, function(x) x$data$response)
     
     type <- match.arg(type, choices = c("dunnsmyth", "PIT"))
     get_fitted <- fitted.assam(object, type = "all")
