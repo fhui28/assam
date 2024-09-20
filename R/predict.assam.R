@@ -10,7 +10,7 @@
 #' @param newoffset A set of offset terms. If supplied, then it must either be a vector (if \code{type = "archetype"}) or a matrix (if \code{type = "species_max"} or \code{"species_mean"}). If the former, the length should be equal to \code{nrow(newdata)}. If the latter, the number of rows should be equal \code{nrow(newdata)} and the number of columns should be equal to \code{length(object$spp_intercepts) i.e., the number of species.}
 #' @param type The type of prediction required:  
 #' If \code{type = "archetype"}, then archetypal predictions are constructed on the scale of the linear predictors i.e., \eqn{x_i^\top\beta_k};
-#' If \code{type = "species_max"}, then species-specific predictions on the scale of the responses i.e., \eqn{\mu_{ij}}, are constructed based on the most likely archetype the species belongs to (as based on the posterior probabilities);
+#' If \code{type = "species_max"}, then species-specific predictions on the scale of the responses i.e., \eqn{\mu_{ij}}, are constructed based on the most likely archetype the species belongs to, as judged by the posterior probabilities.
 #' If \code{type = "species_mean"}, then species-specific predictions on the scale of the responses i.e., \eqn{\mu_{ij}}, are constructed based on a weighted mean of the predicted responses from each archetype, where the weights are given by the posterior probabilities.
 #' @param se_fit When this is set to \code{TRUE} (not default), then uncertainty intervals are returned for the point predictions.
 #' @param num_cores To speed up calculation of the uncertainty intervals, parallelization can be performed, in which case this argument can be used to supply the number of cores to use in the parallelization. Defaults to \code{detectCores()-2}.
@@ -86,7 +86,7 @@
 #' predict(samfit, newdata = covariate_dat, type = "archetype", se_fit = TRUE) 
 #' 
 #' #' Species-level predictions
-#' predict(samfit,  newdata = covariate_dat, type = "species_max", num_cores = 8, se_fit = TRUE) 
+#' predict(samfit,  newdata = covariate_dat, type = "species_max", se_fit = TRUE) 
 #'  
 #' }
 #' 
@@ -173,7 +173,7 @@ predict.assam <- function(object,
             
             return(out)
             }
-        all_spp_mu <- foreach(k0 = 1:object$num_archetypes) %dopar% pred_per_archetype(k0 = k0) 
+        all_spp_mu <- foreach(l = 1:object$num_archetypes) %dopar% pred_per_archetype(k0 = l) 
         rm(pred_per_archetype)
         all_spp_mu <- abind::abind(all_spp_mu, along = 3)
         dimnames(all_spp_mu) <- list(units = rownames(newdata), spp = names(object$spp_intercepts), archetype = names(object$mixture_proportion))
@@ -242,7 +242,7 @@ predict.assam <- function(object,
             return(pt_pred)
             }
         
-        all_predictions <- foreach(k0 = 1:nrow(object$bootstrap_parameters)) %do% construction_predictions_per_bootstrap(k0 = k0, newdata = newdata, newoffset = newoffset)
+        all_predictions <- foreach(l = 1:nrow(object$bootstrap_parameters)) %dopar% construction_predictions_per_bootstrap(k0 = l, newdata = newdata, newoffset = newoffset)
         all_predictions <- abind::abind(all_predictions, along = 3)
         gc()
         
@@ -274,6 +274,9 @@ predict.assam <- function(object,
 #' @noMd
 #' @noRd
 .predict_eta_sdmTMB <- function(object, newdata, k0) {
+    num_units <- nrow(newdata)
+    num_spp <- length(object$spp_intercepts)
+    
     out <- NULL    
     make_pred_tmb_data <- predict(object$sdmTMB_fits[[1]], newdata = newdata, return_tmb_object = TRUE)$pred_tmb_data ## Assume this is the same across all species...do not see any reason why it should not be?!
     
@@ -334,6 +337,9 @@ predict.assam <- function(object,
 #' @noMd
 #' @noRd
 .predict_eta_sdmTMB_bootstrap <- function(object, newdata, newoffset, k0) {
+    num_units <- nrow(newdata)
+    num_spp <- length(object$spp_intercepts)
+    
     cw_bootstrap_parameters <- object$bootstrap_parameters[k0,]
     cw_spp_intercepts <- cw_bootstrap_parameters[grep("spp_intercept", names(cw_bootstrap_parameters))]
     cw_mixture_proportions <- cw_bootstrap_parameters[grep("mixture_proportion", names(cw_bootstrap_parameters))]
@@ -350,6 +356,7 @@ predict.assam <- function(object,
     
     
     out <- array(NA, dim = c(num_units, num_spp, object$num_archetypes))
+    make_tmb_pred_data <-predict(object$sdmTMB_fits[[1]], newdata = newdata, return_tmb_object = TRUE)$pred_tmb_data
     
     for(l0 in 1:object$num_archetypes) {
         for(l1 in 1:length(object$spp_intercepts)) {
@@ -385,7 +392,7 @@ predict.assam <- function(object,
         
             
             #' Construct new TMB object
-            new_tmb_obj <- TMB::MakeADFun(data = predict(object$sdmTMB_fits[[l1]], newdata = newdata, return_tmb_object = TRUE)$pred_tmb_data,
+            new_tmb_obj <- TMB::MakeADFun(data = make_tmb_pred_data,
                                           profile = object$sdmTMB_fits[[l1]]$control$profile,
                                           parameters = use_pars,
                                           map = use_map,
