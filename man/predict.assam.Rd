@@ -24,8 +24,8 @@
 
 \item{type}{The type of prediction required:
 If \code{type = "archetype"}, then archetypal predictions are constructed on the scale of the linear predictors i.e., \eqn{x_i^\top\beta_k};
-If \code{type = "species_max"}, then species-specific predictions on the scale of the responses i.e., \eqn{\mu_{ij}}, are constructed based on the most likely archetype the species belongs to (as based on the posterior probabilities);
-If \code{type = "species_mean"}, then species-specific predictions on the scale of the responses i.e., \eqn{\mu_{ij}}, are constructed based on a weighted mean of the predictions from each archetype, where the weights are given by the posterior probabilities.}
+If \code{type = "species_max"}, then species-specific predictions on the scale of the responses i.e., \eqn{\mu_{ij}}, are constructed based on the most likely archetype the species belongs to, as judged by the posterior probabilities.
+If \code{type = "species_mean"}, then species-specific predictions on the scale of the responses i.e., \eqn{\mu_{ij}}, are constructed based on a weighted mean of the predicted responses from each archetype, where the weights are given by the posterior probabilities.}
 
 \item{se_fit}{When this is set to \code{TRUE} (not default), then uncertainty intervals are returned for the point predictions.}
 
@@ -47,7 +47,7 @@ If \code{se_fit = FALSE}, then a matrix of point predictions. If \code{se_fit = 
 Takes a fitted \code{assam} object and produces predictions given (potentially) a new set of observational units with their corresponding covariates. Predictions can be accompanied by uncertainty intervals.
 }
 \details{
-Uncertainty intervals produced by \code{predict.assam} are based on the bootstrapped parameter estimates, if available from the \code{object} itself. That is, predictions are constructed using the bootstrapped estimates and then quantiles as appropriate as used to construct the uncertainty intervals.
+Uncertainty intervals produced by \code{predict.assam} are based on the bootstrapped parameter estimates, if available from the \code{object} itself. That is, predictions are constructed using the bootstrapped estimates and then quantiles as appropriate as used to construct the uncertainty intervals. \strong{Note particularly with asSAMs including species-specific spatial fields, there is no general guarantee that the point prediction necessarily falls inside the corresponding uncertainty intervals constructing using this approach.}
 
 Note archetypal predictions are constructed on the scale of the linear predictions, while species-specific predictions are constructed on the scale of the responses. The latter is analogous to what is available from \code{\link[=fitted.assam]{fitted.assam()}}.
 }
@@ -107,7 +107,7 @@ toc <- proc.time
 predict(samfit, newdata = covariate_dat, type = "archetype", se_fit = TRUE) 
 
 #' Species-level predictions
-predict(samfit,  newdata = covariate_dat, type = "species_max", num_cores = 8, se_fit = TRUE) 
+predict(samfit,  newdata = covariate_dat, type = "species_max", se_fit = TRUE) 
  
 }
 

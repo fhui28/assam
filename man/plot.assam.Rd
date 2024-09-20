@@ -6,7 +6,6 @@
 \usage{
 \method{plot}{assam}(
   x,
-  y,
   which_plot = 1:5,
   type = "dunnsmyth",
   transform_fitted_values = FALSE,
@@ -24,8 +23,6 @@
 }
 \arguments{
 \item{x}{An object of class \code{assam}.}
-
-\item{y}{The multivariate abundance data used as part of the \code{assam} object. This needs to be supplied since currently \code{assam} objects do not save the responses to save memory.}
 
 \item{which_plot}{If a subset of the plots is desired, then a vector containing subset of the integers 1, 2, 3, 4, 5.}
 
