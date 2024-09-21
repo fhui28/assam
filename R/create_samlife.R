@@ -156,7 +156,7 @@ create_samlife <- function(family = binomial(),
     do_spatial <- TRUE
     if(is.null(mesh)) {
         do_spatial <- FALSE
-        mesh <- sdmTMB::make_mesh(data, xy_cols = colnames(data)[1:2], n_knots = 10) 
+        mesh <- sdmTMB::make_mesh(data, xy_cols = colnames(data)[1:2], n_knots = 20) 
         }
     if(!do_spatial) {
         spp_spatial_range <- rep(1e-10, num_spp) 
