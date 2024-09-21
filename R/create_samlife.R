@@ -95,7 +95,7 @@
 #' spp_intercepts = true_intercepts, 
 #' spp_dispparam = true_dispparam, 
 #' spp_powerparam = true_powerparam, 
-#' mesh = sdmTMB::make_mesh(covariate_dat, xy_cols = c("x", "y"), n_knots = 50),
+#' mesh = sdmTMB::make_mesh(covariate_dat, xy_cols = c("x", "y"), n_knots = 80),
 #' spp_spatial_sd = true_spatial_sd,
 #' spp_spatial_range = true_spatial_range,
 #' mixture_proportion = true_mixprop,

@@ -172,7 +172,7 @@
 #' predict(samfit, newdata = covariate_dat, type = "archetype", se_fit = TRUE) 
 #' 
 #' #' Species-level predictions
-#' predict(samfit,  newdata = covariate_dat, type = "species_max", num_cores = 8, se_fit = TRUE) 
+#' predict(samfit,  newdata = covariate_dat, type = "species_max", num_cores = 6, se_fit = TRUE) 
 #'  
 #' }
 #' 
