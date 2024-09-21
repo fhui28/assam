@@ -3,7 +3,7 @@
 #' @description
 #' `r lifecycle::badge("experimental")`
 #' 
-#' Takes a fitted \code{assam} object and produces predictions given (potentially) a new set of observational units with their corresponding covariates. Predictions can be accompanied by uncertainty intervals. 
+#' Takes a fitted \code{assam} object and produces predictions given potentially a new set of observational units with their corresponding covariates. Predictions can be accompanied by uncertainty intervals. 
 #' 
 #' @param object An object of class \code{assam}.
 #' @param newdata A data frame containing the values of the covariates at which predictions are to be calculated, that is, a model matrix from this and \code{object$formula}.
@@ -18,12 +18,17 @@
 #' @param ... Not used.
 #' 
 #' @details 
-#' Uncertainty intervals produced by \code{predict.assam} are based on the bootstrapped parameter estimates, if available from the \code{object} itself. That is, predictions are constructed using the bootstrapped estimates and then quantiles as appropriate as used to construct the uncertainty intervals. **Note particularly with asSAMs including species-specific spatial fields, there is no general guarantee that the point prediction necessarily falls inside the corresponding uncertainty intervals constructing using this approach.**
+#' The standard point predictor given is constructed based on the asSAM estimates, along with predictions of the species-specific spatial fields if required. If 
+#' bootstrapped parameter estimates are also available and \code{se_fit = TRUE}, then two additional point predictors are available, based on the median and mean of the bootstrap predictions. **In our experience, we tend to find that bootstrap median predictor can often be the most stable and accurate, especially if species-specific spatial fields are included in the asSAM**.
+#' 
+#' Uncertainty intervals produced by \code{predict.assam} are based on the bootstrapped parameter estimates, if available from the \code{object} itself. That is, predictions are constructed using the bootstrapped estimates and then quantiles as appropriate as used to construct the uncertainty intervals. Note particularly with asSAMs including species-specific spatial fields, there is **no general guarantee the standard point predictor necessarily falls inside the corresponding uncertainty intervals constructing using this approach.** This is less of a problem with the bootstrap median/mean predictors though. 
 #' 
 #' Note archetypal predictions are constructed on the scale of the linear predictions, while species-specific predictions are constructed on the scale of the responses. The latter is analogous to what is available from [fitted.assam()]. 
 #' 
 #' @return If \code{se_fit = FALSE}, then a matrix of point predictions. If \code{se_fit = TRUE}, then a list with the following components is returned:
 #' \item{point_prediction:}{A matrix of predicted values.}
+#' \item{bootstrap_median_prediction:}{A matrix of predicted values based on the median of the bootstrap predictions.}
+#' \item{bootstrap_mean_prediction:}{A matrix of predicted values based on the mean of the bootstrap predictions.}
 #' \item{lower:}{A matrix of the lower limits for the uncertainty intervals.}
 #' \item{upper:}{A matrix of the upper limits for the uncertainty intervals.}
 #' 
@@ -100,7 +105,7 @@
 #' @importFrom doParallel registerDoParallel
 #' @importFrom sdmTMB sdmTMB
 #' @importFrom parallel detectCores
-#' @importFrom stats as.formula model.matrix predict
+#' @importFrom stats as.formula model.matrix predict median
 #' @importFrom TMB MakeADFun sdreport
 #' @md
 
@@ -146,7 +151,7 @@ predict.assam <- function(object,
 
         
     ##-----------------------
-    #' # Construct X and associated point predictions
+    #' # Construct X and associated point predictions -- Parallelized across archetypes
     ##-----------------------
     if(type == "archetype") {
         tmp_formula <- as.formula(paste("response", paste(as.character(object$formula),collapse = " ") ) )
@@ -198,12 +203,15 @@ predict.assam <- function(object,
 
         
     ##-----------------------
-    #' # Uncertainty quantification
+    #' # Uncertainty quantification -- Parallelized across bootstrap datasets
     ##-----------------------
     if(se_fit) {
         message("Using bootstrap samples to construct uncertainty quantification for predictions...this will take a while so go a brew a cup of tea (or two)!")
+        make_pred_tmb_data <- NULL
+        if(type %in% c("species_max", "species_mean"))
+            make_pred_tmb_data <- lapply(1:num_spp, function(l) predict(object$sdmTMB_fits[[l]], newdata = newdata, return_tmb_object = TRUE)$pred_tmb_data)
         
-        construction_predictions_per_bootstrap <- function(k0, newdata, newoffset) {
+        construction_predictions_per_bootstrap <- function(k0, newdata, newoffset, pred_tmb_data) {
             if(type == "archetype") {
                 cw_bootstrap_parameters <- object$bootstrap_parameters[k0,]
                 cw_spp_intercepts <- cw_bootstrap_parameters[grep("spp_intercept", names(cw_bootstrap_parameters))]
@@ -224,13 +232,13 @@ predict.assam <- function(object,
                 all_spp_mu <- .predict_eta_sdmTMB_bootstrap(object = object, 
                                                             newdata = newdata, 
                                                             newoffset = newoffset, 
-                                                            k0 = k0)
+                                                            k0 = k0,
+                                                            pred_tmb_data = pred_tmb_data)
                 all_spp_mu <- object$family$linkinv(all_spp_mu)
                 
                 if(type == "species_max") {
                     pt_pred <- sapply(1:num_spp, function(j) all_spp_mu[,j,which.max(object$bootstrap_posterior_probability[j,,k0])])
                     }
-                
                 if(type == "species_mean") {
                     pt_pred <- sapply(1:num_spp, function(j) rowSums(matrix(object$bootstrap_posterior_probability[j,,k0], nrow = num_units, ncol = object$num_archetypes, byrow = TRUE) * all_spp_mu[,j,]))
                     }
@@ -242,26 +250,31 @@ predict.assam <- function(object,
             return(pt_pred)
             }
         
-        all_predictions <- foreach(l = 1:nrow(object$bootstrap_parameters)) %dopar% construction_predictions_per_bootstrap(k0 = l, newdata = newdata, newoffset = newoffset)
+        all_predictions <- foreach(l = 1:nrow(object$bootstrap_parameters)) %dopar% construction_predictions_per_bootstrap(k0 = l, newdata = newdata, newoffset = newoffset, pred_tmb_data = make_pred_tmb_data)
         all_predictions <- abind::abind(all_predictions, along = 3)
         gc()
+        rm(make_pred_tmb_data)
         
         ci_alpha <- (1 - coverage)/2
         quantile_predictions <- apply(all_predictions, c(1,2), collapse::fquantile, probs = c(ci_alpha, 1 - ci_alpha))
+        median_predictions <- apply(all_predictions, c(1,2), median, na.rm = TRUE)
+        mean_predictions <- apply(all_predictions, c(1,2), mean, na.rm = TRUE)
         lower_predictions <- quantile_predictions[1,,]
         upper_predictions <- quantile_predictions[2,,]
         rm(quantile_predictions)
         
         if(type == "archetype") {
-            rownames(lower_predictions) <- rownames(upper_predictions) <- rownames(newdata)
-            colnames(lower_predictions) <- colnames(upper_predictions) <- names(object$mixture_proportion)
+            rownames(lower_predictions) <- rownames(upper_predictions) <- rownames(median_predictions) <- rownames(mean_predictions) <- rownames(newdata)
+            colnames(lower_predictions) <- colnames(upper_predictions) <- colnames(median_predictions) <- colnames(mean_predictions) <- names(object$mixture_proportion)
             }
         if(type %in% c("species_max", "species_mean")) {
-            rownames(lower_predictions) <- rownames(upper_predictions) <- rownames(newdata)
-            colnames(lower_predictions) <- colnames(upper_predictions) <- names(object$spp_intercepts)
+            rownames(lower_predictions) <- rownames(upper_predictions) <- rownames(median_predictions) <- rownames(mean_predictions) <- rownames(newdata)
+            colnames(lower_predictions) <- colnames(upper_predictions) <- colnames(median_predictions) <- colnames(mean_predictions) <- names(object$spp_intercepts)
             }
         
         return(list(point_prediction = pt_pred, 
+                    bootstrap_median_prediction = median_predictions,
+                    bootstrap_mean_prediction = mean_predictions,
                     lower = lower_predictions,
                     upper = upper_predictions))
         }
@@ -278,8 +291,7 @@ predict.assam <- function(object,
     num_spp <- length(object$spp_intercepts)
     
     out <- NULL    
-    make_pred_tmb_data <- predict(object$sdmTMB_fits[[1]], newdata = newdata, return_tmb_object = TRUE)$pred_tmb_data ## Assume this is the same across all species...do not see any reason why it should not be?!
-    
+
     for(l1 in 1:length(object$spp_intercepts)) {
         #' Set up new parameters as per the asSAM
         use_pars <- .get_pars2(object = object$sdmTMB_fits[[l1]])
@@ -312,7 +324,7 @@ predict.assam <- function(object,
             }
         
         #' Construct new TMB object
-        new_tmb_obj <- TMB::MakeADFun(data = make_pred_tmb_data,
+        new_tmb_obj <- TMB::MakeADFun(data = predict(object$sdmTMB_fits[[l1]], newdata = newdata, return_tmb_object = TRUE)$pred_tmb_data, #make_pred_tmb_data,
                                       profile = object$sdmTMB_fits[[l1]]$control$profile,
                                       parameters = use_pars,
                                       map = use_map,
@@ -336,7 +348,7 @@ predict.assam <- function(object,
 # The sdmTMB object is extracted and then manipulated into a new TMB object fixed at the asSAM parameter estimates. This is then used as the basis for prediction
 #' @noMd
 #' @noRd
-.predict_eta_sdmTMB_bootstrap <- function(object, newdata, newoffset, k0) {
+.predict_eta_sdmTMB_bootstrap <- function(object, newdata, newoffset, k0, pred_tmb_data) {
     num_units <- nrow(newdata)
     num_spp <- length(object$spp_intercepts)
     
@@ -356,10 +368,11 @@ predict.assam <- function(object,
     
     
     out <- array(NA, dim = c(num_units, num_spp, object$num_archetypes))
-    make_tmb_pred_data <-predict(object$sdmTMB_fits[[1]], newdata = newdata, return_tmb_object = TRUE)$pred_tmb_data
     
-    for(l0 in 1:object$num_archetypes) {
-        for(l1 in 1:length(object$spp_intercepts)) {
+    for(l1 in 1:length(object$spp_intercepts)) {
+        for(l0 in 1:object$num_archetypes) {
+            message("Onto archetype: ", l0, "\t species: ", l1)
+        
             #' Set up new parameters as per the asSAM
             use_pars <- .get_pars2(object = object$sdmTMB_fits[[l1]])
             use_pars[["b_j"]] <- c(cw_spp_intercepts[l1], cw_betas[l0,])
@@ -378,7 +391,7 @@ predict.assam <- function(object,
             if(any(use_pars[["ln_kappa"]] < -30)) use_pars[["ln_kappa"]] <- matrix(-30, nrow = 2, ncol = 1)
             if(any(use_pars[["ln_kappa"]] > 30)) use_pars[["ln_kappa"]] <- matrix(30, nrow = 2, ncol = 1)
             
-            #' Set up new MAP to constrain all parameters at asSAM estimates
+            #' Set up new map to constrain all parameters at asSAM estimates
             use_map <- object$sdmTMB_fits[[l1]]$tmb_map
             use_map$b_j <- as.factor(rep(NA, length(use_pars[["b_j"]])))
             if(object$family$family[1] %in% c("Beta", "gaussian", "Gamma", "nbinom2", "tweedie"))
@@ -392,7 +405,7 @@ predict.assam <- function(object,
         
             
             #' Construct new TMB object
-            new_tmb_obj <- TMB::MakeADFun(data = make_tmb_pred_data,
+            new_tmb_obj <- TMB::MakeADFun(data = pred_tmb_data[[l1]],
                                           profile = object$sdmTMB_fits[[l1]]$control$profile,
                                           parameters = use_pars,
                                           map = use_map,
@@ -406,10 +419,14 @@ predict.assam <- function(object,
             
             out[,l1,l0] <- r$proj_eta[,1]
             } 
-        
-        if(!is.null(newoffset))
+        }
+    
+    
+    if(!is.null(newoffset)) {
+        for(l0 in 1:object$num_archetypes)
             out[,,l0] <- out[,,l0] + newoffset
         }
+    
     
     return(out)
     }

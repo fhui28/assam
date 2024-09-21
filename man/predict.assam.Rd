@@ -38,16 +38,21 @@ If \code{type = "species_mean"}, then species-specific predictions on the scale 
 \value{
 If \code{se_fit = FALSE}, then a matrix of point predictions. If \code{se_fit = TRUE}, then a list with the following components is returned:
 \item{point_prediction:}{A matrix of predicted values.}
+\item{bootstrap_median_prediction:}{A matrix of predicted values based on the median of the bootstrap predictions.}
+\item{bootstrap_mean_prediction:}{A matrix of predicted values based on the mean of the bootstrap predictions.}
 \item{lower:}{A matrix of the lower limits for the uncertainty intervals.}
 \item{upper:}{A matrix of the upper limits for the uncertainty intervals.}
 }
 \description{
 \ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
 
-Takes a fitted \code{assam} object and produces predictions given (potentially) a new set of observational units with their corresponding covariates. Predictions can be accompanied by uncertainty intervals.
+Takes a fitted \code{assam} object and produces predictions given potentially a new set of observational units with their corresponding covariates. Predictions can be accompanied by uncertainty intervals.
 }
 \details{
-Uncertainty intervals produced by \code{predict.assam} are based on the bootstrapped parameter estimates, if available from the \code{object} itself. That is, predictions are constructed using the bootstrapped estimates and then quantiles as appropriate as used to construct the uncertainty intervals. \strong{Note particularly with asSAMs including species-specific spatial fields, there is no general guarantee that the point prediction necessarily falls inside the corresponding uncertainty intervals constructing using this approach.}
+The standard point predictor given is constructed based on the asSAM estimates, along with predictions of the species-specific spatial fields if required. If
+bootstrapped parameter estimates are also available and \code{se_fit = TRUE}, then two additional point predictors are available, based on the median and mean of the bootstrap predictions. \strong{In our experience, we tend to find that bootstrap median predictor can often be the most stable and accurate, especially if species-specific spatial fields are included in the asSAM}.
+
+Uncertainty intervals produced by \code{predict.assam} are based on the bootstrapped parameter estimates, if available from the \code{object} itself. That is, predictions are constructed using the bootstrapped estimates and then quantiles as appropriate as used to construct the uncertainty intervals. Note particularly with asSAMs including species-specific spatial fields, there is \strong{no general guarantee the standard point predictor necessarily falls inside the corresponding uncertainty intervals constructing using this approach.} This is less of a problem with the bootstrap median/mean predictors though.
 
 Note archetypal predictions are constructed on the scale of the linear predictions, while species-specific predictions are constructed on the scale of the responses. The latter is analogous to what is available from \code{\link[=fitted.assam]{fitted.assam()}}.
 }
