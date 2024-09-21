@@ -8,7 +8,7 @@
 #' @param x An object of class \code{assam}.
 #' @param ... Not used.
 #'
-#' @details 
+#' @details
 #' Print out details such as the function call, assumed family/response distribution, number of sites and species, and archetypal response-environment relationship fitted.
 #'
 #' 
@@ -35,6 +35,7 @@ print.assam <- function(x, ...) {
     message("No. of archetypes: ", nrow(x$betas)) 
     message("Archetypal response-environment relationship: ", x$formula) 
     message("Were confident intervals constructed? (TRUE/FALSE): ", x$uncertainty_quantification) 
+    message("Were species-specific spatial fields included? (TRUE/FALSE): ", !is.null(x$mesh))
     message("---") 
     }
 

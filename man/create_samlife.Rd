@@ -8,15 +8,18 @@ create_samlife(
   family = binomial(),
   formula,
   data,
-  override_X = NULL,
   offset = NULL,
   betas,
   spp_intercepts,
   spp_dispparam = NULL,
   spp_powerparam = NULL,
+  mesh = NULL,
+  spp_spatial_sd = NULL,
+  spp_spatial_range = NULL,
   mixture_proportion,
   trial_size = 1,
-  archetype_label = NULL
+  archetype_label = NULL,
+  seed = NULL
 )
 }
 \arguments{
@@ -25,8 +28,6 @@ create_samlife(
 \item{formula}{An object of class "formula", which represents a symbolic description of the model matrix to be created (based on using this argument along with the \code{data} argument). \emph{Note there should be nothing on the left hand side of the "~". It should also include an intercept term.}}
 
 \item{data}{A data frame containing covariate information, from which the model matrix is to be created (based on this argument along with the \code{formula} argument).}
-
-\item{override_X}{Allows the user to directly supply the model matrix instead of having the function infer it from \code{formula} and \code{data}. This may be useful to speed things, especially if this function has to be applied repeatedly. If the argument is supplied, then anything supplied to \code{formula} and \code{data} is ignored.}
 
 \item{offset}{A matrix of offset terms.}
 
@@ -38,11 +39,19 @@ create_samlife(
 
 \item{spp_powerparam}{A vector of species-specific power parameters, to be used for distributions that require one.}
 
+\item{mesh}{Output from \code{\link[sdmTMB:make_mesh]{sdmTMB::make_mesh()}}, from which species-specific spatial fields can be constructed and added to the linear predictor.}
+
+\item{spp_spatial_sd}{A vector of standard deviations corresponding to the species-specific spatial fields. This corresponds to the \eqn{\sigma} parameters described in \href{https://pbs-assess.github.io/sdmTMB/articles/model-description.html#gaussian-random-fields}{sdmTMB's parametrization of Gaussian random fields}.}
+
+\item{spp_spatial_range}{A vector of range parameters corresponding to the species-specific spatial fields. This is equal to \eqn{1/\kappa} where \eqn{\kappa} is described in \href{https://pbs-assess.github.io/sdmTMB/articles/model-description.html#gaussian-random-fields}{sdmTMB's parametrization of Gaussian random fields}.}
+
 \item{mixture_proportion}{A vector of mixture proportions corresponding to the probability of belonging to each archetype.}
 
 \item{trial_size}{Trial sizes to use for binomial distribution. This should equal to a scalar.}
 
 \item{archetype_label}{If desired, the user can manually supply the archetype labels for each species. In this case, \code{mixture_proportion} must still be supplied but is subsequently ignored.}
+
+\item{seed}{A seed that can be set for simulating datasets.}
 }
 \value{
 A list with the following components:
@@ -50,10 +59,11 @@ A list with the following components:
 \item{y:}{The simulated multivariate abundance response matrix.}
 \item{archetype_label:}{A vector of archetype labels for each species.}
 \item{linear_predictor:}{The matrix of linear predictors corresponding to the simulated multivariate abundance response matrix.}
+\item{spatial_fields:}{If applicable, a matrix of species-specific spatial fields.}
 }
 }
 \description{
-\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#stable}{\figure{lifecycle-stable.svg}{options: alt='[Stable]'}}}{\strong{[Stable]}}
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
 
 Simulates multivariate abundance data based on a species archetype model and given the various parameter values as appropriate.
 }
@@ -62,25 +72,27 @@ Simulates multivariate abundance data from a species archetype model (SAM). For 
 
 \deqn{g(\mu_{ij}) = \eta_{ij} = x_i^\top\beta_k,}
 
-where \eqn{g(.)} is a known link function, \eqn{x_i} denotes a vector of predictors for unit \eqn{i} i.e., the \eqn{i}-th row from the created model matrix, \eqn{\beta_k} denotes the corresponding regression coefficients for archetype \eqn{k}. Based on the mean model given above, responses \eqn{y_{ij}} are then simulated from the assumed distribution, using the additional dispersion and power parameters as appropriate.
+where \eqn{g(.)} is a known link function, \eqn{x_i} denotes a vector of predictors for unit \eqn{i} i.e., the \eqn{i}-th row from the created model matrix, \eqn{\beta_k} denotes the corresponding regression coefficients for archetype \eqn{k}. Additionally, species-specific spatial fields can be included in the linear predictor e.g., to account for residual spatial correlation above and beyond that explained by the archetypal responses.
+
+Based on the mean model given above, responses \eqn{y_{ij}} are then simulated from the assumed distribution, using the additional dispersion and power parameters as appropriate.
 
 \subsection{Distributions}{
 
 Currently the following response distributions are permitted:
 \describe{
-\item{\code{betalogitfam()}:}{Beta distribution using a logit link. The corresponding mean-variance relationship is given by \eqn{V = \mu(1-\mu)/(1+\phi)} where \eqn{\mu} denotes the mean and \eqn{\phi} is the dispersion parameter.}
+\item{\code{Beta()}:}{Beta distribution using a logit link. The corresponding mean-variance relationship is given by \eqn{V = \mu(1-\mu)/(1+\phi)} where \eqn{\mu} denotes the mean and \eqn{\phi} is the dispersion parameter.}
 \item{\code{binomial()}:}{Binomial distribution. The corresponding mean-variance relationship is given by \eqn{V = N_{trial}\mu(1-\mu)} where \eqn{\mu} denotes the mean and \eqn{N_{trial}} is the trial size.}
 \item{\code{Gamma()}:}{Gamma distribution, noting only the log link is permitted. The corresponding mean-variance relationship is given by \eqn{V = \phi\mu^2} where \eqn{\mu} denotes the mean and \eqn{\phi} is the dispersion parameter.}
 \item{\code{gaussian()}:}{Gaussian or normal distribution. The corresponding mean-variance relationship is given by \eqn{V = \phi^2}, where \eqn{\phi} is the standard deviation.}
 \item{\code{poisson()}:}{Poisson distribution. The corresponding mean-variance relationship is given by \eqn{V = \mu} where \eqn{\mu} denotes the mean.}
-\item{\code{nb2()}:}{Negative binomial distribution using a log link. The corresponding mean-variance relationship is given by \eqn{V = \mu + \mu^2/\phi} where \eqn{\mu} denotes the mean and \eqn{\phi} is the dispersion parameter.}
-\item{\code{tweedielogfam()}:}{Tweedie distribution using a log link. The corresponding mean-variance relationship is given by \eqn{V = \phi\mu^{\rho}} where \eqn{\mu} denotes the mean, \eqn{\phi} is the dispersion parameter, and \eqn{\rho} is the power parameter.}
+\item{\code{nbinom2()}:}{Negative binomial distribution using a log link. The corresponding mean-variance relationship is given by \eqn{V = \mu + \mu^2/\phi} where \eqn{\mu} denotes the mean and \eqn{\phi} is the dispersion parameter.}
+\item{\code{tweedie()}:}{Tweedie distribution using a log link. The corresponding mean-variance relationship is given by \eqn{V = \phi\mu^{\rho}} where \eqn{\mu} denotes the mean, \eqn{\phi} is the dispersion parameter, and \eqn{\rho} is the power parameter.}
 }
 }
 }
 \examples{
 \dontrun{
-#' ##----------------------
+##----------------------
 # Generate some multivariate abundance data from a SAM
 ##----------------------
 library(tidyverse)
@@ -94,26 +106,36 @@ num_spp <- 80
 num_archetype <- 5
 H <- outer(1:num_X, 1:num_X, "-")
 H <- 0.5^abs(H)
-covariate_dat <- rmvnorm(num_units, sigma = H) \%>\% 
+covariate_dat <- data.frame(x = runif(num_units), y = runif(num_units))
+covariate_dat <- bind_cols(covariate_dat,
+    rmvnorm(num_units, sigma = H) \%>\% 
     as.data.frame \%>\% 
-    rename_with(., .fn = function(x) paste0("covariate", x))
+    rename_with(., .fn = function(x) paste0("covariate", x)))
 rm(H)
 
 true_betas <- runif(num_archetype * num_X, -1, 1) \%>\% matrix(nrow = num_archetype)
-true_intercepts <- runif(num_spp, -3, 0)  
+true_intercepts <- runif(num_spp, -2, 0)  
 true_dispparam <- 1/runif(num_spp, 0, 5) 
 true_powerparam <- runif(num_spp, 1.4, 1.8)
 true_mixprop <- c(0.2, 0.25, 0.3, 0.1, 0.15)
- 
- simdat <- create_samlife(family = nb2(), 
- formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) \%>\% as.formula, 
- data = covariate_dat, 
- betas = true_betas, 
- spp_intercept = true_intercepts, 
- spp_dispparam = true_dispparam, 
- spp_powerparam = true_powerparam, 
- mixture_proportion = true_mixprop)
+true_spatial_sd <- runif(num_spp, 0.2, 1)
+true_spatial_range <- runif(num_spp, 0.1, 0.3)
+
+
+simdat <- create_samlife(family = nbinom2(), 
+formula = paste("~", paste0(colnames(covariate_dat)[-(1:2)], collapse = "+")) \%>\% as.formula, 
+data = covariate_dat, 
+betas = true_betas, 
+spp_intercepts = true_intercepts, 
+spp_dispparam = true_dispparam, 
+spp_powerparam = true_powerparam, 
+mesh = sdmTMB::make_mesh(covariate_dat, xy_cols = c("x", "y"), n_knots = 80),
+spp_spatial_sd = true_spatial_sd,
+spp_spatial_range = true_spatial_range,
+mixture_proportion = true_mixprop,
+seed = 092024)
 }
+
 
 }
 \author{

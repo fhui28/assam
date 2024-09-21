@@ -6,8 +6,9 @@
 #' Simulate multivariate abundance data based on a fitted \code{assam} object.
 #' 
 #' @param object An object of class \code{assam}.
-#' @param data The data frame used as part of the \code{assam} object. This needs to be supplied since currently \code{assam} objects do not save the data to save memory. Having said that, a user can in principle supply a new data frame to \code{data}, all the other arguments and parameter estimates from the \code{assam} object are compatible.
 #' @param nsim A positive integer specifying the number of simulated datasets. Defaults to 1.
+#' @param do_parallel Should parallel computing be used to fit the asSAM. Defaults to \code{TRUE}, and should be kept this way as much as possible as parallel computing is one of the key ingredients in making asSAMs scalable. 
+#' @param num_cores If \code{do_parallel = TRUE}, then this argument controls the number of cores used. Defaults to \code{NULL}, in which case it is set to \code{parallel::detectCores() - 2}.
 #' @param seed An integer to set seed number. Defaults to a random seed number.
 #' @param ... Not used.
 #' 
@@ -18,7 +19,7 @@
 #' 
 #' where \eqn{g(.)} is a known link function, \eqn{x_i} denotes a vector of predictors for unit \eqn{i} i.e., the \eqn{i}-th row from the created model matrix, \eqn{\beta_k} denotes the corresponding regression coefficients for archetype \eqn{k}. Based on the mean model given above, responses \eqn{y_{ij}} are then simulated from the assumed distribution, using the additional dispersion and power parameters as appropriate.
 #' 
-#' @return A matrix with two rows and \code{nsim} columns, where the first row contains the simulated multivariate abundance response matrix, and the second row contains the vector of archetype labels for each species.
+#' @return A matrix and \code{nsim} columns, where each column contains the output from one run of [create_samlife()].
 #' 
 #' @author Francis K.C. Hui <fhui28@gmail.com>
 #' 
@@ -28,54 +29,71 @@
 #' }
 #' 
 #' @export
+#' @importFrom doParallel registerDoParallel
+#' @importFrom foreach foreach %dopar% %do%
 #' @importFrom stats as.formula plogis
 #' @md
 
 
-simulate.assam <- function(object, data, nsim = 1, seed = NULL, ...) {
+simulate.assam <- function(object, 
+                           nsim = 1, 
+                           do_parallel = TRUE, 
+                           num_cores = NULL, 
+                           seed = NULL, 
+                           ...) {
+    
     if(class(object) != "assam") 
         stop("object must be of class assam.")
-
+    if(is.null(num_cores))
+        registerDoParallel(cores = detectCores() - 2)
+    if(!is.null(num_cores))
+        registerDoParallel(cores = num_cores)
+    
     use_model <- list(family = object$family, 
                      formula = object$formula,
-                     data = data,
+                     data = object$sdmTMB_fits[[1]]$data[,-which(colnames(object$sdmTMB_fits[[1]]$data) == "response")],
                      offset = object$offset,
                      betas = object$betas, 
                      spp_intercepts = object$spp_intercepts, 
                      mixture_proportion = object$mixture_proportion, 
+                     mesh = object$mesh,
+                     spp_spatial_sd = object$spp_nuisance$spatial_SD,
+                     spp_spatial_range = object$spp_nuisance$spatial_range,
                      trial_size = object$trial_size, 
                      spp_dispparam = NULL, 
                      spp_powerparam = NULL) 
-    if(object$family$family[1] %in% c("beta","negative.binomial","Gamma","gaussian","tweedie"))
+    if(object$family$family[1] %in% c("Beta","nbinom2","Gamma","gaussian","tweedie"))
         use_model$spp_dispparam <- object$spp_nuisance$dispersion
     if(object$family$family[1] %in% c("tweedie"))
         use_model$spp_powerparam <- object$spp_nuisance$power
+    if(!is.null(object$mesh)) {
+        use_model$spp_spatial_sd[!is.finite(use_model$spp_spatial_sd)] <- 1e-6 # This is arbitrary!!!
+        use_model$spp_spatial_sd[use_model$spp_spatial_sd < 1e-6] <- 1e-6
+        use_model$spp_spatial_sd[use_model$spp_spatial_sd > 1e6] <- 1e6
+        use_model$spp_spatial_range[!is.finite(use_model$spp_spatial_range)] <- 1e6 # This is arbitrary!!!
+        use_model$spp_spatial_range[use_model$spp_spatial_range < 1e-6] <- 1e-6
+        use_model$spp_spatial_range[use_model$spp_spatial_range > 1e6] <- 1e6
+        }
     
-    if(!is.null(seed) || length(seed) > 0) 
-        set.seed(seed[1])
+    create_seeds <- NULL
+    if(!is.null(seed))
+        create_seeds <- seed + 1:nsim
+
+    out <- foreach::foreach(l = 1:nsim,
+                            .combine = "cbind") %dopar% create_samlife(family = use_model$family, 
+                                                                    formula = use_model$formula,
+                                                                    data = use_model$data,
+                                                                    betas = use_model$betas, 
+                                                                    spp_intercepts = use_model$spp_intercepts, 
+                                                                    spp_dispparam = use_model$spp_dispparam, 
+                                                                    spp_powerparam = use_model$spp_powerparam, 
+                                                                    mixture_proportion = use_model$mixture_proportion, 
+                                                                    mesh = use_model$mesh,
+                                                                    spp_spatial_sd = use_model$spp_spatial_sd,
+                                                                    spp_spatial_range = use_model$spp_spatial_range,
+                                                                    trial_size = use_model$trial_size,
+                                                                    seed = create_seeds[l])
     
-    
-    formula <- .check_X_formula(formula = use_model$formula, data = as.data.frame(use_model$data))          
-    tmp_formula <- as.formula(paste("response", paste(as.character(formula),collapse = " ") ) )
-    nullfit <- glmmTMB(tmp_formula, 
-                       se = FALSE,
-                       data = data.frame(use_model$data, response = rnorm(nrow(use_model$data)))) #' This may not work in the future if smootihng terms are included, say, due to the standardization that needs to be applied    
-    useX <- model.matrix(nullfit)[,-1] # Remove the intercept term
-    rm(tmp_formula, nullfit)
-    
-    out <- replicate(nsim, 
-                     create_samlife(family = use_model$family, 
-                                    formula = use_model$formula, 
-                                    data = data,
-                                    override_X = useX,
-                                    betas = use_model$betas, 
-                                    spp_intercepts = use_model$spp_intercepts, 
-                                    spp_dispparam = use_model$spp_dispparam, 
-                                    spp_powerparam = use_model$spp_powerparam, 
-                                    mixture_proportion = use_model$mixture_proportion, 
-                                    trial_size = use_model$trial_size))
-    
-    set.seed(NULL)
     return(out)
     }   
 

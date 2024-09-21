@@ -12,16 +12,16 @@ License: GPL (>= 3)
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 NeedsCompilation: no
-URL: https://github.com/fhui28/COQUE
-BugReports: https://github.com/fhui28/COQUE/issues
-RoxygenNote: 7.3.1
+URL: https://github.com/fhui28/assam
+BugReports: https://github.com/fhui28/assam/issues
+RoxygenNote: 7.3.2
 Imports: 
     abind,
     cluster,
     collapse,
     doParallel,
     foreach,
-    glmmTMB,
+    geoR,
     label.switching,
     lifecycle,
     Matrix,
@@ -30,8 +30,10 @@ Imports:
     mgcv,
     parallel,
     quadprog,
+    sdmTMB,
     stats,
     tdigest,
+    TMB,
     tweedie
 Depends: R (>= 4.1.0),
 Suggests: 

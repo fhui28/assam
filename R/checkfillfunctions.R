@@ -1,10 +1,12 @@
 #' @noRd
 #' @noMd
 .fill_control <- function(control) {
-    if(is.null(control$max.iter))
-        control$max.iter <- 500
+    if(is.null(control$max_iter))
+        control$max_iter <- 500
     if(is.null(control$tol))
         control$tol <- 1e-5
+    if(is.null(control$temper_prob))
+        control$temper_prob <- 0.8
     if(is.null(control$trace))
         control$trace <- FALSE
     
@@ -53,5 +55,29 @@
     formula <- formula(paste(termsinformula, collapse = " "))
     
     return(formula)
-}     
+    }     
+
+#' @noRd
+#' @noMd
+.check_spp_spatial_parameters <- function(spp_spatial_range, spp_spatial_sd, mesh, spp_intercepts) {
+    if(!is.null(spp_spatial_range)) {
+        if(is.null(spp_spatial_sd) | is.null(mesh))
+            stop("If species-specific spatial fields are to be included, then mesh, spp_spatial_range, spp_spatial_sd must all be supplied.")
+        if(length(spp_spatial_range) != length(spp_intercepts))
+            stop("Both spp_spatial_range and spp_spatial_sd must be vectors of length equal to length(spp_intercepts).")
+        if(!all(spp_spatial_range > 0))
+            stop("spp_spatial_range must be vectors of strictly positive elements.")
+        }
+    
+    if(!is.null(spp_spatial_sd)) {
+        if(is.null(spp_spatial_range) | is.null(mesh))
+            stop("If species-specific spatial fields are to be included, then mesh, spp_spatial_range, spp_spatial_sd must all be supplied.")
+        if(length(spp_spatial_sd) != length(spp_intercepts))
+            stop("Both spp_spatial_range and spp_spatial_sd must be vectors of length equal to length(spp_intercepts).")
+        if(!all(spp_spatial_sd > 0))
+            stop("spp_spatial_sd must be vectors of strictly positive elements.")
+        }
+    
+    }
+
 

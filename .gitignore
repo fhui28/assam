@@ -1,8 +1,12 @@
+samfitbernoulli_testing.RData
 .Rproj.user
 .Rhistory
 .RData
 .Ruserdata
+<<<<<<< HEAD
 samfitbernoulli_testing.RData
+=======
+>>>>>>> f0692149bb25246441d4217da7e354d7bb18600b
 R/notes_manualpredictionlearningfromsdmTMB.R
 R/note_comparingsdmfittomgcv.R
 R/note_comparetoecomix.R
