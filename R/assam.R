@@ -149,7 +149,7 @@
 #' rbind(true_betas, samfit$betas) %>% 
 #' t %>% 
 #' as.data.frame %>%
-#' ggpairs
+#' GGally::ggpairs(.)
 #' table(simdat$archetype_label, apply(samfit$posterior_probability, 1, which.max))
 #' 
 #'  
@@ -172,7 +172,7 @@
 #' predict(samfit, newdata = covariate_dat, type = "archetype", se_fit = TRUE) 
 #' 
 #' #' Species-level predictions
-#' predict(samfit,  newdata = covariate_dat, type = "species_max", num_cores = 8, se_fit = TRUE) 
+#' predict(samfit,  newdata = covariate_dat, type = "species_max", num_cores = 6, se_fit = TRUE) 
 #'  
 #' }
 #' 
@@ -233,8 +233,8 @@ assam <- function(y,
         offset <- matrix(0, nrow = nrow(y), ncol = ncol(y))
     formula <- .check_X_formula(formula = formula, data = as.data.frame(data))     
     tmp_formula <- as.formula(paste("response", paste(as.character(formula),collapse = " ") ) )
-    nullfit <- sdmTMB(tmp_formula, #' Currently not even sure you need this...at least it is not needed for spatial models!
-                      spatial = FALSE, 
+    nullfit <- sdmTMB(tmp_formula,
+                      spatial = FALSE,
                       data = data.frame(data, response = rnorm(nrow(data))))
     X <- model.matrix(nullfit$formula[[1]], data = nullfit$data)[,-1] # Remove the intercept term
     num_X <- ncol(X)
@@ -539,7 +539,7 @@ assam <- function(y,
 
         find_errors <- which(sapply(bootrun, function(x) inherits(x, "try-error")))
         if(length(find_errors) > 0) {
-            warning("Bootstrapped datasets ", find_errors, " had problems during fitting, and subsequently ignored...\nIf the number of datasets with fitting problems is large, it may point to deeper issues with the asSAM itself.")
+            warning("Bootstrap datasets #", find_errors, " encountered problems during fitting, and are subsequently ignored...\nIf the number of datasets with fitting problems is large, it may point to deeper issues with the asSAM itself.")
             bootrun <- bootrun[-find_errors]
             }
         rm(find_errors)
@@ -557,7 +557,12 @@ assam <- function(y,
             #bootrun[[k0]]$post_prob <- bootrun[[k0]]$post_prob[,switch_labels[k0,]] #' Not actually used later on so omit!
 
             #' A vector of all parameters ordered in the same way as the columns of the mapping matrix, plus the mixture proportions
-            bootrun[[k0]]$boot_params <- c(bootrun[[k0]]$new_spp_intercept, 
+            if(num_nuisance_perspp == 0)
+                bootrun[[k0]]$boot_params <- c(bootrun[[k0]]$new_spp_intercept, 
+                                               as.vector(t(bootrun[[k0]]$new_betas)), 
+                                               bootrun[[k0]]$new_mixprop)
+            if(num_nuisance_perspp > 0)
+                bootrun[[k0]]$boot_params <- c(bootrun[[k0]]$new_spp_intercept, 
                                            as.vector(t(bootrun[[k0]]$new_betas)), 
                                            as.vector(unlist(t(bootrun[[k0]]$new_nuisance))), # Note untransformed parameters passed here as this is what comes out of EM alg
                                            bootrun[[k0]]$new_mixprop)

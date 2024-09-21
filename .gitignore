@@ -5,4 +5,5 @@ samfitbernoulli_testing.RData
 .Ruserdata
 R/notes_manualpredictionlearningfromsdmTMB.R
 R/note_comparingsdmfittomgcv.R
+R/note_comparetoecomix.R
 R/notes.R
