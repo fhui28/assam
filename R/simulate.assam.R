@@ -29,7 +29,7 @@
 #' }
 #' 
 #' @export
-#' @importFrom doParallel registerDoParallel
+#' @importFrom doParallel registerDoParallel stopImplicitCluster
 #' @importFrom foreach foreach %dopar% %do%
 #' @importFrom stats as.formula plogis
 #' @md
@@ -44,10 +44,12 @@ simulate.assam <- function(object,
     
     if(class(object) != "assam") 
         stop("object must be of class assam.")
-    if(is.null(num_cores))
-        registerDoParallel(cores = detectCores() - 2)
-    if(!is.null(num_cores))
-        registerDoParallel(cores = num_cores)
+    if(do_parallel) {
+        if(is.null(num_cores))
+            registerDoParallel(cores = detectCores() - 2)
+        if(!is.null(num_cores))
+            registerDoParallel(cores = num_cores)
+        }
     
     use_model <- list(family = object$family, 
                      formula = object$formula,
@@ -79,21 +81,38 @@ simulate.assam <- function(object,
     if(!is.null(seed))
         create_seeds <- seed + 1:nsim
 
-    out <- foreach::foreach(l = 1:nsim,
-                            .combine = "cbind") %dopar% create_samlife(family = use_model$family, 
-                                                                    formula = use_model$formula,
-                                                                    data = use_model$data,
-                                                                    betas = use_model$betas, 
-                                                                    spp_intercepts = use_model$spp_intercepts, 
-                                                                    spp_dispparam = use_model$spp_dispparam, 
-                                                                    spp_powerparam = use_model$spp_powerparam, 
-                                                                    mixture_proportion = use_model$mixture_proportion, 
-                                                                    mesh = use_model$mesh,
-                                                                    spp_spatial_sd = use_model$spp_spatial_sd,
-                                                                    spp_spatial_range = use_model$spp_spatial_range,
-                                                                    trial_size = use_model$trial_size,
-                                                                    seed = create_seeds[l])
+    if(do_parallel)
+        out <- foreach::foreach(l = 1:nsim,
+                                .combine = "cbind") %dopar% create_samlife(family = use_model$family, 
+                                                                        formula = use_model$formula,
+                                                                        data = use_model$data,
+                                                                        betas = use_model$betas, 
+                                                                        spp_intercepts = use_model$spp_intercepts, 
+                                                                        spp_dispparam = use_model$spp_dispparam, 
+                                                                        spp_powerparam = use_model$spp_powerparam, 
+                                                                        mixture_proportion = use_model$mixture_proportion, 
+                                                                        mesh = use_model$mesh,
+                                                                        spp_spatial_sd = use_model$spp_spatial_sd,
+                                                                        spp_spatial_range = use_model$spp_spatial_range,
+                                                                        trial_size = use_model$trial_size,
+                                                                        seed = create_seeds[l])
+    if(!do_parallel)
+        out <- foreach::foreach(l = 1:nsim,
+                                .combine = "cbind") %do% create_samlife(family = use_model$family, 
+                                                                           formula = use_model$formula,
+                                                                           data = use_model$data,
+                                                                           betas = use_model$betas, 
+                                                                           spp_intercepts = use_model$spp_intercepts, 
+                                                                           spp_dispparam = use_model$spp_dispparam, 
+                                                                           spp_powerparam = use_model$spp_powerparam, 
+                                                                           mixture_proportion = use_model$mixture_proportion, 
+                                                                           mesh = use_model$mesh,
+                                                                           spp_spatial_sd = use_model$spp_spatial_sd,
+                                                                           spp_spatial_range = use_model$spp_spatial_range,
+                                                                           trial_size = use_model$trial_size,
+                                                                           seed = create_seeds[l])
     
+    #doParallel::stopImplicitCluster()
     return(out)
     }   
 
