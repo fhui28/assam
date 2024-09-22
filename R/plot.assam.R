@@ -140,8 +140,7 @@ plot.assam <- function(x,
             abline(0, 0, col = "grey", lty = 3)
             }
         
-        if(smooth) 
-            .gamEnvelope(etamat, dsres, col = rep(col, each = num_units), envelopes = TRUE, envelope.col = envelope_col, ...)
+        .gamEnvelope(etamat, dsres, col = rep(col, each = num_units), envelopes = TRUE, envelope.col = envelope_col, ...)
         
         }
     
