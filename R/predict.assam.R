@@ -98,7 +98,7 @@
 #' 
 #' @export
 #' 
-#' @importFrom foreach foreach %dopar%
+#' @importFrom foreach foreach %dopar% %:%
 #' @import Matrix
 #' @importFrom abind abind
 #' @importFrom collapse fquantile
@@ -107,6 +107,7 @@
 #' @importFrom parallel detectCores
 #' @importFrom stats as.formula model.matrix predict median
 #' @importFrom TMB MakeADFun sdreport
+#' @importFrom utils setTxtProgressBar txtProgressBar
 #' @md
 
     
@@ -247,13 +248,16 @@ predict.assam <- function(object,
                 colnames(pt_pred) <- names(object$spp_intercepts)
                 }
             
+            setTxtProgressBar(pb, k0)
             return(pt_pred)
             }
         
-        all_predictions <- foreach(l = 1:nrow(object$bootstrap_parameters)) %dopar% construction_predictions_per_bootstrap(k0 = l, newdata = newdata, newoffset = newoffset, pred_tmb_data = make_pred_tmb_data)
+        pb <- txtProgressBar(min = 0, max = nrow(object$bootstrap_parameters), style = 3)
+        all_predictions <- foreach(l = 1:nrow(object$bootstrap_parameters)) %do% construction_predictions_per_bootstrap(k0 = l, newdata = newdata, newoffset = newoffset, pred_tmb_data = make_pred_tmb_data)
         all_predictions <- abind::abind(all_predictions, along = 3)
         gc()
-        rm(make_pred_tmb_data)
+        close(pb) 
+        rm(pb, make_pred_tmb_data)
         
         ci_alpha <- (1 - coverage)/2
         quantile_predictions <- apply(all_predictions, c(1,2), collapse::fquantile, probs = c(ci_alpha, 1 - ci_alpha))
@@ -366,67 +370,69 @@ predict.assam <- function(object,
         cw_ln_tau_O <- cw_bootstrap_parameters[grep("ln_tau_O", names(cw_bootstrap_parameters))] 
         }
     
+    do_fn <- function(l0, l1) {
+        #' Set up new parameters as per the asSAM
+        use_pars <- .get_pars2(object = object$sdmTMB_fits[[l1]])
+        use_pars[["b_j"]] <- c(cw_spp_intercepts[l1], cw_betas[l0,])
+        if(object$family$family[1] %in% c("Beta", "gaussian", "Gamma", "nbinom2", "tweedie")) 
+            use_pars[["ln_phi"]] <- cw_ln_phi[l1]
+        if(object$family$family[1] == "tweedie") 
+            use_pars[["thetaf"]] <- cw_thetaf[l1]
+        if(!is.null(object$mesh)) {
+            use_pars[["ln_kappa"]] <- matrix(cw_ln_kappa[l1], nrow = 2, ncol = 1) # This has two rows as set up as sdmTMB
+            use_pars[["ln_tau_O"]] <- cw_ln_tau_O[l1]
+            }
+        
+        #' Truncate spatial parameters that are very large in magnitude 
+        if(use_pars[["ln_tau_O"]] < -30) use_pars[["ln_tau_O"]] <- -30
+        if(use_pars[["ln_tau_O"]] > 30) use_pars[["ln_tau_O"]] <- 30
+        if(any(use_pars[["ln_kappa"]] < -30)) use_pars[["ln_kappa"]] <- matrix(-30, nrow = 2, ncol = 1)
+        if(any(use_pars[["ln_kappa"]] > 30)) use_pars[["ln_kappa"]] <- matrix(30, nrow = 2, ncol = 1)
+        
+        #' Set up new map to constrain all parameters at asSAM estimates
+        use_map <- object$sdmTMB_fits[[l1]]$tmb_map
+        use_map$b_j <- as.factor(rep(NA, length(use_pars[["b_j"]])))
+        if(object$family$family[1] %in% c("Beta", "gaussian", "Gamma", "nbinom2", "tweedie"))
+            use_map$ln_phi <- as.factor(NA)
+        if(object$family$family[1] == "tweedie") 
+            use_map$thetaf <- as.factor(NA)
+        if(!is.null(object$mesh)) {
+            use_map$ln_tau_O <- as.factor(NA)
+            use_map$ln_kappa <- as.factor(matrix(NA, 2, 1)) 
+            }
     
-    out <- array(NA, dim = c(num_units, num_spp, object$num_archetypes))
+        
+        #' Construct new TMB object
+        new_tmb_obj <- TMB::MakeADFun(data = pred_tmb_data[[l1]],
+                                      profile = object$sdmTMB_fits[[l1]]$control$profile,
+                                      parameters = use_pars,
+                                      map = use_map,
+                                      random = object$sdmTMB_fits[[l1]]$tmb_random,
+                                      DLL = "sdmTMB",
+                                      silent = TRUE)
     
-    for(l1 in 1:length(object$spp_intercepts)) {
-        for(l0 in 1:object$num_archetypes) {
-            message("Onto archetype: ", l0, "\t species: ", l1)
+        new_tmb_obj$fn(new_tmb_obj$par) # need to initialize the new TMB object once
+        new_tmb_sdreport <- TMB::sdreport(new_tmb_obj, par.fixed = new_tmb_obj$par) # Update random effects
+        r <- new_tmb_obj$report(new_tmb_obj$env$last.par) # last.par taken since it is the newest set of parameters
         
-            #' Set up new parameters as per the asSAM
-            use_pars <- .get_pars2(object = object$sdmTMB_fits[[l1]])
-            use_pars[["b_j"]] <- c(cw_spp_intercepts[l1], cw_betas[l0,])
-            if(object$family$family[1] %in% c("Beta", "gaussian", "Gamma", "nbinom2", "tweedie")) 
-                use_pars[["ln_phi"]] <- cw_ln_phi[l1]
-            if(object$family$family[1] == "tweedie") 
-                use_pars[["thetaf"]] <- cw_thetaf[l1]
-            if(!is.null(object$mesh)) {
-                use_pars[["ln_kappa"]] <- matrix(cw_ln_kappa[l1], nrow = 2, ncol = 1) # This has two rows as set up as sdmTMB
-                use_pars[["ln_tau_O"]] <- cw_ln_tau_O[l1]
-                }
-            
-            #' Truncate spatial parameters that are very large in magnitude 
-            if(use_pars[["ln_tau_O"]] < -30) use_pars[["ln_tau_O"]] <- -30
-            if(use_pars[["ln_tau_O"]] > 30) use_pars[["ln_tau_O"]] <- 30
-            if(any(use_pars[["ln_kappa"]] < -30)) use_pars[["ln_kappa"]] <- matrix(-30, nrow = 2, ncol = 1)
-            if(any(use_pars[["ln_kappa"]] > 30)) use_pars[["ln_kappa"]] <- matrix(30, nrow = 2, ncol = 1)
-            
-            #' Set up new map to constrain all parameters at asSAM estimates
-            use_map <- object$sdmTMB_fits[[l1]]$tmb_map
-            use_map$b_j <- as.factor(rep(NA, length(use_pars[["b_j"]])))
-            if(object$family$family[1] %in% c("Beta", "gaussian", "Gamma", "nbinom2", "tweedie"))
-                use_map$ln_phi <- as.factor(NA)
-            if(object$family$family[1] == "tweedie") 
-                use_map$thetaf <- as.factor(NA)
-            if(!is.null(object$mesh)) {
-                use_map$ln_tau_O <- as.factor(NA)
-                use_map$ln_kappa <- as.factor(matrix(NA, 2, 1)) 
-                }
-        
-            
-            #' Construct new TMB object
-            new_tmb_obj <- TMB::MakeADFun(data = pred_tmb_data[[l1]],
-                                          profile = object$sdmTMB_fits[[l1]]$control$profile,
-                                          parameters = use_pars,
-                                          map = use_map,
-                                          random = object$sdmTMB_fits[[l1]]$tmb_random,
-                                          DLL = "sdmTMB",
-                                          silent = TRUE)
-        
-            new_tmb_obj$fn(new_tmb_obj$par) # need to initialize the new TMB object once
-            new_tmb_sdreport <- TMB::sdreport(new_tmb_obj, par.fixed = new_tmb_obj$par) # Update random effects
-            r <- new_tmb_obj$report(new_tmb_obj$env$last.par) # last.par taken since it is the newest set of parameters
-            
-            out[,l1,l0] <- r$proj_eta[,1]
-            } 
+        #out[,l1,l0] <- r$proj_eta[,1]
+        return(r$proj_eta[,1]) 
         }
     
+    #' Nested foreach loops used here -- Not sure this saves that much time compared to doing foreach at the bootstrap dataset level but whatever...
+    out <- foreach(l2 = 1:length(object$spp_intercepts)) %:% 
+        foreach(l0 = 1:object$num_archetypes, .combine = "cbind") %dopar% {
+            do_fn(l0 = l0, l1 = l2)
+        } 
     
+    out <- abind::abind(out, along = 1.5)
+    
+
     if(!is.null(newoffset)) {
         for(l0 in 1:object$num_archetypes)
             out[,,l0] <- out[,,l0] + newoffset
         }
-    
+
     
     return(out)
     }
