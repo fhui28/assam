@@ -161,18 +161,18 @@
 #' 
 #' fitted(samfit)
 #'  
-#' simulate(samfit)
+#' simulate(samfit, data = covariate_dat)
 #' 
 #' residuals(samfit, type = "dunnsmyth")
 #'  
 #' #' Basic residual analysis
-#' plot(samfit, y = simdat$y, transform_fitted_values = TRUE)
+#' plot(samfit, transform_fitted_values = TRUE)
 #'  
 #' #' Archetype-level predictions
 #' predict(samfit, newdata = covariate_dat, type = "archetype", se_fit = TRUE) 
 #' 
 #' #' Species-level predictions
-#' predict(samfit,  newdata = covariate_dat, type = "species_max", num_cores = 6, se_fit = TRUE) 
+#' predict(samfit,  newdata = covariate_dat, type = "species_max", num_cores = 8, se_fit = TRUE) 
 #'  
 #' }
 #' 
@@ -207,7 +207,7 @@ assam <- function(y,
                   uncertainty_quantification = TRUE, 
                   control = list(max_iter = 500, tol = 1e-5, temper_prob = 0.8, trace = FALSE),
                   bootstrap_control = list(num_boot = 100, ci_alpha = 0.05, seed = NULL, ci_type = "percentile")) {
-
+    
     
     ##----------------
     # Checks and balances
@@ -223,10 +223,11 @@ assam <- function(y,
     if(is.null(rownames(y)))
         rownames(y) <- paste0("unit", 1:nrow(y))
           
-    if(is.null(num_cores))
+    if(is.null(num_cores)) 
         registerDoParallel(cores = detectCores() - 2)
-    if(!is.null(num_cores))
+    if(!is.null(num_cores)) {
         registerDoParallel(cores = num_cores)
+        }
      
     .check_offset(offset = offset, y = y) 
     if(is.null(offset))
@@ -269,7 +270,7 @@ assam <- function(y,
                              do_parallel = do_parallel) 
     get_qa$long_parameters <- apply(get_qa$parameters, 1, function(x) kronecker(rep(1,num_archetypes), x)) # Repeats species-specific estimates num_archetypes times; object has num_spp columns
     num_nuisance_perspp <- length(get_qa$parameters[1,]) - num_X - 1 # e.g., number of dispersion and power parameter per-species, along with parameters for species-specific spatial fields
-    
+    qa_parameters_colnames <- colnames(get_qa$parameters)
     
     ### Make mapping matrix, maps psi to long_parameters
     #' Psi sequence: species-specific intercepts; archetypal regression coefficients by archetype; species-specific nuisance parameters, along with parameters for species-specific spatial fields
@@ -368,7 +369,7 @@ assam <- function(y,
              new_nuisance <- NULL
              if(num_nuisance_perspp > 0) {
                  new_nuisance <- matrix(new_params[grep("spp_nuisance", names(new_params))], nrow = num_spp, byrow = TRUE)
-                 colnames(new_nuisance) <- colnames(get_qa$parameters)[num_X + 1 + 1:num_nuisance_perspp]  
+                 colnames(new_nuisance) <- qa_parameters_colnames[num_X + 1 + 1:num_nuisance_perspp]  
                  }
              rm(bigW, MtWM)
 
@@ -481,8 +482,14 @@ assam <- function(y,
     out_assam$df <- num_spp*(num_nuisance_perspp + 1) + prod(dim(out_assam$betas)) + (num_archetypes - 1)
     out_assam$control <- control
     out_assam$bootstrap_control <- bootstrap_control
-    out_assam$sdmTMB_fits <- get_qa$sdmTMB_fits
-    gc()
+    if(uncertainty_quantification) {
+        save(get_qa, file = file.path(tempdir(), "allsdmTMBfits.RData")) # Save sdmTMB_fits into a temporary directory and remove it before running bootstrap...saves a lot of memory which in turn speeds up bootstrapping by a lot!
+        rm(get_qa)
+        }
+    if(!uncertainty_quantification) {
+        out_assam$sdmTMB_fits <- get_qa$sdmTMB_fits
+        get_qa$sdmTMB_fits <- NULL
+        }
     
     
     ##----------------
@@ -493,16 +500,17 @@ assam <- function(y,
         message("Performing parametric bootstrap to obtain uncertainty quantification...this will take a while so go a brew a cup of tea (or two)!")
         bootstrap_control$ci_type <- match.arg(bootstrap_control$ci_type, choices = c("percentile", "expanded")) 
         
-        #' ## Bootstrap datasets -- This is *very* slow due to to sdmTMB_simulate
+        #' ## Bootstrap datasets
         class(out_assam) <- "assam"
         bootresp <- simulate.assam(out_assam,
+                                   data = data,
                                    nsim = bootstrap_control$num_boot,
-                                   do_parallel = TRUE,
+                                   do_parallel = do_parallel,
                                    num_cores = num_cores,
                                    seed = bootstrap_control$seed)
-        gc()
         
-        #' ## Fit ASSAM to each bootstrapped dataset
+
+        #' ## Fit asSAM to each bootstrapped dataset
         bootcov_fn <- function(b0, control) { 
             ##----------------
             #' ## Construct quadratic approximations for each species in bootstrap dataset, and set up relevant quantities
@@ -517,7 +525,6 @@ assam <- function(y,
                                                do_parallel = do_parallel,
                                                return_fits = FALSE),
                                silent = TRUE)
-            gc()
             if(inherits(get_boot_qa, "try-error"))
                 return(get_boot_qa)
             
@@ -533,7 +540,7 @@ assam <- function(y,
             }          
         
         pb <- txtProgressBar(min = 0, max = bootstrap_control$num_boot, style = 3)
-        bootrun <- lapply(1:bootstrap_control$num_boot, bootcov_fn, control = control) 
+        bootrun <- lapply(1:bootstrap_control$num_boot, bootcov_fn, control = control)
         close(pb) 
         rm(pb)
 
@@ -595,6 +602,10 @@ assam <- function(y,
         
         out_assam$confidence_intervals <- form_cis
         out_assam$bootstrap_parameters <- t(sapply(bootrun, function(x) x$boot_params))
+        load(file = file.path(tempdir(), "allsdmTMBfits.RData"))
+        out_assam$sdmTMB_fits <- get_qa$sdmTMB_fits
+        get_qa$sdmTMB_fits <- NULL
+        file.remove(file.path(tempdir(), "allsdmTMBfits.RData"))
         
         
         #' ## Calculate bootstrapped posterior probabilities of *original species data* belong to each archetype
