@@ -127,13 +127,12 @@ create_samlife <- function(family = binomial(),
                            seed = NULL) {
     
     ##----------------
-    # Checks and balances
+    #' # Checks and balances
     ##----------------
     num_units <- nrow(data)
     num_spp <- length(spp_intercepts)
     num_archetypes <- length(mixture_proportion)
     formula <- .check_X_formula(formula = formula, data = as.data.frame(data))          
-    tmp_formula <- as.formula(paste("response", paste(as.character(formula), collapse = " ")))
     
     if(nrow(betas) != length(mixture_proportion))
         stop("No. of mixing proportions should be equal to the number of rows in betas.")
@@ -156,15 +155,15 @@ create_samlife <- function(family = binomial(),
     do_spatial <- TRUE
     if(is.null(mesh)) {
         do_spatial <- FALSE
-        mesh <- sdmTMB::make_mesh(data, xy_cols = colnames(data)[1:2], n_knots = 20) 
+        #mesh <- sdmTMB::make_mesh(data, xy_cols = colnames(data)[1:2], n_knots = 20) 
         }
-    if(!do_spatial) {
-        spp_spatial_range <- rep(1e-10, num_spp) 
-        spp_spatial_sd <- rep(1e-10, num_spp)
-        }
+    # if(!do_spatial) {
+    #     spp_spatial_range <- rep(1e-10, num_spp) 
+    #     spp_spatial_sd <- rep(1e-10, num_spp)
+    #     }
     
     ##----------------
-    # Simulate data
+    #' # Simulate data
     ##----------------
     get_spatial_fields <- NULL
     resp <- spp_eta <- matrix(0, nrow = num_units, ncol = num_spp)
@@ -176,11 +175,20 @@ create_samlife <- function(family = binomial(),
         archetype_label <- sample(1:num_archetypes, size = num_spp, prob = mixture_proportion, replace = TRUE)
     set.seed(NULL)
     
-
-    # spp_eta <- tcrossprod(cbind(1, X), cbind(spp_intercepts, betas[archetype_label,]))
-    # if(!is.null(offset))
-    #     spp_eta <- spp_eta + offset
-    # 
+    
+    #' ## For non-spatial models, skip using sdmTMB_simulate as it is *much* slower!
+    if(!do_spatial) {
+        tmp_formula <- as.formula(paste("response", paste(as.character(formula), collapse = " ")))
+        nullfit <- sdmTMB(tmp_formula,
+                          spatial = FALSE,
+                          data = data.frame(data, response = rnorm(nrow(data))))
+        X <- model.matrix(nullfit$formula[[1]], data = nullfit$data)[,-1] # Remove the intercept term
+        rm(nullfit)
+        
+        spp_eta <- tcrossprod(cbind(1, X), cbind(spp_intercepts, betas[archetype_label,]))
+        if(!is.null(offset))
+            spp_eta <- spp_eta + offset
+        }
     # get_spatial_fields <- NULL
     # if(!is.null(spp_spatial_sd)) {
     #     for(j in 1:num_spp) {
@@ -202,36 +210,50 @@ create_samlife <- function(family = binomial(),
         if(!is.null(seed))
             cw_seed <- seed + j
         
-        sim_resp <- sdmTMB::sdmTMB_simulate(formula = formula,
-                                            data = data,
-                                            mesh = mesh,
-                                            family = family,
-                                            B = c(spp_intercepts[j], betas[archetype_label[j],]),
-                                            range = sqrt(8) * spp_spatial_range[j],
-                                            sigma_O =  spp_spatial_sd[j],
-                                            tweedie_p = spp_powerparam[j],
-                                            phi = spp_dispparam[j],
-                                            seed = cw_seed)
-
-        resp[,j] <- sim_resp$observed
-        spp_eta[,j] <- sim_resp$eta
-        if(do_spatial)
-            get_spatial_fields <- cbind(get_spatial_fields, sim_resp$omega_s)
-        # if(family$family == "Beta")
-        #     resp[,j] <- rbeta(num_units, shape1 = spp_dispparam[j]*binomial()$linkinv(spp_eta[,j]), shape2 = spp_dispparam[j]*(1-binomial()$linkinv(spp_eta[,j])))
-        # if(family$family == "binomial")
-        #     resp[,j] <- rbinom(num_units, size = trial_size, prob = family$linkinv(spp_eta[,j]))
-        # if(family$family == "gaussian")
-        #     resp[,j] <- rnorm(num_units, mean = family$linkinv(spp_eta[,j]), sd = spp_dispparam[j])
-        # if(family$family == "Gamma")
-        #     resp[,j] <- rgamma(num_units, scale = exp(spp_eta[,j])*spp_dispparam[j], shape = 1/spp_dispparam[j])
-        # if(family$family == "nbinom2")
-        #     resp[,j] <- rnbinom(num_units, mu = exp(spp_eta[,j]), size = spp_dispparam[j])
-        # if(family$family == "poisson")
-        #     resp[,j] <- rpois(num_units, lambda = family$linkinv(spp_eta[,j]))
-        # if(family$family == "tweedie") {
-        #     resp[,j] <- tweedie::rtweedie(num_units, mu = exp(spp_eta[,j]), phi = spp_dispparam[j], power = spp_powerparam[j])
-        #     }
+        if(!do_spatial) {
+            set.seed(cw_seed)
+            
+            if(family$family[1] == "Beta")
+                resp[,j] <- rbeta(num_units, shape1 = spp_dispparam[j]*binomial()$linkinv(spp_eta[,j]), shape2 = spp_dispparam[j]*(1-binomial()$linkinv(spp_eta[,j])))
+            if(family$family[1] == "binomial")
+                resp[,j] <- rbinom(num_units, size = trial_size, prob = family$linkinv(spp_eta[,j]))
+            if(family$family[1] == "gaussian")
+                resp[,j] <- rnorm(num_units, mean = family$linkinv(spp_eta[,j]), sd = spp_dispparam[j])
+            if(family$family[1] == "Gamma")
+                resp[,j] <- rgamma(num_units, scale = exp(spp_eta[,j])*spp_dispparam[j], shape = 1/spp_dispparam[j])
+            if(family$family[1] == "nbinom2")
+                resp[,j] <- rnbinom(num_units, mu = exp(spp_eta[,j]), size = spp_dispparam[j])
+            if(family$family[1] == "poisson")
+                resp[,j] <- rpois(num_units, lambda = family$linkinv(spp_eta[,j]))
+            if(family$family[1] == "tweedie") {
+                resp[,j] <- tweedie::rtweedie(num_units, mu = exp(spp_eta[,j]), phi = spp_dispparam[j], power = spp_powerparam[j])
+                }
+            
+            set.seed(NULL)
+            }
+        
+        if(do_spatial) {
+            make_offset <- NULL
+            if(!is.null(offset))
+                make_offset <- offset[,j]
+            
+            sim_resp <- sdmTMB::sdmTMB_simulate(formula = formula,
+                                                data = data,
+                                                mesh = mesh,
+                                                family = family,
+                                                B = c(spp_intercepts[j], betas[archetype_label[j],]),
+                                                range = sqrt(8) * spp_spatial_range[j],
+                                                sigma_O =  spp_spatial_sd[j],
+                                                tweedie_p = spp_powerparam[j],
+                                                phi = spp_dispparam[j],
+                                                seed = cw_seed,
+                                                offset = make_offset)
+            
+            resp[,j] <- sim_resp$observed
+            spp_eta[,j] <- sim_resp$eta
+            if(do_spatial)
+                get_spatial_fields <- cbind(get_spatial_fields, sim_resp$omega_s)
+            }
         }
     
     if(do_spatial) {
