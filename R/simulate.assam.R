@@ -6,6 +6,7 @@
 #' Simulate multivariate abundance data based on a fitted \code{assam} object.
 #' 
 #' @param object An object of class \code{assam}.
+#' @param data A data frame containing covariate information, from which the model matrix is to be created (based on this argument along with the \code{formula} argument). This has to be supplied since \code{object} may not (necessarily) contain a data argument to leverage.
 #' @param nsim A positive integer specifying the number of simulated datasets. Defaults to 1.
 #' @param do_parallel Should parallel computing be used to fit the asSAM. Defaults to \code{TRUE}, and should be kept this way as much as possible as parallel computing is one of the key ingredients in making asSAMs scalable. 
 #' @param num_cores If \code{do_parallel = TRUE}, then this argument controls the number of cores used. Defaults to \code{NULL}, in which case it is set to \code{parallel::detectCores() - 2}.
@@ -36,6 +37,7 @@
 
 
 simulate.assam <- function(object, 
+                           data,
                            nsim = 1, 
                            do_parallel = TRUE, 
                            num_cores = NULL, 
@@ -53,7 +55,7 @@ simulate.assam <- function(object,
     
     use_model <- list(family = object$family, 
                      formula = object$formula,
-                     data = object$sdmTMB_fits[[1]]$data[,-which(colnames(object$sdmTMB_fits[[1]]$data) == "response")],
+                     data = data,
                      offset = object$offset,
                      betas = object$betas, 
                      spp_intercepts = object$spp_intercepts, 
