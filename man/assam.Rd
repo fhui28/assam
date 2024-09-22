@@ -195,18 +195,18 @@ summary(samfit)
 
 fitted(samfit)
  
-simulate(samfit)
+simulate(samfit, data = covariate_dat)
 
 residuals(samfit, type = "dunnsmyth")
  
 #' Basic residual analysis
-plot(samfit, y = simdat$y, transform_fitted_values = TRUE)
+plot(samfit, transform_fitted_values = TRUE)
  
 #' Archetype-level predictions
 predict(samfit, newdata = covariate_dat, type = "archetype", se_fit = TRUE) 
 
 #' Species-level predictions
-predict(samfit,  newdata = covariate_dat, type = "species_max", num_cores = 6, se_fit = TRUE) 
+predict(samfit,  newdata = covariate_dat, type = "species_max", num_cores = 8, se_fit = TRUE) 
  
 }
 

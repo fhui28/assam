@@ -7,6 +7,7 @@
 \usage{
 \method{simulate}{assam}(
   object,
+  data,
   nsim = 1,
   do_parallel = TRUE,
   num_cores = NULL,
@@ -18,6 +19,8 @@ simulate(object, ...)
 }
 \arguments{
 \item{object}{An object of class \code{assam}.}
+
+\item{data}{A data frame containing covariate information, from which the model matrix is to be created (based on this argument along with the \code{formula} argument). This has to be supplied since \code{object} may not (necessarily) contain a data argument to leverage.}
 
 \item{nsim}{A positive integer specifying the number of simulated datasets. Defaults to 1.}
 
