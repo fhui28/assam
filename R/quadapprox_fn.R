@@ -13,7 +13,7 @@
     if(!is.null(mesh))
         add_spatial <- TRUE
     if(!add_spatial)
-        mesh <- sdmTMB::make_mesh(data = data, xy_cols = colnames(data)[1:2], n_knots = 5) # Make any old mesh as sdmTMB must supplied this
+        mesh <- sdmTMB::make_mesh(data = data, xy_cols = colnames(data)[1:2], n_knots = 5) # Make any old mesh in this situation
     
     spp_qa_fn <- function(l) {
         tmp_formula <- as.formula(paste("response", paste(as.character(formula), collapse = " ") ) )
@@ -22,15 +22,15 @@
             tmp_formula <- as.formula(paste("cbind(response, trial_size - response)", paste(as.character(formula), collapse = " ") ) )
             }
         new_offset <- offset[,l]
-        #Hmat <- diag(control$ridge+1e-15, nrow = num_X)
-        
-        if(family$family %in% c("gaussian", "poisson", "Gamma", "binomial")) {
+
+        if(family$family %in% c("gaussian", "poisson", "Gamma", "binomial", "nbinom2")) {
             fit0 <- sdmTMB(tmp_formula,
                            data = data.frame(response = resp[,l], data, trial_size = trial_size), 
                            spatial = add_spatial,
                            mesh =  mesh,
                            offset = new_offset, 
-                           family = family)
+                           family = family,
+                           control = sdmTMB::sdmTMBcontrol(get_joint_precision = FALSE))
                 }
         if(family$family %in% c("tweedie")) {
             fit0 <- sdmTMB(tmp_formula,
@@ -38,15 +38,8 @@
                            spatial = add_spatial,
                            mesh =  mesh,
                            offset = new_offset, 
-                           family = sdmTMB::tweedie())
-            }
-        if(family$family %in% c("nbinom2")) {
-            fit0 <- sdmTMB(tmp_formula, 
-                           data = data.frame(response = resp[,l], data), 
-                           spatial = add_spatial,
-                           mesh =  mesh,
-                           offset = new_offset, 
-                           family = sdmTMB::nbinom2())
+                           family = sdmTMB::tweedie(),
+                           control = sdmTMB::sdmTMBcontrol(get_joint_precision = FALSE))
             }
         if(family$family %in% c("Beta")) {
             fit0 <- sdmTMB(tmp_formula, 
@@ -54,7 +47,8 @@
                            spatial = add_spatial,
                            mesh =  mesh,
                            offset = new_offset, 
-                           family = sdmTMB::Beta())
+                           family = sdmTMB::Beta(),
+                           control = sdmTMB::sdmTMBcontrol(get_joint_precision = FALSE))
             }
         
         fit0$parameters <- fit0$sd_report$par.fixed
@@ -65,7 +59,7 @@
     if(do_parallel)
         all_quadapprox <- foreach(l = 1:num_spp) %dopar% spp_qa_fn(l = l) 
     if(!do_parallel)
-        all_quadapprox <- foreach(l = 1:num_spp) %do% spp_qa_fn(l = l)          
+        all_quadapprox <- foreach(l = 1:num_spp) %do% spp_qa_fn(l = l)
 
     out <- list(parameters = t(sapply(1:num_spp, function(k) all_quadapprox[[k]]$parameters)), 
                 hessian = lapply(1:num_spp, function(k) all_quadapprox[[k]]$hessian))
