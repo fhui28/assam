@@ -135,7 +135,7 @@ predict.assam <- function(object,
         registerDoParallel(cores = num_cores)
     
     if(!is.null(newoffset)) {
-        if(type == "archetype" & !as.vector(newoffset))
+        if(type == "archetype" & !is.vector(newoffset))
             stop("For predictions of archetypal respones on the linear predictor scale, newoffset should be a vector of a same length as nrow(newdata).")
         if(type == "archetype" & length(newoffset) != nrow(newdata))
             stop("For predictions of archetypal respones on the linear predictor scale, newoffset should be a vector of a same length as nrow(newdata).")
