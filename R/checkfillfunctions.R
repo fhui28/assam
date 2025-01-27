@@ -59,9 +59,9 @@
 
 #' @noRd
 #' @noMd
-.check_spp_spatial_parameters <- function(spp_spatial_range, spp_spatial_sd, mesh, spp_intercepts) {
+.check_spp_spatial_parameters <- function(spp_spatial_range, spp_spatial_sd, add_spatial, spp_intercepts) {
     if(!is.null(spp_spatial_range)) {
-        if(is.null(spp_spatial_sd) | is.null(mesh))
+        if(is.null(spp_spatial_sd) | !add_spatial)
             stop("If species-specific spatial fields are to be included, then mesh, spp_spatial_range, spp_spatial_sd must all be supplied.")
         if(length(spp_spatial_range) != length(spp_intercepts))
             stop("Both spp_spatial_range and spp_spatial_sd must be vectors of length equal to length(spp_intercepts).")
@@ -70,7 +70,7 @@
         }
     
     if(!is.null(spp_spatial_sd)) {
-        if(is.null(spp_spatial_range) | is.null(mesh))
+        if(is.null(spp_spatial_range) | !add_spatial)
             stop("If species-specific spatial fields are to be included, then mesh, spp_spatial_range, spp_spatial_sd must all be supplied.")
         if(length(spp_spatial_sd) != length(spp_intercepts))
             stop("Both spp_spatial_range and spp_spatial_sd must be vectors of length equal to length(spp_intercepts).")

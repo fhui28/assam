@@ -35,7 +35,7 @@ print.assam <- function(x, ...) {
     message("No. of archetypes: ", nrow(x$betas)) 
     message("Archetypal response-environment relationship: ", x$formula) 
     message("Were confident intervals constructed? (TRUE/FALSE): ", x$uncertainty_quantification) 
-    message("Were species-specific spatial fields included? (TRUE/FALSE): ", !is.null(x$mesh))
+    message("Were species-specific spatial fields included? (TRUE/FALSE): ", x$add_spatial)
     message("---") 
     }
 

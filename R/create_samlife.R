@@ -141,26 +141,18 @@ create_samlife <- function(family = binomial(),
     if(!(family$family %in% c("gaussian","Gamma","binomial","poisson","nbinom2","tweedie","Beta")))
         stop("family currently not supported. Sorry!")
     
+    add_spatial <- FALSE
     if(!is.null(mesh)) {
         if(class(mesh) != "sdmTMBmesh")
             stop("If mesh is supplied for species-specific spatial fields, then the mesh argument must be an object class of \"sdmTMBmesh\".")
+        add_spatial <- TRUE
         }
     
-    ## Check and set spatial parameters -- Note these and a mesh need to be set due to the nature of sdmTMB_simulate (which is annoying!)
+    ## Check and set spatial parameters
     .check_spp_spatial_parameters(spp_spatial_range = spp_spatial_range,
                                   spp_spatial_sd = spp_spatial_sd,
-                                  mesh = mesh,
+                                  add_spatial = add_spatial,
                                   spp_intercepts = spp_intercepts)
-    
-    do_spatial <- TRUE
-    if(is.null(mesh)) {
-        do_spatial <- FALSE
-        #mesh <- sdmTMB::make_mesh(data, xy_cols = colnames(data)[1:2], n_knots = 20) 
-        }
-    # if(!do_spatial) {
-    #     spp_spatial_range <- rep(1e-10, num_spp) 
-    #     spp_spatial_sd <- rep(1e-10, num_spp)
-    #     }
     
     ##----------------
     #' # Simulate data
@@ -177,7 +169,7 @@ create_samlife <- function(family = binomial(),
     
     
     #' ## For non-spatial models, skip using sdmTMB_simulate as it is *much* slower!
-    if(!do_spatial) {
+    if(!add_spatial) {
         tmp_formula <- as.formula(paste("response", paste(as.character(formula), collapse = " ")))
         nullfit <- sdmTMB(tmp_formula,
                           spatial = FALSE,
@@ -210,7 +202,7 @@ create_samlife <- function(family = binomial(),
         if(!is.null(seed))
             cw_seed <- seed + j
         
-        if(!do_spatial) {
+        if(!add_spatial) {
             set.seed(cw_seed)
             
             if(family$family[1] == "Beta")
@@ -232,7 +224,7 @@ create_samlife <- function(family = binomial(),
             set.seed(NULL)
             }
         
-        if(do_spatial) {
+        if(add_spatial) {
             make_offset <- NULL
             if(!is.null(offset))
                 make_offset <- offset[,j]
@@ -251,12 +243,12 @@ create_samlife <- function(family = binomial(),
             
             resp[,j] <- sim_resp$observed
             spp_eta[,j] <- sim_resp$eta
-            if(do_spatial)
+            if(add_spatial)
                 get_spatial_fields <- cbind(get_spatial_fields, sim_resp$omega_s)
             }
         }
     
-    if(do_spatial) {
+    if(add_spatial) {
         rownames(get_spatial_fields) <- rownames(data)
         colnames(get_spatial_fields) <- paste0("spp", 1:num_spp)
         }
