@@ -79,7 +79,7 @@
     if(return_fits)
         out$sdmTMB_fits <- all_quadapprox
     
-    class(out) <- "assam_quadrapprox"
+    class(out) <- "assam_quadapprox"
     return(out)
     }
 
