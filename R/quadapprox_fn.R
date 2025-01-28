@@ -2,6 +2,7 @@
                             formula, 
                             resp, 
                             data, 
+                            add_spatial = FALSE,
                             mesh = NULL, 
                             offset = NULL, 
                             trial_size = 1, 
@@ -9,11 +10,12 @@
                             return_fits = TRUE) {     
     
     num_spp <- ncol(resp)
-    add_spatial <- FALSE
-    if(!is.null(mesh))
-        add_spatial <- TRUE
-    if(!add_spatial)
-        mesh <- sdmTMB::make_mesh(data = data, xy_cols = colnames(data)[1:2], n_knots = 5) # Make any old mesh in this situation
+    # mesh <- sdmTMB::make_mesh(data = data, xy_cols = colnames(data)[1:2], n_knots = 5) # Make any old mesh in this situation
+    if(add_spatial) {
+        if(class(mesh) != "sdmTMBmesh")
+            stop("If mesh is supplied for species-specific spatial fields, then the mesh argument must be an object class of \"sdmTMBmesh\".")
+        }
+
     
     spp_qa_fn <- function(l) {
         tmp_formula <- as.formula(paste("response", paste(as.character(formula), collapse = " ") ) )
@@ -23,32 +25,43 @@
             }
         new_offset <- offset[,l]
 
-        if(family$family %in% c("gaussian", "poisson", "Gamma", "binomial", "nbinom2")) {
-            fit0 <- sdmTMB(tmp_formula,
-                           data = data.frame(response = resp[,l], data, trial_size = trial_size), 
-                           spatial = add_spatial,
-                           mesh =  mesh,
-                           offset = new_offset, 
-                           family = family,
-                           control = sdmTMB::sdmTMBcontrol(get_joint_precision = FALSE))
+        if(family$family %in% c("gaussian", "poisson", "Gamma", "binomial", "nbinom2", "tweedie")) {
+            if(!add_spatial) {
+                fit0 <- sdmTMB(tmp_formula,
+                               data = data.frame(response = resp[,l], data, trial_size = trial_size), 
+                               spatial = add_spatial,
+                               offset = new_offset, 
+                               family = family,
+                               control = sdmTMB::sdmTMBcontrol(get_joint_precision = FALSE))
                 }
-        if(family$family %in% c("tweedie")) {
-            fit0 <- sdmTMB(tmp_formula,
-                           data = data.frame(response = resp[,l], data, trial_size = trial_size), 
-                           spatial = add_spatial,
-                           mesh =  mesh,
-                           offset = new_offset, 
-                           family = sdmTMB::tweedie(),
-                           control = sdmTMB::sdmTMBcontrol(get_joint_precision = FALSE))
+            if(add_spatial) {
+                fit0 <- sdmTMB(tmp_formula,
+                               data = data.frame(response = resp[,l], data, trial_size = trial_size), 
+                               spatial = add_spatial,
+                               mesh =  mesh,
+                               offset = new_offset, 
+                               family = family,
+                               control = sdmTMB::sdmTMBcontrol(get_joint_precision = FALSE))
+                }
             }
         if(family$family %in% c("Beta")) {
-            fit0 <- sdmTMB(tmp_formula, 
-                           data = data.frame(response = resp[,l], data), 
-                           spatial = add_spatial,
-                           mesh =  mesh,
-                           offset = new_offset, 
-                           family = sdmTMB::Beta(),
-                           control = sdmTMB::sdmTMBcontrol(get_joint_precision = FALSE))
+            if(!add_spatial) {
+                fit0 <- sdmTMB(tmp_formula, 
+                               data = data.frame(response = resp[,l], data), 
+                               spatial = add_spatial,
+                               offset = new_offset, 
+                               family = sdmTMB::Beta(),
+                               control = sdmTMB::sdmTMBcontrol(get_joint_precision = FALSE))
+                }
+            if(add_spatial) {
+                fit0 <- sdmTMB(tmp_formula, 
+                               data = data.frame(response = resp[,l], data), 
+                               spatial = add_spatial,
+                               mesh =  mesh,
+                               offset = new_offset, 
+                               family = sdmTMB::Beta(),
+                               control = sdmTMB::sdmTMBcontrol(get_joint_precision = FALSE))
+                }
             }
         
         fit0$parameters <- fit0$sd_report$par.fixed
@@ -66,6 +79,7 @@
     if(return_fits)
         out$sdmTMB_fits <- all_quadapprox
     
+    class(out) <- "assam_quadrapprox"
     return(out)
     }
 

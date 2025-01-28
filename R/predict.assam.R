@@ -304,7 +304,7 @@ predict.assam <- function(object,
             use_pars[["ln_phi"]] <- log(object$spp_nuisance$dispersion[l1])
         if(object$family$family[1] == "tweedie") 
             use_pars[["thetaf"]] <- qlogis(object$spp_nuisance$power[l1] - 1)
-        if(!is.null(object$mesh)) {
+        if(object$add_spatial) {
             use_pars[["ln_kappa"]] <- matrix(log(1/object$spp_nuisance$spatial_range[l1]), nrow = 2, ncol = 1) # This has two rows as set up as sdmTMB
             use_pars[["ln_tau_O"]] <- 1/(sqrt(4*pi) * object$spp_nuisance$spatial_SD[l1] * exp(use_pars[["ln_kappa"]][1,1])) 
             }
@@ -322,7 +322,7 @@ predict.assam <- function(object,
             use_map$ln_phi <- as.factor(NA)
         if(object$family$family[1] == "tweedie") 
             use_map$thetaf <- as.factor(NA)
-        if(!is.null(object$mesh)) {
+        if(object$add_spatial) {
             use_map$ln_tau_O <- as.factor(NA)
             use_map$ln_kappa <- as.factor(matrix(NA, 2, 1)) 
             }
