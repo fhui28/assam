@@ -16,6 +16,7 @@ assam(
   do_parallel = TRUE,
   num_cores = NULL,
   uncertainty_quantification = TRUE,
+  do_assam_fit = TRUE,
   control = list(max_iter = 500, tol = 1e-05, temper_prob = 0.8, trace = FALSE),
   bootstrap_control = list(num_boot = 100, ci_alpha = 0.05, seed = NULL, ci_type =
     "percentile")
@@ -44,6 +45,8 @@ assam(
 
 \item{uncertainty_quantification}{Should uncertainly intervals be computed via parametric bootstrap?}
 
+\item{do_assam_fit}{If \code{FALSE}, then the ingredients needed to construct the approximation to the log-likelihood are returned, \emph{without fitting the asSAM itself}. This can be useful when multiple asSAMs e.g., with different values of \code{num_archetypes} are needed. Otherwise, this function should be kept at its default value of \code{TRUE}.}
+
 \item{control}{A list containing the following elements:
 \itemize{
 \item{max_iter:}{the maximum number of iterations in the EM algorithm. Usually convergence is quite quick e.g., less than 20 iterations.}
@@ -61,13 +64,16 @@ assam(
 }}
 }
 \value{
-An object of class \code{assam} with the following elements (as appropriate, and not necessarily in the order below):
+If \code{do_assam_fit = FALSE}, then a object of class \code{assam_quadapprox} is returned, which contains the ingredients needed to fit asSAMs.
+
+Otherwise, if \code{do_assam_fit = TRUE} as is the default, then an object of class \code{assam} with the following elements (as appropriate, and not necessarily in the order below):
 \item{call:}{The function call.}
 \item{formula:}{Same as input argument.}
 \item{family:}{Same as input argument.}
 \item{num_nuisance_perspp:}{The number of "nuisance" parameters per species. For example, if \code{family = binomial()} and species-specific spatial fields are not included, then there are no nuisance parameters. If \code{family = nbinom2()} and species-specific spatial fields are included, say, then there are three nuisance parameters per species.}
 \item{trial_size:}{Same as input argument.}
 \item{offset:}{Same as input argument.}
+\item{add_spatial:}{Were species-specific spatial fields included?}
 \item{mesh:}{Same as input argument.}
 \item{num_archetypes:}{Same as input argument.}
 \item{uncertainty_quantification:}{Same as input argument.}

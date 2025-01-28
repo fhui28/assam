@@ -16,6 +16,7 @@
 #' @param do_parallel Should parallel computing be used to fit the asSAM. Defaults to \code{FALSE}.
 #' @param num_cores If \code{do_parallel = TRUE}, then this argument controls the number of cores used. Defaults to \code{NULL}, in which case it is set to \code{parallel::detectCores() - 2}.
 #' @param uncertainty_quantification Should uncertainly intervals be computed via parametric bootstrap?
+#' @param do_assam_fit If \code{FALSE}, then the ingredients needed to construct the approximation to the log-likelihood are returned, *without fitting the asSAM itself*. This can be useful when multiple asSAMs e.g., with different values of \code{num_archetypes} are needed. Otherwise, this function should be kept at its default value of \code{TRUE}. 
 #' @param control A list containing the following elements:
 #' \itemize{
 #' \item{max_iter:}{the maximum number of iterations in the EM algorithm. Usually convergence is quite quick e.g., less than 20 iterations.}
@@ -60,13 +61,16 @@
 #' The scalability of asSAMs relies on being able to deploy [sdmTMB::sdmTMB()] is an efficient and fully optimized manner. Along these lines, please see [using sdmTMB in parallel](https://github.com/pbs-assess/sdmTMB/issues/368) and [using OpenBLAS](https://gist.github.com/seananderson/08a51e296a854f227a908ddd365fb9c1) and references therein for some tips to ensure things on your machine are more optimized. Thanks to Sean Anderson for this advice!
 #' 
 #' 
-#' @return An object of class \code{assam} with the following elements (as appropriate, and not necessarily in the order below):
+#' @return If \code{do_assam_fit = FALSE}, then a object of class \code{assam_quadapprox} is returned, which contains the ingredients needed to fit asSAMs. 
+#' 
+#' Otherwise, if \code{do_assam_fit = TRUE} as is the default, then an object of class \code{assam} with the following elements (as appropriate, and not necessarily in the order below):
 #' \item{call:}{The function call.}
 #' \item{formula:}{Same as input argument.}
 #' \item{family:}{Same as input argument.}
 #' \item{num_nuisance_perspp:}{The number of "nuisance" parameters per species. For example, if \code{family = binomial()} and species-specific spatial fields are not included, then there are no nuisance parameters. If \code{family = nbinom2()} and species-specific spatial fields are included, say, then there are three nuisance parameters per species.}
 #' \item{trial_size:}{Same as input argument.}
 #' \item{offset:}{Same as input argument.}
+#' \item{add_spatial:}{Were species-specific spatial fields included?}
 #' \item{mesh:}{Same as input argument.}
 #' \item{num_archetypes:}{Same as input argument.}
 #' \item{uncertainty_quantification:}{Same as input argument.}
@@ -136,7 +140,7 @@
 #' formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) %>% as.formula,
 #' data = covariate_dat,
 #' family = nbinom2(),
-#' uncertainty_quantification = TRUE,
+#' uncertainty_quantification = FALSE,
 #' num_archetypes = num_archetype,
 #' num_cores = 8)
 #' 
@@ -204,7 +208,8 @@ assam <- function(y,
                   mesh = NULL, 
                   do_parallel = TRUE, 
                   num_cores = NULL, 
-                  uncertainty_quantification = TRUE, 
+                  uncertainty_quantification = TRUE,
+                  do_assam_fit = TRUE,
                   control = list(max_iter = 500, tol = 1e-5, temper_prob = 0.8, trace = FALSE),
                   bootstrap_control = list(num_boot = 100, ci_alpha = 0.05, seed = NULL, ci_type = "percentile")) {
     
@@ -241,9 +246,14 @@ assam <- function(y,
     num_X <- ncol(X)
     rm(tmp_formula, nullfit) 
     
+    if(is.null(mesh)) {
+        add_spatial <- FALSE
+        }
     if(!is.null(mesh)) {
+        add_spatial <- TRUE
         if(class(mesh) != "sdmTMBmesh")
             stop("If mesh is supplied for species-specific spatial fields, then the mesh argument must be an object class of \"sdmTMBmesh\".")
+        final_mesh <- mesh
         }
     
     control <- .fill_control(control = control)
@@ -258,19 +268,25 @@ assam <- function(y,
     ##----------------
     message("Commencing fitting...")
     if(control$trace)
-        message("Forming local quadratic approximation...")
+        message("Forming species-specific quadratic approximations...")
      
     get_qa <- .quadapprox2_fn(family = family,
                              formula = formula, 
                              resp = y, 
-                             data = data, 
-                             mesh = mesh,
+                             data = data,
+                             add_spatial = add_spatial,
+                             mesh = final_mesh,
                              offset = offset,
                              trial_size = trial_size,
                              do_parallel = do_parallel) 
     get_qa$long_parameters <- apply(get_qa$parameters, 1, function(x) kronecker(rep(1,num_archetypes), x)) # Repeats species-specific estimates num_archetypes times; object has num_spp columns
     num_nuisance_perspp <- length(get_qa$parameters[1,]) - num_X - 1 # e.g., number of dispersion and power parameter per-species, along with parameters for species-specific spatial fields
     qa_parameters_colnames <- colnames(get_qa$parameters)
+    
+    if(!do_assam_fit) {
+        message("Returning species-specific quadratic approximations; no assam fitted...have a lovely day!")
+        return(get_qa)
+        }   
     
     ### Make mapping matrix, maps psi to long_parameters
     #' Psi sequence: species-specific intercepts; archetypal regression coefficients by archetype; species-specific nuisance parameters, along with parameters for species-specific spatial fields
@@ -401,7 +417,7 @@ assam <- function(y,
                  tmp_nuisance$dispersion <- exp(new_nuisance[,grep("ln_phi", colnames(new_nuisance))])
              if(family$family[1] == "tweedie")
                  tmp_nuisance$power <- plogis(new_nuisance[,grep("thetaf", colnames(new_nuisance))]) + 1
-             if(!is.null(mesh)) { 
+             if(add_spatial) { 
                  tmp_nuisance$spatial_range <- 1/exp(new_nuisance[,grep("ln_kappa", colnames(new_nuisance))])
                  est_tau <- exp(new_nuisance[,grep("ln_tau_O", colnames(new_nuisance))])
                  tmp_nuisance$spatial_SD <- 1/(sqrt(4*pi) * est_tau * exp(new_nuisance[,grep("ln_kappa", colnames(new_nuisance))]))
@@ -447,6 +463,7 @@ assam <- function(y,
                       num_nuisance_perspp = num_nuisance_perspp,
                       trial_size = trial_size,
                       offset = as(offset, "sparseMatrix"),
+                      add_spatial = add_spatial,
                       mesh = mesh,
                       num_archetypes = num_archetypes,
                       uncertainty_quantification = uncertainty_quantification,
@@ -457,12 +474,13 @@ assam <- function(y,
                       posterior_probability = do_em$post_prob)
 
     #' ## Predict species-specific field in an ad-hoc but scalable manner based on the most likely archetype that the species belong.
-    get_spatial_fields <- foreach(l = 1:num_spp, .combine = "cbind") %dopar% .predict_spatial_fields(l = l, 
-                                                                                                     mesh = mesh,
+    get_spatial_fields <- foreach(l = 1:num_spp, .combine = "cbind") %dopar% .predict_spatial_fields(l = l,
+                                                                                                     add_spatial = add_spatial,
+                                                                                                     mesh = final_mesh,
                                                                                                      qa_object = get_qa, 
                                                                                                      em_object = do_em, 
                                                                                                      family = family)
-    if(!is.null(mesh)) {
+    if(add_spatial) {
         rownames(get_spatial_fields) <- rownames(y)
         colnames(get_spatial_fields) <- colnames(y)
         }
@@ -472,7 +490,7 @@ assam <- function(y,
                                         dimnames = list(units = rownames(y), spp = colnames(y), archetype = names(out_assam$mixture_proportion)))
     for(k0 in 1:num_archetypes) {
         out_assam$linear_predictor[,,k0] <- matrix(out_assam$spp_intercepts, nrow = num_unit, ncol = num_spp, byrow = TRUE) + matrix(get_eta[,k0], nrow = num_unit, ncol = num_spp, byrow = FALSE) + offset
-        if(!is.null(mesh))
+        if(add_spatial)
             out_assam$linear_predictor[,,k0] <- out_assam$linear_predictor[,,k0] + get_spatial_fields
         }
     rm(get_eta)
@@ -519,7 +537,8 @@ assam <- function(y,
                                                formula = formula, 
                                                resp = bootresp[,b0]$y, 
                                                data = data, 
-                                               mesh = mesh,
+                                               add_spatial = add_spatial, 
+                                               mesh = final_mesh,
                                                offset = offset,
                                                trial_size = trial_size,
                                                do_parallel = do_parallel,
@@ -651,11 +670,16 @@ assam <- function(y,
 # An ad-hoc but computationally scalable approach is adopted where the field is predicted based on the most likely archetype the species is in.
 #' @noMd
 #' @noRd
-.predict_spatial_fields <- function(l, mesh, qa_object, em_object, family) {
-    if(is.null(mesh))
+.predict_spatial_fields <- function(l, 
+                                    add_spatial, 
+                                    mesh, 
+                                    qa_object, 
+                                    em_object, 
+                                    family) {
+    if(!add_spatial)
         return(NULL)
     
-    if(!is.null(mesh)) {
+    if(add_spatial) {
         #' Recompile the TMB object from the original sdmTMB fits, evaluated at the assam parameter values
         #' Note an nlminb is required to update the environment parameter values 
         use_pars <- qa_object$sdmTMB_fits[[l]]$tmb_obj$env$parList()
