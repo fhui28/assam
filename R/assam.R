@@ -16,6 +16,7 @@
 #' @param do_parallel Should parallel computing be used to fit the asSAM. Defaults to \code{FALSE}.
 #' @param num_cores If \code{do_parallel = TRUE}, then this argument controls the number of cores used. Defaults to \code{NULL}, in which case it is set to \code{parallel::detectCores() - 2}.
 #' @param uncertainty_quantification Should uncertainly intervals be computed via parametric bootstrap?
+#' @param supply_quadapprox An object of class \code{assam_quadapprox}, which is (mostly likely) obtained as a consequence of running an initial fit with \code{do_assam_fit = FALSE}. Supplying this can be useful when multiple asSAMs e.g., with different values of \code{num_archetypes} are needed; see [https://github.com/fhui28/assam/issues/8](https://github.com/fhui28/assam/issues/8) for an example of its usage. 
 #' @param do_assam_fit If \code{FALSE}, then the ingredients needed to construct the approximation to the log-likelihood are returned, *without fitting the asSAM itself*. This can be useful when multiple asSAMs e.g., with different values of \code{num_archetypes} are needed. Otherwise, this function should be kept at its default value of \code{TRUE}. 
 #' @param control A list containing the following elements:
 #' \itemize{
@@ -140,7 +141,7 @@
 #' formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) %>% as.formula,
 #' data = covariate_dat,
 #' family = nbinom2(),
-#' uncertainty_quantification = FALSE,
+#' uncertainty_quantification = TRUE,
 #' num_archetypes = num_archetype,
 #' num_cores = 8)
 #' 
@@ -209,6 +210,7 @@ assam <- function(y,
                   do_parallel = TRUE, 
                   num_cores = NULL, 
                   uncertainty_quantification = TRUE,
+                  supply_quadapprox = NULL,
                   do_assam_fit = TRUE,
                   control = list(max_iter = 500, tol = 1e-5, temper_prob = 0.8, trace = FALSE),
                   bootstrap_control = list(num_boot = 100, ci_alpha = 0.05, seed = NULL, ci_type = "percentile")) {
@@ -267,21 +269,29 @@ assam <- function(y,
     # Construct quadratic approximations for each species, and set up relevant quantities
     ##----------------
     message("Commencing fitting...")
-    if(control$trace)
-        message("Forming species-specific quadratic approximations...")
-     
-    get_qa <- .quadapprox2_fn(family = family,
-                             formula = formula, 
-                             resp = y, 
-                             data = data,
-                             add_spatial = add_spatial,
-                             mesh = final_mesh,
-                             offset = offset,
-                             trial_size = trial_size,
-                             do_parallel = do_parallel) 
-    get_qa$long_parameters <- apply(get_qa$parameters, 1, function(x) kronecker(rep(1,num_archetypes), x)) # Repeats species-specific estimates num_archetypes times; object has num_spp columns
-    num_nuisance_perspp <- length(get_qa$parameters[1,]) - num_X - 1 # e.g., number of dispersion and power parameter per-species, along with parameters for species-specific spatial fields
-    qa_parameters_colnames <- colnames(get_qa$parameters)
+    if(!is.null(supply_quadapprox)) {
+        if(class(supply_quadapprox) != "assam_quadapprox")
+            stop("If supply_quadapprox is supplied, then it must be an object of class \"assam_quadapprox\".")
+        
+        message("Species-specific quadratic approximations supplied by practitioner...thanks!")
+        
+        get_qa <- supply_quadapprox 
+        }
+    
+    if(is.null(supply_quadapprox)) {
+        if(control$trace)
+            message("Forming species-specific quadratic approximations...")
+        
+        get_qa <- .quadapprox2_fn(family = family,
+                                  formula = formula, 
+                                  resp = y, 
+                                  data = data,
+                                  add_spatial = add_spatial,
+                                  mesh = final_mesh,
+                                  offset = offset,
+                                  trial_size = trial_size,
+                                  do_parallel = do_parallel) 
+        }
     
     if(!do_assam_fit) {
         message("Returning species-specific quadratic approximations; no assam fitted...have a lovely day!")
@@ -290,6 +300,10 @@ assam <- function(y,
     
     ### Make mapping matrix, maps psi to long_parameters
     #' Psi sequence: species-specific intercepts; archetypal regression coefficients by archetype; species-specific nuisance parameters, along with parameters for species-specific spatial fields
+    get_qa$long_parameters <- apply(get_qa$parameters, 1, function(x) kronecker(rep(1,num_archetypes), x)) # Repeats species-specific estimates num_archetypes times; object has num_spp columns
+    num_nuisance_perspp <- length(get_qa$parameters[1,]) - num_X - 1 # e.g., number of dispersion and power parameter per-species, along with parameters for species-specific spatial fields
+    qa_parameters_colnames <- colnames(get_qa$parameters)
+    
     mapping_mat <- Matrix(0, nrow = length(get_qa$long_parameters), ncol = num_spp + num_X * num_archetypes + num_spp*num_nuisance_perspp)
     makecolnames <- c(paste0("spp_intercept", 1:num_spp), 
                       paste0(rep(paste0("archetype", 1:num_archetypes), each = num_X), rep(paste0("_beta", 1:num_X), num_archetypes)))

@@ -16,6 +16,7 @@ assam(
   do_parallel = TRUE,
   num_cores = NULL,
   uncertainty_quantification = TRUE,
+  supply_quadapprox = NULL,
   do_assam_fit = TRUE,
   control = list(max_iter = 500, tol = 1e-05, temper_prob = 0.8, trace = FALSE),
   bootstrap_control = list(num_boot = 100, ci_alpha = 0.05, seed = NULL, ci_type =
@@ -44,6 +45,8 @@ assam(
 \item{num_cores}{If \code{do_parallel = TRUE}, then this argument controls the number of cores used. Defaults to \code{NULL}, in which case it is set to \code{parallel::detectCores() - 2}.}
 
 \item{uncertainty_quantification}{Should uncertainly intervals be computed via parametric bootstrap?}
+
+\item{supply_quadapprox}{An object of class \code{assam_quadapprox}, which is (mostly likely) obtained as a consequence of running an initial fit with \code{do_assam_fit = FALSE}. Supplying this can be useful when multiple asSAMs e.g., with different values of \code{num_archetypes} are needed; see \url{https://github.com/fhui28/assam/issues/8} for an example of its usage.}
 
 \item{do_assam_fit}{If \code{FALSE}, then the ingredients needed to construct the approximation to the log-likelihood are returned, \emph{without fitting the asSAM itself}. This can be useful when multiple asSAMs e.g., with different values of \code{num_archetypes} are needed. Otherwise, this function should be kept at its default value of \code{TRUE}.}
 
