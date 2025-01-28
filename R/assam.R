@@ -378,11 +378,14 @@ assam <- function(y,
                
              new_logL <- sum(logL_spp)
              if(counter == 0) {
-                 ## Temper the classification in the initial E-step
-                 alpha_temper <- (1 - control$temper_prob * num_archetypes) / (control$temper_prob * (2-num_archetypes) - 1)          
-                 for(j in 1:num_spp)
-                     post_prob[j,] <- (2*alpha_temper*post_prob[j,]-alpha_temper+1)/(2*alpha_temper - alpha_temper*num_archetypes + num_archetypes)
-                 new_logL <- -1e8               
+                 if(num_archetypes > 1) {
+                     ## Temper the classification in the initial E-step if num_archetypes > 1
+                     alpha_temper <- (1 - control$temper_prob * num_archetypes) / (control$temper_prob * (2-num_archetypes) - 1)          
+                     for(j in 1:num_spp)
+                         post_prob[j,] <- (2*alpha_temper*post_prob[j,]-alpha_temper+1)/(2*alpha_temper - alpha_temper*num_archetypes + num_archetypes)
+                     new_logL <- -1e8               
+                     
+                    }
                  }
                     
              ##-------------------
@@ -587,14 +590,23 @@ assam <- function(y,
         
         
         #' ## Account for potential label-switching across the bootstrapped datasets, and also transform nuisance parameters as appropriate
-        boot_params <- lapply(bootrun, function(x) cbind(x$new_betas, x$new_mixprop))
-        boot_params <- abind::abind(boot_params, along = 0)
-        switch_labels <- label.switching::pra(mcmc.pars = boot_params, 
-                                              pivot = cbind(out_assam$betas, out_assam$mixture_proportion))$permutations
+        if(num_archetypes > 1) {
+            boot_params <- lapply(bootrun, function(x) cbind(x$new_betas, x$new_mixprop))
+            boot_params <- abind::abind(boot_params, along = 0)
+            switch_labels <- label.switching::pra(mcmc.pars = boot_params, 
+                                                  pivot = cbind(out_assam$betas, out_assam$mixture_proportion))$permutations
+            }
+        if(num_archetypes == 1) {
+            boot_params <- NULL
+            switch_labels <- NULL
+            }
+            
         bootrun <- lapply(1:length(bootrun), function(k0) {
-            bootrun[[k0]]$new_mixprop <- bootrun[[k0]]$new_mixprop[switch_labels[k0,]]
-            bootrun[[k0]]$new_betas <- bootrun[[k0]]$new_betas[switch_labels[k0,],]
-            #bootrun[[k0]]$post_prob <- bootrun[[k0]]$post_prob[,switch_labels[k0,]] #' Not actually used later on so omit!
+            if(num_archetypes > 1) {
+                bootrun[[k0]]$new_mixprop <- bootrun[[k0]]$new_mixprop[switch_labels[k0,]]
+                bootrun[[k0]]$new_betas <- bootrun[[k0]]$new_betas[switch_labels[k0,],]
+                #bootrun[[k0]]$post_prob <- bootrun[[k0]]$post_prob[,switch_labels[k0,]] #' Not actually used later on so omit! 
+                }
 
             #' A vector of all parameters ordered in the same way as the columns of the mapping matrix, plus the mixture proportions
             if(num_nuisance_perspp == 0)
@@ -620,15 +632,26 @@ assam <- function(y,
         if(bootstrap_control$ci_type == "expanded")
             modified_alpha <- 2*pnorm(sqrt(num_spp/(num_spp-1)) * qt(bootstrap_control$ci_alpha/2, df = num_spp - 1))
         form_cis$spp_intercepts <- data.frame( t(apply(sapply(bootrun, function(x) x$new_spp_intercept), 1, quantile, prob = c(modified_alpha/2, 1 - modified_alpha/2), na.rm = TRUE)))
+        
         form_cis$betas <- apply(abind::abind(lapply(bootrun, function(x) x$new_betas), along = 0), c(2,3), quantile, prob = c(modified_alpha/2, 1 - modified_alpha/2), na.rm = TRUE)
         form_cis$betas <- list(lower = form_cis$betas[1,,], upper = form_cis$betas[2,,])
+        if(num_archetypes == 1) {
+            form_cis$betas$lower <- matrix(form_cis$betas$lower, nrow = 1)
+            form_cis$betas$upper <- matrix(form_cis$betas$upper, nrow = 1)
+            }
+        
         if(num_nuisance_perspp > 0) {
             form_cis$spp_nuisance <- apply(abind::abind(lapply(bootrun, function(x) x$new_transformed_nuisance), along = 0), c(2,3), quantile, prob = c(modified_alpha/2, 1 - modified_alpha/2), na.rm = TRUE)
             form_cis$spp_nuisance <- list(lower = form_cis$spp_nuisance[1,,,drop = FALSE], upper = form_cis$spp_nuisance[2,,,drop = FALSE])
-            }
-        form_cis$mixture_proportion <- data.frame( t(apply(sapply(bootrun, function(x) x$new_mixprop), 1, quantile, prob = c(modified_alpha/2, 1 - modified_alpha/2), na.rm = TRUE)))
         
-        colnames(form_cis$spp_intercepts) <- colnames(form_cis$mixture_proportion) <- c("lower", "upper")
+            }
+        if(num_archetypes > 1)
+            form_cis$mixture_proportion <- data.frame( t(apply(sapply(bootrun, function(x) x$new_mixprop), 1, quantile, prob = c(modified_alpha/2, 1 - modified_alpha/2), na.rm = TRUE)))
+        
+        colnames(form_cis$spp_intercepts) <- c("lower", "upper")
+        if(num_archetypes > 1) {
+            colnames(form_cis$mixture_proportion) <- c("lower", "upper")
+            }
         rownames(form_cis$betas$lower) <- rownames(form_cis$betas$lower) <- rownames(out_assam$betas)
         if(num_nuisance_perspp > 0) 
             dimnames(form_cis$spp_nuisance$lower)[[3]] <- dimnames(form_cis$spp_nuisance$upper)[[3]] <- colnames(out_assam$spp_nuisance)

@@ -236,6 +236,9 @@ predict.assam <- function(object,
                                                             k0 = k0,
                                                             pred_tmb_data = pred_tmb_data)
                 all_spp_mu <- object$family$linkinv(all_spp_mu)
+                if(object$num_archetypes == 1)
+                    all_spp_mu <- array(all_spp_mu, dim = c(nrow(all_spp_mu), ncol(all_spp_mu), 1))
+
                 
                 if(type == "species_max") {
                     pt_pred <- sapply(1:num_spp, function(j) all_spp_mu[,j,which.max(object$bootstrap_posterior_probability[j,,k0])])
@@ -268,6 +271,10 @@ predict.assam <- function(object,
         rm(quantile_predictions)
         
         if(type == "archetype") {
+            if(object$num_archetypes == 1) {
+                lower_predictions <- matrix(lower_predictions, ncol = 1)
+                upper_predictions <- matrix(upper_predictions, ncol = 1)
+                } 
             rownames(lower_predictions) <- rownames(upper_predictions) <- rownames(median_predictions) <- rownames(mean_predictions) <- rownames(newdata)
             colnames(lower_predictions) <- colnames(upper_predictions) <- colnames(median_predictions) <- colnames(mean_predictions) <- names(object$mixture_proportion)
             }
@@ -378,7 +385,7 @@ predict.assam <- function(object,
             use_pars[["ln_phi"]] <- cw_ln_phi[l1]
         if(object$family$family[1] == "tweedie") 
             use_pars[["thetaf"]] <- cw_thetaf[l1]
-        if(!is.null(object$mesh)) {
+        if(object$add_spatial) {
             use_pars[["ln_kappa"]] <- matrix(cw_ln_kappa[l1], nrow = 2, ncol = 1) # This has two rows as set up as sdmTMB
             use_pars[["ln_tau_O"]] <- cw_ln_tau_O[l1]
             }
@@ -396,7 +403,7 @@ predict.assam <- function(object,
             use_map$ln_phi <- as.factor(NA)
         if(object$family$family[1] == "tweedie") 
             use_map$thetaf <- as.factor(NA)
-        if(!is.null(object$mesh)) {
+        if(object$add_spatial) {
             use_map$ln_tau_O <- as.factor(NA)
             use_map$ln_kappa <- as.factor(matrix(NA, 2, 1)) 
             }
