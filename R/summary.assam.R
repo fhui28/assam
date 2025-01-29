@@ -21,7 +21,9 @@
 #' \item{betas_results: }{If the \code{object$uncertainty_quantification = TRUE}, a summary table corresponding to archetypal regression coefficients.}
 #' }
 #' @details # Warning
-#' The current summary function is pretty basic (apologies!), and in the future we may add some more useful information to the summary output. 
+#' - The current summary function is pretty basic (apologies!), and in the future we may add some more useful information to the summary output.
+#' 
+#' - Inferential results on the archetypal regression coefficients should be interpreted with a large grain of salt if lower/upper constraints were placed on these during the fitting pro 
 #' 
 #' @author Francis K.C. Hui <fhui28@gmail.com>
 #' 
