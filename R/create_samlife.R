@@ -64,7 +64,7 @@
 #' library(tidyverse)
 #' library(mvtnorm)
 #'
-#' set.seed(092024)
+#' set.seed(022025)
 #' 
 #' num_X <- 10
 #' num_units <- 1000
@@ -99,7 +99,7 @@
 #' spp_spatial_sd = true_spatial_sd,
 #' spp_spatial_range = true_spatial_range,
 #' mixture_proportion = true_mixprop,
-#' seed = 092024)
+#' seed = 022025)
 #' }
 #' 
 #'

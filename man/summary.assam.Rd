@@ -44,7 +44,7 @@ library(tidyverse)
 library(mvtnorm)
 library(GGally)
 
-set.seed(092024)
+set.seed(022025)
 
 num_X <- 10
 num_units <- 1000
@@ -71,7 +71,7 @@ true_mixprop <- c(0.2, 0.25, 0.3, 0.1, 0.15)
  spp_dispparam = true_dispparam, 
  spp_powerparam = true_powerparam, 
  mixture_proportion = true_mixprop,
-seed = 092024)
+seed = 022025)
  
  
  ##----------------------
