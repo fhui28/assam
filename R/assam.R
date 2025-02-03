@@ -22,15 +22,17 @@
 #' \itemize{
 #' \item{max_iter:}{the maximum number of iterations in the EM algorithm. Usually convergence is quite quick e.g., less than 20 iterations.}
 #' \item{tol:}{the convergence criterion; the difference in the log-likelihood value of the asSAM from successive iterations must be smaller than this value.}
-#' \item{temper_prob:}{In the iteration of the EM algorithm, posterior probabilities from the E-step are "tempered" or push away from the 0/1 boundary. This is often useful to get the EM algorithm moving initially.}
-#' #' \item{trace:}{controls if messages are printed as part of the estimation process to reflect progress.}
+#' \item{temper_prob:}{in the iteration of the EM algorithm, posterior probabilities from the E-step are "tempered" or push away from the 0/1 boundary. This is often useful to get the EM algorithm moving initially.}
+#' \item{trace:}{controls if messages are printed as part of the estimation process to reflect progress.}
+#' \item{beta_lower:}{a vector that can be used to constrain the lower limit of the regression coefficients for each (and every) archetype, along with the species-specific intercepts (first element). The length of this vector should be the same as the number of columns expected from the model matrix implied by \code{formula} and \code{data}, including the species-specific intercepts. However, no checks are made on this vector, so *please ensure you get the lenght right to ensure the correct implementation!* Defaults to \code{NULL}, in which there is no constraint.}
+#' \item{beta_upper:}{a vector that can be used to constrain the upper limit of the regression coefficients for each (and every) archetype, along with the species-specific intercepts (first element). The length of this vector should be the same as the number of columns expected from the model matrix implied by \code{formula} and \code{data}, including the species-specific intercepts. However, no checks are made on this vector, so *please ensure you get the lenght right to ensure the correct implementation!* Defaults to \code{NULL}, in which there is no constraint.}
 #' }
 #' @param bootstrap_control A list containing the following elements to control the parametric bootstrap for uncertainty quantification:
 #' \itemize{
 #' \item{num_boot:}{the number of bootstrapped iterations to do. Defaults to 100, which can already take a long time but should be enough in a lot of settings for uncertainty quantification.}
 #' \item{ci_alpha:}{the type-1 level for confidence interval construction. \code{100 * (1 - ci_alpha)} percent Confidence intervals are constructed.}
 #' \item{seed:}{a seed that can be set for bootstrapping the datasets.}
-#' #' \item{ci_type:}{type of confidence intervals to construct. Two options are currently available: 1) "percentile" confidence intervals based directly on the empirical quantiles of the bootstrap samples; 2) "expanded" percentile confidence intervals, which are typically slightly wider intervals that attempt to correct for a so-called "narrowness bias". Defaults to "percentile".}
+#' \item{ci_type:}{type of confidence intervals to construct. Two options are currently available: 1) "percentile" confidence intervals based directly on the empirical quantiles of the bootstrap samples; 2) "expanded" percentile confidence intervals, which are typically slightly wider intervals that attempt to correct for a so-called "narrowness bias". Defaults to "percentile".}
 #' }
 
 #' @details 
@@ -103,7 +105,7 @@
 #' library(mvtnorm)
 #' library(GGally)
 #' 
-#' set.seed(092024)
+#' set.seed(022025)
 #' 
 #' num_X <- 10
 #' num_units <- 1000
@@ -130,7 +132,7 @@
 #' spp_dispparam = true_dispparam, 
 #' spp_powerparam = true_powerparam, 
 #' mixture_proportion = true_mixprop,
-#' seed = 092024)
+#' seed = 022025)
 #'
 #'  
 #' ##----------------------
@@ -189,10 +191,11 @@
 #' @importFrom cluster pam
 #' @importFrom doParallel registerDoParallel
 #' @importFrom foreach foreach %dopar% %do%
-#' @importFrom sdmTMB sdmTMB make_mesh nbinom2 tweedie Beta
+#' @importFrom sdmTMB sdmTMB sdmTMBcontrol make_mesh nbinom2 tweedie Beta
 #' @importFrom label.switching pra
 #' @importFrom methods as
 #' @importFrom parallel detectCores
+#' @importFrom quadprog solve.QP
 #' @importFrom stats as.formula nlminb model.matrix qt plogis qlogis 
 #' @importFrom TMB MakeADFun
 #' @importFrom utils setTxtProgressBar txtProgressBar
@@ -212,9 +215,9 @@ assam <- function(y,
                   uncertainty_quantification = TRUE,
                   supply_quadapprox = NULL,
                   do_assam_fit = TRUE,
-                  control = list(max_iter = 500, tol = 1e-5, temper_prob = 0.8, trace = FALSE),
+                  control = list(max_iter = 500, tol = 1e-5, temper_prob = 0.8, trace = FALSE, 
+                                 beta_lower = NULL, beta_upper = NULL),
                   bootstrap_control = list(num_boot = 100, ci_alpha = 0.05, seed = NULL, ci_type = "percentile")) {
-    
     
     ##----------------
     # Checks and balances
@@ -250,6 +253,7 @@ assam <- function(y,
     
     if(is.null(mesh)) {
         add_spatial <- FALSE
+        final_mesh <- NULL
         }
     if(!is.null(mesh)) {
         add_spatial <- TRUE
@@ -290,7 +294,8 @@ assam <- function(y,
                                   mesh = final_mesh,
                                   offset = offset,
                                   trial_size = trial_size,
-                                  do_parallel = do_parallel) 
+                                  do_parallel = do_parallel,
+                                  control = control) 
         }
     
     if(!do_assam_fit) {
@@ -396,6 +401,67 @@ assam <- function(y,
              MtWM <- forceSymmetric(crossprod(mapping_mat, bigW) %*% mapping_mat)
              new_params <- solve(MtWM, crossprod(mapping_mat, bigW) %*% as.vector(qa_object$long_parameters))
              new_params <- as.vector(new_params)
+    
+             #' ### For constrained solution
+             if(!is.null(control$beta_lower) | !is.null(control$beta_upper)) {
+                 if(!is.null(control$beta_lower)) {
+                     makeAmat_lower <- diag(x = 0, nrow = ncol(mapping_mat))
+                     rownames(makeAmat_lower) <- colnames(makeAmat_lower) <- colnames(mapping_mat)
+                     diag(makeAmat_lower)[grep("spp_intercept", rownames(makeAmat_lower))] <- 1
+                     diag(makeAmat_lower)[grep("_beta", rownames(makeAmat_lower))] <- 1
+                        
+                     makebvec_lower <- numeric(ncol(mapping_mat))
+                     names(makebvec_lower) <- colnames(mapping_mat)
+                     makebvec_lower[grep("spp_intercept", names(makebvec_lower))] <- control$beta_lower[1]
+                     makebvec_lower[grep("_beta", names(makebvec_lower))] <- rep(control$beta_lower[-1], num_archetypes)
+                     
+                     final_makeAmat <- makeAmat_lower
+                     final_makebvec <- makebvec_lower
+                     }
+                 if(!is.null(control$beta_upper)) {
+                     makeAmat_upper <- diag(x = 0, nrow = ncol(mapping_mat))
+                     rownames(makeAmat_upper) <- colnames(makeAmat_upper) <- colnames(mapping_mat)
+                     diag(makeAmat_upper)[grep("spp_intercept", rownames(makeAmat_upper))] <- -1
+                     diag(makeAmat_upper)[grep("_beta", rownames(makeAmat_upper))] <- -1
+                     
+                     makebvec_upper <- numeric(ncol(mapping_mat))
+                     names(makebvec_upper) <- colnames(mapping_mat)
+                     makebvec_upper[grep("spp_intercept", names(makebvec_upper))] <- control$beta_upper[1]
+                     makebvec_upper[grep("_beta", names(makebvec_upper))] <- rep(control$beta_upper[-1], num_archetypes)
+                     
+                     final_makeAmat <- makeAmat_upper
+                     final_makebvec <- makebvec_upper
+                     }
+                 if(!is.null(control$beta_lower) & !is.null(control$beta_upper)) {
+                     final_makeAmat <- t(rbind(makeAmat_lower, makeAmat_upper))
+                     final_makebvec <- c(makebvec_lower, makebvec_upper)
+                     
+                     rm(makeAmat_lower, makeAmat_upper, makebvec_lower, makebvec_upper)
+                    }                 
+                 
+                 
+                 #' Refine Amat and bvec arguments to things which only have constraints
+                 remove_unconstrained_elements <- which(diag(final_makeAmat) == 0) 
+                 if(length(remove_unconstrained_elements) > 0) {
+                     final_makeAmat <- final_makeAmat[-remove_unconstrained_elements,]
+                     final_makebvec <- final_makebvec[-remove_unconstrained_elements]
+                    }
+                 remove_unconstrained_elements <- which(!is.finite(final_makebvec))
+                 if(length(remove_unconstrained_elements) > 0) {
+                     final_makeAmat <- final_makeAmat[-remove_unconstrained_elements,]
+                     final_makebvec <- final_makebvec[-remove_unconstrained_elements]
+                     }
+                 rm(remove_unconstrained_elements)
+                 
+                 Mstep_update <- quadprog::solve.QP(Dmat = MtWM, 
+                                                    dvec = crossprod(mapping_mat, bigW) %*% as.vector(qa_object$long_parameters),
+                                                    Amat = t(final_makeAmat),
+                                                    bvec = final_makebvec)
+                 
+                 new_params <- Mstep_update$solution
+                 rm(Mstep_update)
+                 }
+             
              names(new_params) <- colnames(mapping_mat)
              new_spp_intercept <- as.vector(new_params[grep("spp_intercept", names(new_params))])
              new_betas <- matrix(new_params[grep("archetype", names(new_params))], nrow = num_archetypes, byrow = TRUE)
@@ -554,11 +620,12 @@ assam <- function(y,
                                                formula = formula, 
                                                resp = bootresp[,b0]$y, 
                                                data = data, 
-                                               add_spatial = add_spatial, 
+                                               add_spatial = add_spatial,
                                                mesh = final_mesh,
                                                offset = offset,
                                                trial_size = trial_size,
                                                do_parallel = do_parallel,
+                                               control = control,
                                                return_fits = FALSE),
                                silent = TRUE)
             if(inherits(get_boot_qa, "try-error"))

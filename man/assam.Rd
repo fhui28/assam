@@ -18,7 +18,8 @@ assam(
   uncertainty_quantification = TRUE,
   supply_quadapprox = NULL,
   do_assam_fit = TRUE,
-  control = list(max_iter = 500, tol = 1e-05, temper_prob = 0.8, trace = FALSE),
+  control = list(max_iter = 500, tol = 1e-05, temper_prob = 0.8, trace = FALSE,
+    beta_lower = NULL, beta_upper = NULL),
   bootstrap_control = list(num_boot = 100, ci_alpha = 0.05, seed = NULL, ci_type =
     "percentile")
 )
@@ -54,8 +55,10 @@ assam(
 \itemize{
 \item{max_iter:}{the maximum number of iterations in the EM algorithm. Usually convergence is quite quick e.g., less than 20 iterations.}
 \item{tol:}{the convergence criterion; the difference in the log-likelihood value of the asSAM from successive iterations must be smaller than this value.}
-\item{temper_prob:}{In the iteration of the EM algorithm, posterior probabilities from the E-step are "tempered" or push away from the 0/1 boundary. This is often useful to get the EM algorithm moving initially.}
-#' \item{trace:}{controls if messages are printed as part of the estimation process to reflect progress.}
+\item{temper_prob:}{in the iteration of the EM algorithm, posterior probabilities from the E-step are "tempered" or push away from the 0/1 boundary. This is often useful to get the EM algorithm moving initially.}
+\item{trace:}{controls if messages are printed as part of the estimation process to reflect progress.}
+\item{beta_lower:}{a vector that can be used to constrain the lower limit of the regression coefficients for each (and every) archetype, along with the species-specific intercepts (first element). The length of this vector should be the same as the number of columns expected from the model matrix implied by \code{formula} and \code{data}, including the species-specific intercepts. However, no checks are made on this vector, so \emph{please ensure you get the lenght right to ensure the correct implementation!} Defaults to \code{NULL}, in which there is no constraint.}
+\item{beta_upper:}{a vector that can be used to constrain the upper limit of the regression coefficients for each (and every) archetype, along with the species-specific intercepts (first element). The length of this vector should be the same as the number of columns expected from the model matrix implied by \code{formula} and \code{data}, including the species-specific intercepts. However, no checks are made on this vector, so \emph{please ensure you get the lenght right to ensure the correct implementation!} Defaults to \code{NULL}, in which there is no constraint.}
 }}
 
 \item{bootstrap_control}{A list containing the following elements to control the parametric bootstrap for uncertainty quantification:
@@ -63,7 +66,7 @@ assam(
 \item{num_boot:}{the number of bootstrapped iterations to do. Defaults to 100, which can already take a long time but should be enough in a lot of settings for uncertainty quantification.}
 \item{ci_alpha:}{the type-1 level for confidence interval construction. \code{100 * (1 - ci_alpha)} percent Confidence intervals are constructed.}
 \item{seed:}{a seed that can be set for bootstrapping the datasets.}
-#' \item{ci_type:}{type of confidence intervals to construct. Two options are currently available: 1) "percentile" confidence intervals based directly on the empirical quantiles of the bootstrap samples; 2) "expanded" percentile confidence intervals, which are typically slightly wider intervals that attempt to correct for a so-called "narrowness bias". Defaults to "percentile".}
+\item{ci_type:}{type of confidence intervals to construct. Two options are currently available: 1) "percentile" confidence intervals based directly on the empirical quantiles of the bootstrap samples; 2) "expanded" percentile confidence intervals, which are typically slightly wider intervals that attempt to correct for a so-called "narrowness bias". Defaults to "percentile".}
 }}
 }
 \value{
@@ -141,7 +144,7 @@ library(tidyverse)
 library(mvtnorm)
 library(GGally)
 
-set.seed(092024)
+set.seed(022025)
 
 num_X <- 10
 num_units <- 1000
@@ -168,7 +171,7 @@ spp_intercept = true_intercepts,
 spp_dispparam = true_dispparam, 
 spp_powerparam = true_powerparam, 
 mixture_proportion = true_mixprop,
-seed = 092024)
+seed = 022025)
 
  
 ##----------------------
