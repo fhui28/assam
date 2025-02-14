@@ -21,12 +21,9 @@ Imports:
     collapse,
     doParallel,
     foreach,
-    geoR,
     label.switching,
-    lifecycle,
     Matrix,
     methods,
-    mvtnorm,
     mgcv,
     parallel,
     quadprog,
@@ -37,7 +34,10 @@ Imports:
     tweedie
 Depends: R (>= 4.1.0),
 Suggests: 
+    geoR,
     GGally,
+    lifecycle,
+    mvtnorm,
     spelling,
     tidyverse
 Language: en-US
