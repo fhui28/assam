@@ -257,7 +257,7 @@ assam <- function(y,
         }
     if(!is.null(mesh)) {
         add_spatial <- TRUE
-        if(class(mesh) != "sdmTMBmesh")
+        if(inherits(mesh, "sdmTMBmesh"))
             stop("If mesh is supplied for species-specific spatial fields, then the mesh argument must be an object class of \"sdmTMBmesh\".")
         final_mesh <- mesh
         }
@@ -274,7 +274,7 @@ assam <- function(y,
     ##----------------
     message("Commencing fitting...")
     if(!is.null(supply_quadapprox)) {
-        if(class(supply_quadapprox) != "assam_quadapprox")
+        if(inherits(supply_quadapprox, "assam_quadapprox"))
             stop("If supply_quadapprox is supplied, then it must be an object of class \"assam_quadapprox\".")
         
         message("Species-specific quadratic approximations supplied by practitioner...thanks!")
