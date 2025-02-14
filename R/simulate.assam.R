@@ -44,7 +44,7 @@ simulate.assam <- function(object,
                            seed = NULL, 
                            ...) {
     
-    if(class(object) != "assam") 
+    if(inherits(object, "assam")) 
         stop("object must be of class assam.")
     if(do_parallel) {
         if(is.null(num_cores))
@@ -56,9 +56,10 @@ simulate.assam <- function(object,
     use_model <- list(family = object$family, 
                      formula = object$formula,
                      data = data,
+                     which_spp_effects = object$which_spp_effects,
                      offset = object$offset,
                      betas = object$betas, 
-                     spp_intercepts = object$spp_intercepts, 
+                     spp_effects = object$spp_effects, 
                      mixture_proportion = object$mixture_proportion, 
                      mesh = object$mesh,
                      spp_spatial_sd = object$spp_nuisance$spatial_SD,
@@ -86,25 +87,12 @@ simulate.assam <- function(object,
     if(do_parallel)
         out <- foreach::foreach(l = 1:nsim,
                                 .combine = "cbind") %dopar% create_samlife(family = use_model$family, 
-                                                                        formula = use_model$formula,
-                                                                        data = use_model$data,
-                                                                        betas = use_model$betas, 
-                                                                        spp_intercepts = use_model$spp_intercepts, 
-                                                                        spp_dispparam = use_model$spp_dispparam, 
-                                                                        spp_powerparam = use_model$spp_powerparam, 
-                                                                        mixture_proportion = use_model$mixture_proportion, 
-                                                                        mesh = use_model$mesh,
-                                                                        spp_spatial_sd = use_model$spp_spatial_sd,
-                                                                        spp_spatial_range = use_model$spp_spatial_range,
-                                                                        trial_size = use_model$trial_size,
-                                                                        seed = create_seeds[l])
-    if(!do_parallel)
-        out <- foreach::foreach(l = 1:nsim,
-                                .combine = "cbind") %do% create_samlife(family = use_model$family, 
                                                                            formula = use_model$formula,
                                                                            data = use_model$data,
+                                                                           which_spp_effects = use_model$which_spp_effects,
                                                                            betas = use_model$betas, 
-                                                                           spp_intercepts = use_model$spp_intercepts, 
+                                                                           offset = use_model$offset,
+                                                                           spp_effects = use_model$spp_effects, 
                                                                            spp_dispparam = use_model$spp_dispparam, 
                                                                            spp_powerparam = use_model$spp_powerparam, 
                                                                            mixture_proportion = use_model$mixture_proportion, 
@@ -113,6 +101,23 @@ simulate.assam <- function(object,
                                                                            spp_spatial_range = use_model$spp_spatial_range,
                                                                            trial_size = use_model$trial_size,
                                                                            seed = create_seeds[l])
+    if(!do_parallel)
+        out <- foreach::foreach(l = 1:nsim,
+                                .combine = "cbind") %do% create_samlife(family = use_model$family, 
+                                                                        formula = use_model$formula,
+                                                                        data = use_model$data,
+                                                                        which_spp_effects = use_model$which_spp_effects,
+                                                                        betas = use_model$betas, 
+                                                                        offset = use_model$offset,
+                                                                        spp_effects = use_model$spp_effects, 
+                                                                        spp_dispparam = use_model$spp_dispparam, 
+                                                                        spp_powerparam = use_model$spp_powerparam, 
+                                                                        mixture_proportion = use_model$mixture_proportion, 
+                                                                        mesh = use_model$mesh,
+                                                                        spp_spatial_sd = use_model$spp_spatial_sd,
+                                                                        spp_spatial_range = use_model$spp_spatial_range,
+                                                                        trial_size = use_model$trial_size,
+                                                                        seed = create_seeds[l])
     
     #doParallel::stopImplicitCluster()
     return(out)

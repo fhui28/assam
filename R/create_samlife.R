@@ -6,11 +6,12 @@
 #' Simulates multivariate abundance data based on a species archetype model and given the various parameter values as appropriate.
 
 #' @param family a description of the response distribution to be used in the model, as specified by a family function. Please see details below for more information on the distributions currently permitted.
-#' @param formula An object of class "formula", which represents a symbolic description of the model matrix to be created (based on using this argument along with the \code{data} argument). *Note there should be nothing on the left hand side of the "~". It should also include an intercept term.*
+#' @param formula An object of class "formula", which represents a symbolic description of the model matrix to be created (based on using this argument along with the \code{data} argument). *Note there should be nothing on the left hand side of the "~".*
 #' @param data A data frame containing covariate information, from which the model matrix is to be created (based on this argument along with the \code{formula} argument). 
+#' @param which_spp_effects A vector identifying which columns of the model matrix induced by \code{formula} and \code{data} should be treated as species-specific effects. Default to 1, meaning only the first column i.e., the intercept, is species-specific.
 #' @param offset A matrix of offset terms.  
 #' @param betas A matrix of archetypal regression coefficients corresponding to the model matrix created. The number of rows in \code{betas} is equal to the number of archetypes.
-#' @param spp_intercepts A vector of species-specific intercept.  
+#' @param spp_effects A matrix of species-specifics, where the number of rows defines the number of species in the simulated dataset, and the number of columns should equal the length of \code{which_spp_effects}.
 #' @param spp_dispparam A vector of species-specific dispersion parameters, to be used for distributions that require one.  
 #' @param spp_powerparam A vector of species-specific power parameters, to be used for distributions that require one. 
 #' @param mesh Output from [sdmTMB::make_mesh()], from which species-specific spatial fields can be constructed and added to the linear predictor.
@@ -24,9 +25,9 @@
 #' @details 
 #' Simulates multivariate abundance data from a species archetype model (SAM). For the purposes of the package, the SAM is characterized by the following mean regression model: for observational unit \eqn{i=1,\ldots,N} and species \eqn{j=1,\ldots,M}, conditional on the species belong to archetype \eqn{k},
 #' 
-#' \deqn{g(\mu_{ij}) = \eta_{ij} = x_i^\top\beta_k,}
+#' \deqn{g(\mu_{ij}) = \eta_{ij} = u_i^\top\alpha_j + x_i^\top\beta_k,}
 #'
-#' where \eqn{g(.)} is a known link function, \eqn{x_i} denotes a vector of predictors for unit \eqn{i} i.e., the \eqn{i}-th row from the created model matrix, \eqn{\beta_k} denotes the corresponding regression coefficients for archetype \eqn{k}. Additionally, species-specific spatial fields can be included in the linear predictor e.g., to account for residual spatial correlation above and beyond that explained by the archetypal responses.
+#' where \eqn{g(.)} is a known link function, \eqn{u_i^\top\alpha_j} corresponds to a component that is to kept species-specific e.g., species-specific intercept, \eqn{x_i^\top\beta_k}  denotes the component corresponding to effect of archetypal response \eqn{k}. Additionally, species-specific spatial fields can be included in the linear predictor e.g., to account for residual spatial correlation above and beyond that explained by the archetypal responses.
 #' 
 #' Based on the mean model given above, responses \eqn{y_{ij}} are then simulated from the assumed distribution, using the additional dispersion and power parameters as appropriate.
 #' 
@@ -80,7 +81,7 @@
 #' rm(H)
 #'
 #' true_betas <- runif(num_archetype * num_X, -1, 1) %>% matrix(nrow = num_archetype)
-#' true_intercepts <- runif(num_spp, -2, 0)  
+#' true_species_effects <- matrix(runif(num_spp, -2, 0), ncol = 1)
 #' true_dispparam <- 1/runif(num_spp, 0, 5) 
 #' true_powerparam <- runif(num_spp, 1.4, 1.8)
 #' true_mixprop <- c(0.2, 0.25, 0.3, 0.1, 0.15)
@@ -92,12 +93,12 @@
 #' formula = paste("~", paste0(colnames(covariate_dat)[-(1:2)], collapse = "+")) %>% as.formula, 
 #' data = covariate_dat, 
 #' betas = true_betas, 
-#' spp_intercepts = true_intercepts, 
+#' spp_effects = true_species_effects, 
 #' spp_dispparam = true_dispparam, 
 #' spp_powerparam = true_powerparam, 
-#' mesh = sdmTMB::make_mesh(covariate_dat, xy_cols = c("x", "y"), n_knots = 80),
-#' spp_spatial_sd = true_spatial_sd,
-#' spp_spatial_range = true_spatial_range,
+#' #mesh = sdmTMB::make_mesh(covariate_dat, xy_cols = c("x", "y"), n_knots = 80),
+#' #spp_spatial_sd = true_spatial_sd,
+#' #spp_spatial_range = true_spatial_range,
 #' mixture_proportion = true_mixprop,
 #' seed = 022025)
 #' }
@@ -113,9 +114,10 @@
 create_samlife <- function(family = binomial(), 
                            formula, 
                            data, 
+                           which_spp_effects = 1,
                            offset = NULL, 
                            betas, 
-                           spp_intercepts, 
+                           spp_effects, 
                            spp_dispparam = NULL, 
                            spp_powerparam = NULL,
                            mesh = NULL,
@@ -129,13 +131,17 @@ create_samlife <- function(family = binomial(),
     ##----------------
     #' # Checks and balances
     ##----------------
+    if(!is.matrix(spp_effects))
+        stop("spp_effects must be matrix, where the number of rows defines the number of species in the simulated dataset.")
     num_units <- nrow(data)
-    num_spp <- length(spp_intercepts)
+    num_spp <- nrow(spp_effects)
     num_archetypes <- length(mixture_proportion)
     formula <- .check_X_formula(formula = formula, data = as.data.frame(data))          
     
     if(nrow(betas) != length(mixture_proportion))
         stop("No. of mixing proportions should be equal to the number of rows in betas.")
+    if(ncol(spp_effects) != length(which_spp_effects))
+        stop("species_effects should be a matrix where the number of columns should equal the length of which_spp_effects.")
     if(any(mixture_proportion < 0) || any(mixture_proportion > 1) || abs(sum(mixture_proportion) - 1) > 1e-12)
         stop("The mixture proportions mixture_proportion should be a vector with all elements between 0 and 1, and should sum to 1.")
     if(!(family$family %in% c("gaussian","Gamma","binomial","poisson","nbinom2","tweedie","Beta")))
@@ -143,7 +149,7 @@ create_samlife <- function(family = binomial(),
     
     add_spatial <- FALSE
     if(!is.null(mesh)) {
-        if(class(mesh) != "sdmTMBmesh")
+        if(inherits(mesh, "sdmTMBmesh"))
             stop("If mesh is supplied for species-specific spatial fields, then the mesh argument must be an object class of \"sdmTMBmesh\".")
         add_spatial <- TRUE
         }
@@ -152,7 +158,7 @@ create_samlife <- function(family = binomial(),
     .check_spp_spatial_parameters(spp_spatial_range = spp_spatial_range,
                                   spp_spatial_sd = spp_spatial_sd,
                                   add_spatial = add_spatial,
-                                  spp_intercepts = spp_intercepts)
+                                  spp_effects = spp_effects)
     
     ##----------------
     #' # Simulate data
@@ -174,10 +180,10 @@ create_samlife <- function(family = binomial(),
         nullfit <- sdmTMB(tmp_formula,
                           spatial = FALSE,
                           data = data.frame(data, response = rnorm(nrow(data))))
-        X <- model.matrix(nullfit$formula[[1]], data = nullfit$data)[,-1] # Remove the intercept term
+        X <- model.matrix(nullfit$formula[[1]], data = nullfit$data) # Remove the intercept term
         rm(nullfit)
         
-        spp_eta <- tcrossprod(cbind(1, X), cbind(spp_intercepts, betas[archetype_label,]))
+        spp_eta <- tcrossprod(X[, which_spp_effects, drop = FALSE], spp_effects) + tcrossprod(X[, -which_spp_effects, drop = FALSE],  betas[archetype_label,])
         if(!is.null(offset))
             spp_eta <- spp_eta + offset
         }
@@ -229,11 +235,14 @@ create_samlife <- function(family = binomial(),
             if(!is.null(offset))
                 make_offset <- offset[,j]
             
+            make_B <- c(spp_effects[j,], betas[archetype_label[j],])
+            make_B[which_spp_effects] <- spp_effects[j,]
+            make_B[-which_spp_effects] <- betas[archetype_label[j],]
             sim_resp <- sdmTMB::sdmTMB_simulate(formula = formula,
                                                 data = data,
                                                 mesh = mesh,
                                                 family = family,
-                                                B = c(spp_intercepts[j], betas[archetype_label[j],]),
+                                                B = make_B,
                                                 range = sqrt(8) * spp_spatial_range[j],
                                                 sigma_O =  spp_spatial_sd[j],
                                                 tweedie_p = spp_powerparam[j],
@@ -243,6 +252,7 @@ create_samlife <- function(family = binomial(),
             
             resp[,j] <- sim_resp$observed
             spp_eta[,j] <- sim_resp$eta
+            rm(make_B)
             if(add_spatial)
                 get_spatial_fields <- cbind(get_spatial_fields, sim_resp$omega_s)
             }
