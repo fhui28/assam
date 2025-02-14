@@ -34,8 +34,8 @@ print.assam <- function(x, ...) {
     message("Family: ", x$family$family[1], "\nNo. of sites: ", dim(x$linear_predictor)[1], "\nNo. of species: ", dim(x$linear_predictor)[2]) 
     message("No. of archetypes: ", nrow(x$betas)) 
     message("Archetypal response-environment relationship: ", x$formula) 
+    message("Were constraints imposed on the archetypal regression coefficients? (TRUE/FALSE): ", (!is.null(x$control$beta_lower) | !is.null(x$control$beta_upper))) 
     message("Were confident intervals constructed? (TRUE/FALSE): ", x$uncertainty_quantification) 
     message("Were species-specific spatial fields included? (TRUE/FALSE): ", x$add_spatial)
     message("---") 
     }
-

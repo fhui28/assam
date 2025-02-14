@@ -7,6 +7,7 @@
                             offset = NULL, 
                             trial_size = 1, 
                             do_parallel = TRUE,
+                            control = NULL,
                             return_fits = TRUE) {     
     
     num_spp <- ncol(resp)
@@ -16,7 +17,15 @@
             stop("If mesh is supplied for species-specific spatial fields, then the mesh argument must be an object class of \"sdmTMBmesh\".")
         }
 
-    
+    make_sdmTMBcontrol <- sdmTMB::sdmTMBcontrol(get_joint_precision = FALSE)
+    if(!is.null(control$beta_lower))
+        make_sdmTMBcontrol$lower <- list(b_j = control$beta_lower)
+    if(!is.null(control$beta_upper))
+        make_sdmTMBcontrol$upper <- list(b_j = control$beta_upper)
+    if(!is.null(control$beta_lower) | !is.null(control$beta_upper))
+        make_sdmTMBcontrol$newton_loops <- 0 # Needed to ensure constraints are actually respected; see (https://github.com/pbs-assess/sdmTMB/issues/394#issuecomment-2619995494)
+
+
     spp_qa_fn <- function(l) {
         tmp_formula <- as.formula(paste("response", paste(as.character(formula), collapse = " ") ) )
         
@@ -32,7 +41,7 @@
                                spatial = add_spatial,
                                offset = new_offset, 
                                family = family,
-                               control = sdmTMB::sdmTMBcontrol(get_joint_precision = FALSE))
+                               control = make_sdmTMBcontrol)
                 }
             if(add_spatial) {
                 fit0 <- sdmTMB(tmp_formula,
@@ -41,7 +50,7 @@
                                mesh =  mesh,
                                offset = new_offset, 
                                family = family,
-                               control = sdmTMB::sdmTMBcontrol(get_joint_precision = FALSE))
+                               control = make_sdmTMBcontrol)
                 }
             }
         if(family$family %in% c("Beta")) {
@@ -51,7 +60,7 @@
                                spatial = add_spatial,
                                offset = new_offset, 
                                family = sdmTMB::Beta(),
-                               control = sdmTMB::sdmTMBcontrol(get_joint_precision = FALSE))
+                               control = make_sdmTMBcontrol)
                 }
             if(add_spatial) {
                 fit0 <- sdmTMB(tmp_formula, 
@@ -60,7 +69,7 @@
                                mesh =  mesh,
                                offset = new_offset, 
                                family = sdmTMB::Beta(),
-                               control = sdmTMB::sdmTMBcontrol(get_joint_precision = FALSE))
+                               control = make_sdmTMBcontrol)
                 }
             }
         

@@ -32,7 +32,10 @@ Takes a fitted \code{assam} object and produces some basic summary information.
 Currently, the function returns estimated mixture proportions, species-specific intercepts, and archetypal regression coefficients. If the \code{object$uncertainty_quantification == TRUE}, then summary tables are also produced for archetypal regression coefficients containing parametric bootstrap confidence intervals and statistical significance based off this. Note the length of the confidence intervals was determined as part of the fitting the asSAM; see \code{object$bootstrap_control$ci_alpha}.
 }
 \section{Warning}{
-The current summary function is pretty basic (apologies!), and in the future we may add some more useful information to the summary output.
+\itemize{
+\item The current summary function is pretty basic (apologies!), and in the future we may add some more useful information to the summary output.
+\item Inferential results on the archetypal regression coefficients should be interpreted with a large grain of salt if lower/upper constraints were placed on these during the fitting pro
+}
 }
 
 \examples{
@@ -44,7 +47,7 @@ library(tidyverse)
 library(mvtnorm)
 library(GGally)
 
-set.seed(092024)
+set.seed(022025)
 
 num_X <- 10
 num_units <- 1000
@@ -71,7 +74,7 @@ true_mixprop <- c(0.2, 0.25, 0.3, 0.1, 0.15)
  spp_dispparam = true_dispparam, 
  spp_powerparam = true_powerparam, 
  mixture_proportion = true_mixprop,
-seed = 092024)
+seed = 022025)
  
  
  ##----------------------
