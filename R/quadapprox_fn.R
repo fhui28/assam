@@ -11,7 +11,6 @@
                             return_fits = TRUE) {     
     
     num_spp <- ncol(resp)
-    # mesh <- sdmTMB::make_mesh(data = data, xy_cols = colnames(data)[1:2], n_knots = 5) # Make any old mesh in this situation
     if(add_spatial) {
         if(inherits(mesh, "sdmTMBmesh"))
             stop("If mesh is supplied for species-specific spatial fields, then the mesh argument must be an object class of \"sdmTMBmesh\".")

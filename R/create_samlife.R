@@ -149,7 +149,7 @@ create_samlife <- function(family = binomial(),
     
     add_spatial <- FALSE
     if(!is.null(mesh)) {
-        if(inherits(mesh, "sdmTMBmesh"))
+        if(!inherits(mesh, "sdmTMBmesh"))
             stop("If mesh is supplied for species-specific spatial fields, then the mesh argument must be an object class of \"sdmTMBmesh\".")
         add_spatial <- TRUE
         }
@@ -180,7 +180,7 @@ create_samlife <- function(family = binomial(),
         nullfit <- sdmTMB(tmp_formula,
                           spatial = FALSE,
                           data = data.frame(data, response = rnorm(nrow(data))))
-        X <- model.matrix(nullfit$formula[[1]], data = nullfit$data) # Remove the intercept term
+        X <- model.matrix(nullfit$formula[[1]], data = nullfit$data)
         rm(nullfit)
         
         spp_eta <- tcrossprod(X[, which_spp_effects, drop = FALSE], spp_effects) + tcrossprod(X[, -which_spp_effects, drop = FALSE],  betas[archetype_label,])

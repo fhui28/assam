@@ -6,8 +6,9 @@
 #' Fits approximate and scalable species archetype modeling (asSAMs) for model-based clustering of species based on their environmental response, into a small number of so-called archetypal responses. The basic idea is take the log-likelihood function of SAM, and then construct an approximation of this which (hopefully) is more scalable in both the number of sites and species.
 #' 
 #' @param y A multivariate abundance response matrix.
-#' @param formula An object of class "formula", which represents a symbolic description of the model matrix to be created (based on using this argument along with the \code{data} argument). *Note there should be nothing on the left hand side of the "~". It should also include an intercept term.*
+#' @param formula An object of class "formula", which represents a symbolic description of the model matrix to be created (based on using this argument along with the \code{data} argument). *Note there should be nothing on the left hand side of the "~".*
 #' @param data A data frame containing covariate information, from which the model matrix is to be created (based on this argument along with the \code{formula} argument). 
+#' @param which_spp_effects A vector identifying which columns of the model matrix induced by \code{formula} and \code{data} should be treated as species-specific effects. Default to 1, meaning only the first column i.e., the intercept, is species-specific.
 #' @param family a description of the response distribution to be used in the model, as specified by a family function. Please see details below for more information on the distributions currently permitted.
 #' @param offset A matrix of offset terms, of the same dimension as \code{y}.
 #' @param trial_size Trial sizes to use for binomial distribution. This should equal to a scalar.
@@ -24,8 +25,8 @@
 #' \item{tol:}{the convergence criterion; the difference in the log-likelihood value of the asSAM from successive iterations must be smaller than this value.}
 #' \item{temper_prob:}{in the iteration of the EM algorithm, posterior probabilities from the E-step are "tempered" or push away from the 0/1 boundary. This is often useful to get the EM algorithm moving initially.}
 #' \item{trace:}{controls if messages are printed as part of the estimation process to reflect progress.}
-#' \item{beta_lower:}{a vector that can be used to constrain the lower limit of the regression coefficients for each (and every) archetype, along with the species-specific intercepts (first element). The length of this vector should be the same as the number of columns expected from the model matrix implied by \code{formula} and \code{data}, including the species-specific intercepts. However, no checks are made on this vector, so *please ensure you get the lenght right to ensure the correct implementation!* Defaults to \code{NULL}, in which there is no constraint.}
-#' \item{beta_upper:}{a vector that can be used to constrain the upper limit of the regression coefficients for each (and every) archetype, along with the species-specific intercepts (first element). The length of this vector should be the same as the number of columns expected from the model matrix implied by \code{formula} and \code{data}, including the species-specific intercepts. However, no checks are made on this vector, so *please ensure you get the lenght right to ensure the correct implementation!* Defaults to \code{NULL}, in which there is no constraint.}
+#' \item{beta_lower:}{a vector that can be used to constrain the lower limit of the regression coefficients for each (and every) archetype, along with the species-specific effects. The length of this vector should be the same as the number of columns of the model matrix induced by \code{formula} and \code{data}. However, no checks are made on this vector, so *please ensure you get the length right to ensure the correct implementation!* Defaults to \code{NULL}, in which there is no constraint.}
+#' \item{beta_upper:}{a vector that can be used to constrain the upper limit of the regression coefficients for each (and every) archetype, along with the species-specific effects. The length of this vector should be the same as the number of columns of the model matrix induced by \code{formula} and \code{data}. However, no checks are made on this vector, so *please ensure you get the length right to ensure the correct implementation!* Defaults to \code{NULL}, in which there is no constraint.}
 #' }
 #' @param bootstrap_control A list containing the following elements to control the parametric bootstrap for uncertainty quantification:
 #' \itemize{
@@ -38,9 +39,9 @@
 #' @details 
 #' For the purposes of the package, the SAM is characterized by the following mean regression model: for observational unit \eqn{i=1,\ldots,N} and species \eqn{j=1,\ldots,M}, conditional on the species belong to archetype \eqn{k},
 #' 
-#' \deqn{g(\mu_{ij}) = \eta_{ij} = x_i^\top\beta_k,}
-#' 
-#' where \eqn{g(.)} is a known link function, \eqn{\eta_{ij}} denotes the linear predictor, \eqn{x_i} denotes a vector of predictors for unit \eqn{i} i.e., the \eqn{i}-th row from the created model matrix, \eqn{\beta_k} denotes the corresponding regression coefficients for archetype \eqn{k}. Based on the mean model given above, responses \eqn{y_{ij}} are then simulated from the assumed distribution, using the additional dispersion and power parameters as appropriate. We refer the reader to [Dunstan et al., (2011)](https://doi.org/10.1016/j.ecolmodel.2010.11.030), [Hui et al., (2013)](https://doi.org/10.1890/12-1322.1), [Dunstan et al., (2013)](https://doi.org/10.1007/s13253-013-0146-x), and [Skipton Woolley's ecomix package](https://github.com/skiptoniam/ecomix) for more details about the formulations of SAMs. Additionally, species-specific spatial fields can be included in the linear predictor e.g., to account for residual spatial correlation above and beyond that explained by the archetypal responses.
+#' \deqn{g(\mu_{ij}) = \eta_{ij} = u_i^\top\alpha_j + x_i^\top\beta_k,}
+#'
+#' where \eqn{g(.)} is a known link function, \eqn{u_i^\top\alpha_j} corresponds to a component that is to kept species-specific e.g., species-specific intercept, \eqn{x_i^\top\beta_k}  denotes the component corresponding to effect of archetypal response \eqn{k}. Additionally, species-specific spatial fields can be included in the linear predictor e.g., to account for residual spatial correlation above and beyond that explained by the archetypal responses. Conditional on the mean model above, the \eqn{y_{ij}} are assumed to be come from some response distribution using the additional dispersion and power parameters as appropriate. We refer the reader to [Dunstan et al., (2011)](https://doi.org/10.1016/j.ecolmodel.2010.11.030), [Hui et al., (2013)](https://doi.org/10.1890/12-1322.1), [Dunstan et al., (2013)](https://doi.org/10.1007/s13253-013-0146-x), and [Skipton Woolley's ecomix package](https://github.com/skiptoniam/ecomix) for more details about the formulations of SAMs. Additionally, species-specific spatial fields can be included in the linear predictor e.g., to account for residual spatial correlation above and beyond that explained by the archetypal responses.
 #' 
 #' The broad goal of this package is to construct a way of fitting SAMs that are, although approximate, more scalable in the number of sites and species (though not necessarily faster), hence the name asSAMs. We prefer to the corresponding manuscript (in preparation) for details, but to summarize, asSAMs are formed by constructing an approximate likelihood function for a SAM based on using ingredients (i.e., point estimates and the associated observed information matrix) from stacked species distribution models (which are fitted initially in parallel), and then building what is essentially a finite mixture of multivariate Gaussian distributions from this. This is then maximized using an EM algorithm, which can be done scalably and very quickly.
 #' 
@@ -77,8 +78,8 @@
 #' \item{mesh:}{Same as input argument.}
 #' \item{num_archetypes:}{Same as input argument.}
 #' \item{uncertainty_quantification:}{Same as input argument.}
-#' \item{spp_intercepts:}{Estimated species-specific intercepts.}
-#' \item{betas:}{Estimated matrix of archetypal regression coefficients corresponding to the model matrix created. The number of rows in \code{betas} is equal to the number of archetypes.}
+#' \item{spp_effects:}{Estimated species-specific effects i.e., \eqn{alpha_j}.}
+#' \item{betas:}{Estimated matrix of archetypal regression coefficients corresponding to the model matrix created i.e., \eqn{beta_k}. The number of rows in \code{betas} is equal to the number of archetypes.}
 #' \item{mixture_proportion:}{Estimated vector of mixture proportions corresponding to the probability of belonging to each archetype.}
 #' \item{spp_nuisance:}{Estimated matrix of species-specific nuisance parameters e.g., the dispersion parameter in the negative binomial distribution, and dispersion and power parameters in the Tweedie distribution, and so on.}
 #' \item{posterior_probability:}{Estimated matrix of posterior probabilities for each species belong to each archetype. The number of rows in \code{posterior_probability} is equal to the number of species.}
@@ -89,7 +90,7 @@
 #' \item{linear_predictor:}{Estimated array of archetype-specific linear predictors. The last dimension of the array corresponds to the number of archetypes.}
 #' \item{control:}{Same as input argument.}
 #' \item{bootstrap_control:}{Same as input argument.}
-#' \item{confidence_intervals:}{A list of estimated parametric bootstrap confidence intervals for all the parameters in the asSAM, with each element in the list corresponding to one of the parameters e.g., the species-specific intercepts, the mixture proportions, and so on.}
+#' \item{confidence_intervals:}{A list of estimated parametric bootstrap confidence intervals for all the parameters in the asSAM, with each element in the list corresponding to one of the parameters e.g., the species-specific effects, the mixture proportions, and so on.}
 #' \item{bootstrap_paramters:}{A matrix of estimated (untransformed) parameters from the parametric bootstrap. *This output can be safely ignored by most users*, but those curious, it is used to uncertainty quantification for downstream predictions, say.}
 #' \item{bootstrap_posterior_probability:}{An array of estimated posterior probabilities from the parametric bootstrap. *This output can be safely ignored by most users*, but those curious, it is used to uncertainty quantification for downstream predictions, say.}
 #' \item{sdmTMB_fits}{A list of the set of stacked species distribution models fitted using [sdmTMB::sdmTMB()]. *This output can be safely ignored by most users*.}
@@ -119,7 +120,7 @@
 #' rm(H)
 #' 
 #' true_betas <- runif(num_archetype * num_X, -1, 1) %>% matrix(nrow = num_archetype)
-#' true_intercepts <- runif(num_spp, -2, 0)  
+#' true_spp_effects <- matrix(runif(num_spp, -2, 0), ncol = 1)
 #' true_dispparam <- 1/runif(num_spp, 1, 5) 
 #' true_powerparam <- runif(num_spp, 1.4, 1.8)
 #' true_mixprop <- c(0.2, 0.25, 0.3, 0.1, 0.15)
@@ -128,7 +129,7 @@
 #' formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) %>% as.formula, 
 #' data = covariate_dat, 
 #' betas = true_betas, 
-#' spp_intercept = true_intercepts, 
+#' spp_effects = true_spp_effects, 
 #' spp_dispparam = true_dispparam, 
 #' spp_powerparam = true_powerparam, 
 #' mixture_proportion = true_mixprop,
@@ -148,7 +149,7 @@
 #' num_cores = 8)
 #' 
 #'  
-#' plot(true_intercepts, samfit$spp_intercepts); abline(0,1)
+#' plot(true_spp_effects, samfit$spp_effects); abline(0,1)
 #' plot(true_dispparam, samfit$spp_nuisance$dispersion, log = "xy"); abline(0,1)
 #' #' Note estimates for the archetypal responses and mixture proportions from (as)SAMs should be 
 #' #' close to the corresponding true values, *up to a reordering* of the mixture component
@@ -205,6 +206,7 @@
 assam <- function(y, 
                   formula, 
                   data, 
+                  which_spp_effects = 1,
                   family, 
                   offset = NULL, 
                   trial_size = 1, 
@@ -247,7 +249,7 @@ assam <- function(y,
     nullfit <- sdmTMB(tmp_formula,
                       spatial = FALSE,
                       data = data.frame(data, response = rnorm(nrow(data))))
-    X <- model.matrix(nullfit$formula[[1]], data = nullfit$data)[,-1] # Remove the intercept term
+    X <- model.matrix(nullfit$formula[[1]], data = nullfit$data)
     num_X <- ncol(X)
     rm(tmp_formula, nullfit) 
     
@@ -257,7 +259,7 @@ assam <- function(y,
         }
     if(!is.null(mesh)) {
         add_spatial <- TRUE
-        if(inherits(mesh, "sdmTMBmesh"))
+        if(!inherits(mesh, "sdmTMBmesh"))
             stop("If mesh is supplied for species-specific spatial fields, then the mesh argument must be an object class of \"sdmTMBmesh\".")
         final_mesh <- mesh
         }
@@ -304,26 +306,27 @@ assam <- function(y,
         }   
     
     ### Make mapping matrix, maps psi to long_parameters
-    #' Psi sequence: species-specific intercepts; archetypal regression coefficients by archetype; species-specific nuisance parameters, along with parameters for species-specific spatial fields
+    #' Psi sequence: species-specific effects; archetypal regression coefficients by archetype; species-specific nuisance parameters, along with parameters for species-specific spatial fields
     get_qa$long_parameters <- apply(get_qa$parameters, 1, function(x) kronecker(rep(1,num_archetypes), x)) # Repeats species-specific estimates num_archetypes times; object has num_spp columns
-    num_nuisance_perspp <- length(get_qa$parameters[1,]) - num_X - 1 # e.g., number of dispersion and power parameter per-species, along with parameters for species-specific spatial fields
+    num_nuisance_perspp <- length(get_qa$parameters[1,]) - num_X # e.g., number of dispersion and power parameter per-species, along with parameters for species-specific spatial fields
     qa_parameters_colnames <- colnames(get_qa$parameters)
     
-    mapping_mat <- Matrix(0, nrow = length(get_qa$long_parameters), ncol = num_spp + num_X * num_archetypes + num_spp*num_nuisance_perspp)
-    makecolnames <- c(paste0("spp_intercept", 1:num_spp), 
-                      paste0(rep(paste0("archetype", 1:num_archetypes), each = num_X), rep(paste0("_beta", 1:num_X), num_archetypes)))
+    mapping_mat <- Matrix(0, nrow = length(get_qa$long_parameters), ncol = num_spp * length(which_spp_effects) + (num_X - length(which_spp_effects)) * num_archetypes + num_spp*num_nuisance_perspp)
+    makecolnames <- c(paste0(rep(paste0("spp_effects", 1:num_spp), each = length(which_spp_effects)), rep(paste0("_alpha", 1:length(which_spp_effects)), num_spp)), 
+                      paste0(rep(paste0("archetype", 1:num_archetypes), each = num_X - length(which_spp_effects)), rep(paste0("_beta", 1:(num_X - length(which_spp_effects))), num_archetypes)))
     if(num_nuisance_perspp > 0)
         makecolnames <- c(makecolnames,
-                          paste0(rep(paste0("spp_nuisance", 1:num_spp), each = num_nuisance_perspp), rep(colnames(get_qa$parameters)[num_X + 1 + 1:num_nuisance_perspp], num_spp))
+                          paste0(rep(paste0("spp_nuisance", 1:num_spp), each = num_nuisance_perspp), rep(colnames(get_qa$parameters)[num_X + 1:num_nuisance_perspp], num_spp))
                           )
     colnames(mapping_mat) <- makecolnames
     rm(makecolnames)
     
     makerownames_mappingmat_fn <- function(k, j) {
-        out <- c(paste0("spp_intercept", j), 
-                 paste0("archetype", k, "_beta", 1:num_X))
+        out <- character(length = num_X)
+        out[which_spp_effects] <- paste0("spp_effects", j, "_alpha", 1:length(which_spp_effects))
+        out[-which_spp_effects] <- paste0("archetype", k, "_beta", 1:(num_X - length(which_spp_effects)))
         if(num_nuisance_perspp > 0)
-            out <- c(out, paste0("spp_nuisance", j, colnames(get_qa$parameters)[num_X + 1 + 1:num_nuisance_perspp]))
+            out <- c(out, paste0("spp_nuisance", j, colnames(get_qa$parameters)[num_X + 1:num_nuisance_perspp]))
         
         return(out)
         }
@@ -352,12 +355,12 @@ assam <- function(y,
          
          while(diff > control$tol & counter < control$max_iter) {
              if(counter == 0) {
-                 do_kmeans <- cluster::pam(qa_object$parameters[, 1 + 1:num_X, drop = FALSE], k = num_archetypes)  
+                 do_kmeans <- cluster::pam(qa_object$parameters[, (1:num_X)[-which_spp_effects], drop = FALSE], k = num_archetypes)  
                  cw_betas <- do_kmeans$medoids
-                 cw_spp_intercept <- qa_object$parameters[, 1]
+                 cw_spp_effects <- qa_object$parameters[, which_spp_effects, drop = FALSE]
                  cw_nuisance <- NULL
                  if(num_nuisance_perspp > 0)
-                    cw_nuisance <- qa_object$parameters[, num_X + 1 + 1:num_nuisance_perspp, drop = FALSE]
+                    cw_nuisance <- qa_object$parameters[, num_X + 1:num_nuisance_perspp, drop = FALSE]
                  cw_mixprop <- as.vector(table(do_kmeans$clustering)) / num_spp
                  rm(do_kmeans)
                  }
@@ -368,7 +371,11 @@ assam <- function(y,
              ##-------------------
              for(j in 1:num_spp) { 
                  cw_Quad <- sapply(1:num_archetypes, function(k) {
-                     cw_v <- matrix(c(cw_spp_intercept[j], cw_betas[k,], cw_nuisance[j,]) - qa_object$parameters[j,], ncol = 1)
+                     cw_params <- c(cw_spp_effects[j,], cw_betas[k,], cw_nuisance[j,])
+                     cw_params[which_spp_effects] <- cw_spp_effects[j,]
+                     cw_params[(1:num_X)[-which_spp_effects]] <- cw_betas[k,]
+                     
+                     cw_v <- matrix(cw_params - qa_object$parameters[j,], ncol = 1)
                      return(-0.5 * (crossprod(cw_v, qa_object$hessian[[j]]) %*% cw_v))
                      })
                  eps <- max(cw_Quad)
@@ -407,13 +414,13 @@ assam <- function(y,
                  if(!is.null(control$beta_lower)) {
                      makeAmat_lower <- diag(x = 0, nrow = ncol(mapping_mat))
                      rownames(makeAmat_lower) <- colnames(makeAmat_lower) <- colnames(mapping_mat)
-                     diag(makeAmat_lower)[grep("spp_intercept", rownames(makeAmat_lower))] <- 1
+                     diag(makeAmat_lower)[grep("spp_effects", rownames(makeAmat_lower))] <- 1
                      diag(makeAmat_lower)[grep("_beta", rownames(makeAmat_lower))] <- 1
                         
                      makebvec_lower <- numeric(ncol(mapping_mat))
                      names(makebvec_lower) <- colnames(mapping_mat)
-                     makebvec_lower[grep("spp_intercept", names(makebvec_lower))] <- control$beta_lower[1]
-                     makebvec_lower[grep("_beta", names(makebvec_lower))] <- rep(control$beta_lower[-1], num_archetypes)
+                     makebvec_lower[grep("spp_effects", names(makebvec_lower))] <- control$beta_lower[which_spp_effects]
+                     makebvec_lower[grep("_beta", names(makebvec_lower))] <- rep(control$beta_lower[-which_spp_effects], num_archetypes)
                      
                      final_makeAmat <- makeAmat_lower
                      final_makebvec <- makebvec_lower
@@ -421,13 +428,13 @@ assam <- function(y,
                  if(!is.null(control$beta_upper)) {
                      makeAmat_upper <- diag(x = 0, nrow = ncol(mapping_mat))
                      rownames(makeAmat_upper) <- colnames(makeAmat_upper) <- colnames(mapping_mat)
-                     diag(makeAmat_upper)[grep("spp_intercept", rownames(makeAmat_upper))] <- -1
+                     diag(makeAmat_upper)[grep("spp_effects", rownames(makeAmat_upper))] <- -1
                      diag(makeAmat_upper)[grep("_beta", rownames(makeAmat_upper))] <- -1
                      
                      makebvec_upper <- numeric(ncol(mapping_mat))
                      names(makebvec_upper) <- colnames(mapping_mat)
-                     makebvec_upper[grep("spp_intercept", names(makebvec_upper))] <- control$beta_upper[1]
-                     makebvec_upper[grep("_beta", names(makebvec_upper))] <- rep(control$beta_upper[-1], num_archetypes)
+                     makebvec_upper[grep("spp_effects", names(makebvec_upper))] <- control$beta_upper[which_spp_effects]
+                     makebvec_upper[grep("_beta", names(makebvec_upper))] <- rep(control$beta_upper[-which_spp_effects], num_archetypes)
                      
                      final_makeAmat <- makeAmat_upper
                      final_makebvec <- makebvec_upper
@@ -463,12 +470,12 @@ assam <- function(y,
                  }
              
              names(new_params) <- colnames(mapping_mat)
-             new_spp_intercept <- as.vector(new_params[grep("spp_intercept", names(new_params))])
+             new_spp_effects <- matrix(new_params[grep("spp_effects", names(new_params))], nrow = num_spp, byrow = TRUE)
              new_betas <- matrix(new_params[grep("archetype", names(new_params))], nrow = num_archetypes, byrow = TRUE)
              new_nuisance <- NULL
              if(num_nuisance_perspp > 0) {
                  new_nuisance <- matrix(new_params[grep("spp_nuisance", names(new_params))], nrow = num_spp, byrow = TRUE)
-                 colnames(new_nuisance) <- qa_parameters_colnames[num_X + 1 + 1:num_nuisance_perspp]  
+                 colnames(new_nuisance) <- qa_parameters_colnames[num_X + 1:num_nuisance_perspp]  
                  }
              rm(bigW, MtWM)
 
@@ -483,16 +490,17 @@ assam <- function(y,
                     
              cw_logL <- new_logL
              cw_mixprop <- new_mixprop
-             cw_spp_intercept <- new_spp_intercept
+             cw_spp_effects <- new_spp_effects
              cw_betas <- new_betas
              cw_nuisance <- new_nuisance
              cw_params <- new_params
              counter <- counter + 1          
              }
          
-         names(new_spp_intercept) <- colnames(y)
+         rownames(new_spp_effects) <- colnames(y)
          rownames(new_betas) <- names(new_mixprop)
-         colnames(new_betas) <- colnames(X)
+         colnames(new_spp_effects) <- colnames(X)[which_spp_effects]
+         colnames(new_betas) <- colnames(X)[-which_spp_effects]
          
          tmp_nuisance <- NULL
          if(num_nuisance_perspp > 0) {
@@ -512,7 +520,7 @@ assam <- function(y,
          
          return(list(new_logL = new_logL, 
                      new_mixprop = new_mixprop, 
-                     new_spp_intercept = new_spp_intercept, 
+                     new_spp_effects = new_spp_effects, 
                      new_betas = new_betas, 
                      new_nuisance = new_nuisance, 
                      new_transformed_nuisance = tmp_nuisance,
@@ -543,6 +551,7 @@ assam <- function(y,
     out_assam <- list(call = match.call(), 
                       formula = formula,
                       family = family,
+                      which_spp_effects = which_spp_effects,
                       num_nuisance_perspp = num_nuisance_perspp,
                       trial_size = trial_size,
                       offset = as(offset, "sparseMatrix"),
@@ -550,7 +559,7 @@ assam <- function(y,
                       mesh = mesh,
                       num_archetypes = num_archetypes,
                       uncertainty_quantification = uncertainty_quantification,
-                      spp_intercepts = do_em$new_spp_intercept,
+                      spp_effects = do_em$new_spp_effects,
                       betas = do_em$new_betas,
                       mixture_proportion = do_em$new_mixprop,
                       spp_nuisance = as.data.frame(do_em$new_transformed_nuisance),
@@ -562,17 +571,18 @@ assam <- function(y,
                                                                                                      mesh = final_mesh,
                                                                                                      qa_object = get_qa, 
                                                                                                      em_object = do_em, 
-                                                                                                     family = family)
+                                                                                                     family = family,
+                                                                                                     which_spp_effects = which_spp_effects)
     if(add_spatial) {
         rownames(get_spatial_fields) <- rownames(y)
         colnames(get_spatial_fields) <- colnames(y)
         }
         
-    get_eta <- tcrossprod(X, out_assam$betas)
+    get_eta <- tcrossprod(X[, -which_spp_effects, drop = FALSE], out_assam$betas)
     out_assam$linear_predictor <- array(NA, dim = c(num_unit, num_spp, num_archetypes),
                                         dimnames = list(units = rownames(y), spp = colnames(y), archetype = names(out_assam$mixture_proportion)))
     for(k0 in 1:num_archetypes) {
-        out_assam$linear_predictor[,,k0] <- matrix(out_assam$spp_intercepts, nrow = num_unit, ncol = num_spp, byrow = TRUE) + matrix(get_eta[,k0], nrow = num_unit, ncol = num_spp, byrow = FALSE) + offset
+        out_assam$linear_predictor[,,k0] <- tcrossprod(X[, which_spp_effects, drop = FALSE], out_assam$spp_effects) + matrix(get_eta[,k0], nrow = num_unit, ncol = num_spp, byrow = FALSE) + offset
         if(add_spatial)
             out_assam$linear_predictor[,,k0] <- out_assam$linear_predictor[,,k0] + get_spatial_fields
         }
@@ -580,7 +590,7 @@ assam <- function(y,
      
     out_assam$spatial_fields <- get_spatial_fields
     out_assam$logL <- do_em$new_logL
-    out_assam$df <- num_spp*(num_nuisance_perspp + 1) + prod(dim(out_assam$betas)) + (num_archetypes - 1)
+    out_assam$df <- num_spp*(num_nuisance_perspp + length(which_spp_effects)) + prod(dim(out_assam$betas)) + (num_archetypes - 1)
     out_assam$control <- control
     out_assam$bootstrap_control <- bootstrap_control
     if(uncertainty_quantification) {
@@ -677,13 +687,13 @@ assam <- function(y,
 
             #' A vector of all parameters ordered in the same way as the columns of the mapping matrix, plus the mixture proportions
             if(num_nuisance_perspp == 0)
-                bootrun[[k0]]$boot_params <- c(bootrun[[k0]]$new_spp_intercept, 
+                bootrun[[k0]]$boot_params <- c(as.vector(t(bootrun[[k0]]$new_spp_effects)), 
                                                as.vector(t(bootrun[[k0]]$new_betas)), 
                                                bootrun[[k0]]$new_mixprop)
             if(num_nuisance_perspp > 0)
-                bootrun[[k0]]$boot_params <- c(bootrun[[k0]]$new_spp_intercept, 
-                                           as.vector(t(bootrun[[k0]]$new_betas)), 
-                                           as.vector(unlist(t(bootrun[[k0]]$new_nuisance))), # Note untransformed parameters passed here as this is what comes out of EM alg
+                bootrun[[k0]]$boot_params <- c(as.vector(t(bootrun[[k0]]$new_spp_effects)), 
+                                               as.vector(t(bootrun[[k0]]$new_betas)), 
+                                               as.vector(unlist(t(bootrun[[k0]]$new_nuisance))), # Note untransformed parameters passed here as this is what comes out of EM alg
                                            bootrun[[k0]]$new_mixprop)
             names(bootrun[[k0]]$boot_params) <- c(colnames(mapping_mat), paste0(names(out_assam$mixture_proportion), "_", "mixture_proportion"))
             
@@ -698,7 +708,12 @@ assam <- function(y,
         modified_alpha <- bootstrap_control$ci_alpha
         if(bootstrap_control$ci_type == "expanded")
             modified_alpha <- 2*pnorm(sqrt(num_spp/(num_spp-1)) * qt(bootstrap_control$ci_alpha/2, df = num_spp - 1))
-        form_cis$spp_intercepts <- data.frame( t(apply(sapply(bootrun, function(x) x$new_spp_intercept), 1, quantile, prob = c(modified_alpha/2, 1 - modified_alpha/2), na.rm = TRUE)))
+        form_cis$spp_effects <- apply(abind::abind(lapply(bootrun, function(x) x$new_spp_effects), along = 0), c(2,3), quantile, prob = c(modified_alpha/2, 1 - modified_alpha/2), na.rm = TRUE)
+        form_cis$spp_effects <- list(lower = form_cis$spp_effects[1,,,drop=FALSE], upper = form_cis$spp_effects[2,,,drop=FALSE])
+        if(length(which_spp_effects) == 1) {
+            form_cis$spp_effects$lower <- matrix(form_cis$spp_effects$lower, nrow = 1)
+            form_cis$spp_effects$upper <- matrix(form_cis$spp_effects$upper, nrow = 1)
+            }
         
         form_cis$betas <- apply(abind::abind(lapply(bootrun, function(x) x$new_betas), along = 0), c(2,3), quantile, prob = c(modified_alpha/2, 1 - modified_alpha/2), na.rm = TRUE)
         form_cis$betas <- list(lower = form_cis$betas[1,,], upper = form_cis$betas[2,,])
@@ -715,7 +730,7 @@ assam <- function(y,
         if(num_archetypes > 1)
             form_cis$mixture_proportion <- data.frame( t(apply(sapply(bootrun, function(x) x$new_mixprop), 1, quantile, prob = c(modified_alpha/2, 1 - modified_alpha/2), na.rm = TRUE)))
         
-        colnames(form_cis$spp_intercepts) <- c("lower", "upper")
+        rownames(form_cis$spp_effects$lower) <- rownames(form_cis$spp_effects$upper) <- colnames(out_assam$spp_effects)
         if(num_archetypes > 1) {
             colnames(form_cis$mixture_proportion) <- c("lower", "upper")
             }
@@ -732,7 +747,7 @@ assam <- function(y,
         
         
         #' ## Calculate bootstrapped posterior probabilities of *original species data* belong to each archetype
-        .calc_posterior_prob <- function(cw_bootstrap_spp_intercept, cw_bootstrap_betas, cw_bootstrap_nuisance, cw_bootstrap_mixprop, qa_object) {
+        .calc_posterior_prob <- function(cw_bootstrap_spp_effects, cw_bootstrap_betas, cw_bootstrap_nuisance, cw_bootstrap_mixprop, qa_object) {
             post_prob <- matrix(NA, nrow = num_spp, ncol = num_archetypes)
             rownames(post_prob) <- colnames(y)
             colnames(post_prob) <- paste0("archetype", 1:num_archetypes)
@@ -740,7 +755,11 @@ assam <- function(y,
             
             for(j in 1:num_spp) { 
                 cw_Quad <- sapply(1:num_archetypes, function(k) {
-                    cw_v <- matrix(c(cw_bootstrap_spp_intercept[j], cw_bootstrap_betas[k,], cw_bootstrap_nuisance[j,]) - qa_object$parameters[j,], ncol = 1)
+                    cw_params <- c(cw_bootstrap_spp_effects[j,], cw_bootstrap_betas[k,], cw_bootstrap_nuisance[j,])
+                    cw_params[which_spp_effects] <- cw_bootstrap_spp_effects[j,]
+                    cw_params[(1:num_X)[-which_spp_effects]] <- cw_bootstrap_betas[k,]
+                    
+                    cw_v <- matrix(cw_params - qa_object$parameters[j,], ncol = 1)
                     return(-0.5 * (crossprod(cw_v, qa_object$hessian[[j]]) %*% cw_v))
                     })
                 eps <- max(cw_Quad)
@@ -754,7 +773,7 @@ assam <- function(y,
             }
         
         out_assam$bootstrap_posterior_probability <- abind::abind(lapply(1:length(bootrun), function(k0) 
-            .calc_posterior_prob(cw_bootstrap_spp_intercept = bootrun[[k0]]$new_spp_intercept, 
+            .calc_posterior_prob(cw_bootstrap_spp_effects = bootrun[[k0]]$new_spp_effects, 
                                  cw_bootstrap_betas = bootrun[[k0]]$new_betas, 
                                  cw_bootstrap_nuisance = bootrun[[k0]]$new_nuisance, 
                                  cw_bootstrap_mixprop = bootrun[[k0]]$new_mixprop, 
@@ -779,7 +798,8 @@ assam <- function(y,
                                     mesh, 
                                     qa_object, 
                                     em_object, 
-                                    family) {
+                                    family,
+                                    which_spp_effects) {
     if(!add_spatial)
         return(NULL)
     
@@ -787,7 +807,12 @@ assam <- function(y,
         #' Recompile the TMB object from the original sdmTMB fits, evaluated at the assam parameter values
         #' Note an nlminb is required to update the environment parameter values 
         use_pars <- qa_object$sdmTMB_fits[[l]]$tmb_obj$env$parList()
-        use_pars[["b_j"]] <- c(em_object$new_spp_intercept[l], em_object$new_betas[which.max(em_object$post_prob[l,]), ])
+        cw_b_j <- c(em_object$new_spp_effects[l,], em_object$new_betas[which.max(em_object$post_prob[l,]), ])
+        cw_b_j[which_spp_effects] <- em_object$new_spp_effects[l,]
+        cw_b_j[-which_spp_effects] <- em_object$new_betas[which.max(em_object$post_prob[l,]), ] 
+        use_pars[["b_j"]] <- cw_b_j
+        rm(cw_b_j)
+        
         if(family$family[1] %in% c("Beta", "gaussian", "Gamma", "nbinom2", "tweedie")) 
             use_pars[["ln_phi"]] <- em_object$new_nuisance[l, grep("ln_phi", colnames(em_object$new_nuisance))]
         if(family$family[1] == "tweedie") 

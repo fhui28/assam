@@ -10,13 +10,13 @@
 #' @param ... Not used.
 #' 
 #' @details 
-#' Currently, the function returns estimated mixture proportions, species-specific intercepts, and archetypal regression coefficients. If the \code{object$uncertainty_quantification == TRUE}, then summary tables are also produced for archetypal regression coefficients containing parametric bootstrap confidence intervals and statistical significance based off this. Note the length of the confidence intervals was determined as part of the fitting the asSAM; see \code{object$bootstrap_control$ci_alpha}.
+#' Currently, the function returns estimated mixture proportions, species-specific effects, and archetypal regression coefficients. If the \code{object$uncertainty_quantification == TRUE}, then summary tables are also produced for archetypal regression coefficients containing parametric bootstrap confidence intervals and statistical significance based off this. Note the length of the confidence intervals was determined as part of the fitting the asSAM; see \code{object$bootstrap_control$ci_alpha}.
 #' 
 #' @return An object of class "summary.assam" which includes the following components, not necessarily in the order below (and as appropriate):
 #' \describe{
 #' \item{call: }{The matched function call of \code{object}.}
 #' \item{mixture_proportion:}{Estimated vector of mixture proportions corresponding to the probability of belonging to each archetype.}
-#' \item{spp_intercepts:}{Estimated species-specific intercepts.}
+#' \item{spp_effects:}{Estimated species-specific effects}
 #' \item{betas:}{Estimated matrix of archetypal regression coefficients corresponding to the model matrix created. The number of rows in \code{betas} is equal to the number of archetypes.}
 #' \item{betas_results: }{If the \code{object$uncertainty_quantification = TRUE}, a summary table corresponding to archetypal regression coefficients.}
 #' }
@@ -50,7 +50,7 @@
 #' rm(H)
 #' 
 #' true_betas <- runif(num_archetype * num_X, -1, 1) %>% matrix(nrow = num_archetype)
-#' true_intercepts <- runif(num_spp, -3, 0)  
+#' true_spp_effects <- matrix(runif(num_spp, -3, 0), ncol = 1)
 #' true_dispparam <- 1/runif(num_spp, 0, 5) 
 #' true_powerparam <- runif(num_spp, 1.4, 1.8)
 #' true_mixprop <- c(0.2, 0.25, 0.3, 0.1, 0.15)
@@ -59,7 +59,7 @@
 #'  formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) %>% as.formula, 
 #'  data = covariate_dat, 
 #'  betas = true_betas, 
-#'  spp_intercept = true_intercepts, 
+#'  spp_effects = true_spp_effects, 
 #'  spp_dispparam = true_dispparam, 
 #'  spp_powerparam = true_powerparam, 
 #'  mixture_proportion = true_mixprop,
@@ -77,7 +77,7 @@
 #'  num_archetypes = num_archetype,
 #'  num_cores = 8)
 #'  
-#'  plot(true_intercepts, samfit$spp_intercepts); abline(0,1)
+#'  plot(true_spp_effects, samfit$spp_effects); abline(0,1)
 #'  plot(true_dispparam, samfit$spp_nuisance$dispersion, log = "xy"); abline(0,1)
 #'  #' Note estimates for the archetypal responses and mixture proportions from (as)SAMs should be 
 #'  #' close to the corresponding true values, *up to a reordering* of the mixture component
@@ -101,7 +101,7 @@
 summary.assam <- function(object, digits = 4, ...) {
     summary_output <- list(call = object$call, 
                            mixture_proportion = round(object$mixture_proportion, digits),
-                           spp_intercepts = round(object$spp_intercepts, digits),
+                           spp_effects = round(object$spp_effects, digits),
                            betas = round(object$betas, digits))
     
     if(object$uncertainty_quantification) {          

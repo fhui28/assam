@@ -44,7 +44,7 @@ simulate.assam <- function(object,
                            seed = NULL, 
                            ...) {
     
-    if(inherits(object, "assam")) 
+    if(!inherits(object, "assam")) 
         stop("object must be of class assam.")
     if(do_parallel) {
         if(is.null(num_cores))

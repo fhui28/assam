@@ -20,7 +20,7 @@
 
 \item{newdata}{A data frame containing the values of the covariates at which predictions are to be calculated, that is, a model matrix from this and \code{object$formula}.}
 
-\item{newoffset}{A set of offset terms. If supplied, then it must either be a vector (if \code{type = "archetype"}) or a matrix (if \code{type = "species_max"} or \code{"species_mean"}). If the former, the length should be equal to \code{nrow(newdata)}. If the latter, the number of rows should be equal \code{nrow(newdata)} and the number of columns should be equal to \code{length(object$spp_intercepts) i.e., the number of species.}}
+\item{newoffset}{A set of offset terms. If supplied, then it must either be a vector (if \code{type = "archetype"}) or a matrix (if \code{type = "species_max"} or \code{"species_mean"}). If the former, the length should be equal to \code{nrow(newdata)}. If the latter, the number of rows should be equal \code{nrow(newdata)} and the number of columns should be equal to \code{nrow(object$spp_effects) i.e., the number of species.}}
 
 \item{type}{The type of prediction required:
 If \code{type = "archetype"}, then archetypal predictions are constructed on the scale of the linear predictors i.e., \eqn{x_i^\top\beta_k};
@@ -79,7 +79,7 @@ covariate_dat <- rmvnorm(num_units, sigma = H) \%>\%
 rm(H)
 
 true_betas <- runif(num_archetype * num_X, -1, 1) \%>\% matrix(nrow = num_archetype)
-true_intercepts <- runif(num_spp, -3, 0)  
+true_spp_effects <- matrix(runif(num_spp, -3, 0), ncol = 1)
 true_dispparam <- 1/runif(num_spp, 0, 5) 
 true_powerparam <- runif(num_spp, 1.4, 1.8)
 true_mixprop <- c(0.2, 0.25, 0.3, 0.1, 0.15)
@@ -88,7 +88,7 @@ simdat <- create_samlife(family = nbinom2(),
 formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) \%>\% as.formula, 
 data = covariate_dat, 
 betas = true_betas, 
-spp_intercept = true_intercepts, 
+spp_effects = true_spp_effects, 
 spp_dispparam = true_dispparam, 
 spp_powerparam = true_powerparam, 
 mixture_proportion = true_mixprop,
