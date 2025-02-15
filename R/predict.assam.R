@@ -135,14 +135,18 @@ predict.assam <- function(object,
         registerDoParallel(cores = num_cores)
     
     if(!is.null(newoffset)) {
-        if(type == "archetype" & !is.vector(newoffset))
-            stop("For predictions of archetypal respones on the linear predictor scale, newoffset should be a vector of a same length as nrow(newdata).")
-        if(type == "archetype" & length(newoffset) != nrow(newdata))
-            stop("For predictions of archetypal respones on the linear predictor scale, newoffset should be a vector of a same length as nrow(newdata).")
-        if(type %in% c("species_max", "species_mean") & nrow(newoffset) != nrow(newdata))
-            stop("For predictions of species responses, newoffset should have the same number of rows as newdata.")
-        if(type %in% c("species_max", "species_mean") & ncol(newoffset) != num_spp)
-            stop("For predictions of species responses, newoffset should have the same number of columns as length(object$spp_intercepts) i.e., the number of species.")
+        if(type == "archetype") {
+            if(!is.vector(newoffset))
+                stop("For predictions of archetypal respones on the linear predictor scale, newoffset should be a vector of a same length as nrow(newdata).")
+            if(length(newoffset) != nrow(newdata))
+                stop("For predictions of archetypal respones on the linear predictor scale, newoffset should be a vector of a same length as nrow(newdata).")
+            }
+        if(type %in% c("species_max", "species_mean")) {
+            if(nrow(newoffset) != nrow(newdata))
+                stop("For predictions of species responses, newoffset should have the same number of rows as newdata.")
+            if(ncol(newoffset) != num_spp)
+                stop("For predictions of species responses, newoffset should have the same number of columns as length(object$spp_intercepts) i.e., the number of species.")
+            }
         }
 
     if(se_fit == TRUE & object$uncertainty_quantification == FALSE)
