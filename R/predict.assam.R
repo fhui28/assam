@@ -7,7 +7,7 @@
 #' 
 #' @param object An object of class \code{assam}.
 #' @param newdata A data frame containing the values of the covariates at which predictions are to be calculated, that is, a model matrix from this and \code{object$formula}.
-#' @param newoffset A set of offset terms. If supplied, then it must either be a vector (if \code{type = "archetype"}) or a matrix (if \code{type = "species_max"} or \code{"species_mean"}). If the former, the length should be equal to \code{nrow(newdata)}. If the latter, the number of rows should be equal \code{nrow(newdata)} and the number of columns should be equal to \code{length(object$spp_intercepts) i.e., the number of species.}
+#' @param newoffset A set of offset terms. If supplied, then it must either be a vector (if \code{type = "archetype"}) or a matrix (if \code{type = "species_max"} or \code{"species_mean"}). If the former, the length should be equal to \code{nrow(newdata)}. If the latter, the number of rows should be equal \code{nrow(newdata)} and the number of columns should be equal to \code{nrow(object$spp_effects) i.e., the number of species.}
 #' @param type The type of prediction required:  
 #' If \code{type = "archetype"}, then archetypal predictions are constructed on the scale of the linear predictors i.e., \eqn{x_i^\top\beta_k};
 #' If \code{type = "species_max"}, then species-specific predictions on the scale of the responses i.e., \eqn{\mu_{ij}}, are constructed based on the most likely archetype the species belongs to, as judged by the posterior probabilities.
@@ -58,7 +58,7 @@
 #' rm(H)
 #' 
 #' true_betas <- runif(num_archetype * num_X, -1, 1) %>% matrix(nrow = num_archetype)
-#' true_intercepts <- runif(num_spp, -3, 0)  
+#' true_spp_effects <- matrix(runif(num_spp, -3, 0), ncol = 1)
 #' true_dispparam <- 1/runif(num_spp, 0, 5) 
 #' true_powerparam <- runif(num_spp, 1.4, 1.8)
 #' true_mixprop <- c(0.2, 0.25, 0.3, 0.1, 0.15)
@@ -67,7 +67,7 @@
 #' formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) %>% as.formula, 
 #' data = covariate_dat, 
 #' betas = true_betas, 
-#' spp_intercept = true_intercepts, 
+#' spp_effects = true_spp_effects, 
 #' spp_dispparam = true_dispparam, 
 #' spp_powerparam = true_powerparam, 
 #' mixture_proportion = true_mixprop,
@@ -123,7 +123,7 @@ predict.assam <- function(object,
     ##-----------------------
     #' # Checks and balances
     ##-----------------------
-    num_spp <- length(object$spp_intercepts)
+    num_spp <- nrow(object$spp_effects)
     num_units <- nrow(newdata)
     
     if(!inherits(object, "assam")) 
@@ -163,9 +163,9 @@ predict.assam <- function(object,
         nullfit <- sdmTMB(tmp_formula, 
                           spatial = FALSE,
                           data = data.frame(newdata, response = rnorm(nrow(newdata)))) #' This may not work in the future if smootihng terms are included, say, due to the standardization that needs to be applied    
-        X <- model.matrix(nullfit$formula[[1]], data = nullfit$data)[,-1] # Remove the intercept term
+        X <- model.matrix(nullfit$formula[[1]], data = nullfit$data)
         
-        get_eta <- tcrossprod(X, object$betas)
+        get_eta <- tcrossprod(X[, -object$which_spp_effects, drop = FALSE], object$betas)
         if(!is.null(newoffset))
             get_eta <- get_eta + newoffset
         
@@ -186,7 +186,7 @@ predict.assam <- function(object,
         all_spp_mu <- foreach(l = 1:object$num_archetypes) %dopar% pred_per_archetype(k0 = l) 
         rm(pred_per_archetype)
         all_spp_mu <- abind::abind(all_spp_mu, along = 3)
-        dimnames(all_spp_mu) <- list(units = rownames(newdata), spp = names(object$spp_intercepts), archetype = names(object$mixture_proportion))
+        dimnames(all_spp_mu) <- list(units = rownames(newdata), spp = rownames(object$spp_effects), archetype = names(object$mixture_proportion))
         
         all_spp_mu <- object$family$linkinv(all_spp_mu)
         
@@ -199,7 +199,7 @@ predict.assam <- function(object,
             }
         
         rownames(pt_pred) <- rownames(newdata)
-        colnames(pt_pred) <- names(object$spp_intercepts)
+        colnames(pt_pred) <- rownames(object$spp_effects)
         }
     
     
@@ -219,12 +219,12 @@ predict.assam <- function(object,
         construction_predictions_per_bootstrap <- function(k0, newdata, newoffset, pred_tmb_data) {
             if(type == "archetype") {
                 cw_bootstrap_parameters <- object$bootstrap_parameters[k0,]
-                cw_spp_intercepts <- cw_bootstrap_parameters[grep("spp_intercept", names(cw_bootstrap_parameters))]
+                cw_spp_effects <- matrix(cw_bootstrap_parameters[grep("spp_effects", names(cw_bootstrap_parameters))], nrow = num_spp, byrow = TRUE)
                 cw_mixture_proportions <- cw_bootstrap_parameters[grep("mixture_proportion", names(cw_bootstrap_parameters))]
                 cw_betas <- cw_bootstrap_parameters[grep("beta[1-9]", names(cw_bootstrap_parameters))]             
                 cw_betas <- matrix(cw_betas, nrow = object$num_archetypes, byrow = TRUE)
                 
-                get_cw_eta <- tcrossprod(X, cw_betas)
+                get_cw_eta <- tcrossprod(X[, -object$which_spp_effects, drop = FALSE], cw_betas)
                 if(!is.null(newoffset))
                     get_eta <- get_eta + newoffset
                 
@@ -252,7 +252,7 @@ predict.assam <- function(object,
                     }
                 
                 rownames(pt_pred) <- rownames(newdata)
-                colnames(pt_pred) <- names(object$spp_intercepts)
+                colnames(pt_pred) <- rownames(object$spp_effects)
                 }
             
             setTxtProgressBar(pb, k0)
@@ -284,7 +284,7 @@ predict.assam <- function(object,
             }
         if(type %in% c("species_max", "species_mean")) {
             rownames(lower_predictions) <- rownames(upper_predictions) <- rownames(median_predictions) <- rownames(mean_predictions) <- rownames(newdata)
-            colnames(lower_predictions) <- colnames(upper_predictions) <- colnames(median_predictions) <- colnames(mean_predictions) <- names(object$spp_intercepts)
+            colnames(lower_predictions) <- colnames(upper_predictions) <- colnames(median_predictions) <- colnames(mean_predictions) <- rownames(object$spp_effects)
             }
         
         return(list(point_prediction = pt_pred, 
@@ -303,14 +303,18 @@ predict.assam <- function(object,
 #' @noRd
 .predict_eta_sdmTMB <- function(object, newdata, k0) {
     num_units <- nrow(newdata)
-    num_spp <- length(object$spp_intercepts)
+    num_spp <- nrow(object$spp_effects)
     
     out <- NULL    
 
-    for(l1 in 1:length(object$spp_intercepts)) {
+    for(l1 in 1:nrow(object$spp_effects)) {
         #' Set up new parameters as per the asSAM
         use_pars <- .get_pars2(object = object$sdmTMB_fits[[l1]])
-        use_pars[["b_j"]] <- c(object$spp_intercepts[l1], object$betas[k0,])
+        cw_b_j <- c(object$spp_effects[l1,], object$betas[k0,])
+        cw_b_j[object$which_spp_effects] <- object$spp_effects[l1,]
+        cw_b_j[-object$which_spp_effects] <- object$betas[k0,]
+        use_pars[["b_j"]] <- cw_b_j
+        rm(cw_b_j)
         if(object$family$family[1] %in% c("Beta", "gaussian", "Gamma", "nbinom2", "tweedie")) 
             use_pars[["ln_phi"]] <- log(object$spp_nuisance$dispersion[l1])
         if(object$family$family[1] == "tweedie") 
@@ -365,10 +369,10 @@ predict.assam <- function(object,
 #' @noRd
 .predict_eta_sdmTMB_bootstrap <- function(object, newdata, newoffset, k0, pred_tmb_data) {
     num_units <- nrow(newdata)
-    num_spp <- length(object$spp_intercepts)
+    num_spp <- nrow(object$spp_effects)
     
     cw_bootstrap_parameters <- object$bootstrap_parameters[k0,]
-    cw_spp_intercepts <- cw_bootstrap_parameters[grep("spp_intercept", names(cw_bootstrap_parameters))]
+    cw_spp_effects <- matrix(cw_bootstrap_parameters[grep("spp_effects", names(cw_bootstrap_parameters))], nrow = num_spp, byrow = TRUE)
     cw_mixture_proportions <- cw_bootstrap_parameters[grep("mixture_proportion", names(cw_bootstrap_parameters))]
     cw_betas <- cw_bootstrap_parameters[grep("beta[1-9]", names(cw_bootstrap_parameters))]             
     cw_betas <- matrix(cw_betas, nrow = object$num_archetypes, byrow = TRUE)
@@ -384,7 +388,11 @@ predict.assam <- function(object,
     do_fn <- function(l0, l1) {
         #' Set up new parameters as per the asSAM
         use_pars <- .get_pars2(object = object$sdmTMB_fits[[l1]])
-        use_pars[["b_j"]] <- c(cw_spp_intercepts[l1], cw_betas[l0,])
+        cw_b_j <- c(cw_spp_effects[l1,], cw_betas[l0,])
+        cw_b_j[object$which_spp_effects] <- cw_spp_effects[l1,]
+        cw_b_j[-object$which_spp_effects] <- cw_betas[l0,]
+        use_pars[["b_j"]] <- cw_b_j
+        rm(cw_b_j)
         if(object$family$family[1] %in% c("Beta", "gaussian", "Gamma", "nbinom2", "tweedie")) 
             use_pars[["ln_phi"]] <- cw_ln_phi[l1]
         if(object$family$family[1] == "tweedie") 
@@ -431,7 +439,7 @@ predict.assam <- function(object,
         }
     
     #' Nested foreach loops used here -- Not sure this saves that much time compared to doing foreach at the bootstrap dataset level but whatever...
-    out <- foreach(l2 = 1:length(object$spp_intercepts)) %:% 
+    out <- foreach(l2 = 1:nrow(object$spp_effects)) %:% 
         foreach(l0 = 1:object$num_archetypes, .combine = "cbind") %dopar% {
             do_fn(l0 = l0, l1 = l2)
         } 

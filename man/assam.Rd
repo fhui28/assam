@@ -8,6 +8,7 @@ assam(
   y,
   formula,
   data,
+  which_spp_effects = 1,
   family,
   offset = NULL,
   trial_size = 1,
@@ -27,9 +28,11 @@ assam(
 \arguments{
 \item{y}{A multivariate abundance response matrix.}
 
-\item{formula}{An object of class "formula", which represents a symbolic description of the model matrix to be created (based on using this argument along with the \code{data} argument). \emph{Note there should be nothing on the left hand side of the "~". It should also include an intercept term.}}
+\item{formula}{An object of class "formula", which represents a symbolic description of the model matrix to be created (based on using this argument along with the \code{data} argument). \emph{Note there should be nothing on the left hand side of the "~".}}
 
 \item{data}{A data frame containing covariate information, from which the model matrix is to be created (based on this argument along with the \code{formula} argument).}
+
+\item{which_spp_effects}{A vector identifying which columns of the model matrix induced by \code{formula} and \code{data} should be treated as species-specific effects. Default to 1, meaning only the first column i.e., the intercept, is species-specific.}
 
 \item{family}{a description of the response distribution to be used in the model, as specified by a family function. Please see details below for more information on the distributions currently permitted.}
 
@@ -57,8 +60,8 @@ assam(
 \item{tol:}{the convergence criterion; the difference in the log-likelihood value of the asSAM from successive iterations must be smaller than this value.}
 \item{temper_prob:}{in the iteration of the EM algorithm, posterior probabilities from the E-step are "tempered" or push away from the 0/1 boundary. This is often useful to get the EM algorithm moving initially.}
 \item{trace:}{controls if messages are printed as part of the estimation process to reflect progress.}
-\item{beta_lower:}{a vector that can be used to constrain the lower limit of the regression coefficients for each (and every) archetype, along with the species-specific intercepts (first element). The length of this vector should be the same as the number of columns expected from the model matrix implied by \code{formula} and \code{data}, including the species-specific intercepts. However, no checks are made on this vector, so \emph{please ensure you get the lenght right to ensure the correct implementation!} Defaults to \code{NULL}, in which there is no constraint.}
-\item{beta_upper:}{a vector that can be used to constrain the upper limit of the regression coefficients for each (and every) archetype, along with the species-specific intercepts (first element). The length of this vector should be the same as the number of columns expected from the model matrix implied by \code{formula} and \code{data}, including the species-specific intercepts. However, no checks are made on this vector, so \emph{please ensure you get the lenght right to ensure the correct implementation!} Defaults to \code{NULL}, in which there is no constraint.}
+\item{beta_lower:}{a vector that can be used to constrain the lower limit of the regression coefficients for each (and every) archetype, along with the species-specific effects. The length of this vector should be the same as the number of columns of the model matrix induced by \code{formula} and \code{data}. However, no checks are made on this vector, so \emph{please ensure you get the length right to ensure the correct implementation!} Defaults to \code{NULL}, in which there is no constraint.}
+\item{beta_upper:}{a vector that can be used to constrain the upper limit of the regression coefficients for each (and every) archetype, along with the species-specific effects. The length of this vector should be the same as the number of columns of the model matrix induced by \code{formula} and \code{data}. However, no checks are made on this vector, so \emph{please ensure you get the length right to ensure the correct implementation!} Defaults to \code{NULL}, in which there is no constraint.}
 }}
 
 \item{bootstrap_control}{A list containing the following elements to control the parametric bootstrap for uncertainty quantification:
@@ -83,8 +86,8 @@ Otherwise, if \code{do_assam_fit = TRUE} as is the default, then an object of cl
 \item{mesh:}{Same as input argument.}
 \item{num_archetypes:}{Same as input argument.}
 \item{uncertainty_quantification:}{Same as input argument.}
-\item{spp_intercepts:}{Estimated species-specific intercepts.}
-\item{betas:}{Estimated matrix of archetypal regression coefficients corresponding to the model matrix created. The number of rows in \code{betas} is equal to the number of archetypes.}
+\item{spp_effects:}{Estimated species-specific effects i.e., \eqn{alpha_j}.}
+\item{betas:}{Estimated matrix of archetypal regression coefficients corresponding to the model matrix created i.e., \eqn{beta_k}. The number of rows in \code{betas} is equal to the number of archetypes.}
 \item{mixture_proportion:}{Estimated vector of mixture proportions corresponding to the probability of belonging to each archetype.}
 \item{spp_nuisance:}{Estimated matrix of species-specific nuisance parameters e.g., the dispersion parameter in the negative binomial distribution, and dispersion and power parameters in the Tweedie distribution, and so on.}
 \item{posterior_probability:}{Estimated matrix of posterior probabilities for each species belong to each archetype. The number of rows in \code{posterior_probability} is equal to the number of species.}
@@ -95,7 +98,7 @@ Otherwise, if \code{do_assam_fit = TRUE} as is the default, then an object of cl
 \item{linear_predictor:}{Estimated array of archetype-specific linear predictors. The last dimension of the array corresponds to the number of archetypes.}
 \item{control:}{Same as input argument.}
 \item{bootstrap_control:}{Same as input argument.}
-\item{confidence_intervals:}{A list of estimated parametric bootstrap confidence intervals for all the parameters in the asSAM, with each element in the list corresponding to one of the parameters e.g., the species-specific intercepts, the mixture proportions, and so on.}
+\item{confidence_intervals:}{A list of estimated parametric bootstrap confidence intervals for all the parameters in the asSAM, with each element in the list corresponding to one of the parameters e.g., the species-specific effects, the mixture proportions, and so on.}
 \item{bootstrap_paramters:}{A matrix of estimated (untransformed) parameters from the parametric bootstrap. \emph{This output can be safely ignored by most users}, but those curious, it is used to uncertainty quantification for downstream predictions, say.}
 \item{bootstrap_posterior_probability:}{An array of estimated posterior probabilities from the parametric bootstrap. \emph{This output can be safely ignored by most users}, but those curious, it is used to uncertainty quantification for downstream predictions, say.}
 \item{sdmTMB_fits}{A list of the set of stacked species distribution models fitted using \code{\link[sdmTMB:sdmTMB]{sdmTMB::sdmTMB()}}. \emph{This output can be safely ignored by most users}.}
@@ -108,9 +111,9 @@ Fits approximate and scalable species archetype modeling (asSAMs) for model-base
 \details{
 For the purposes of the package, the SAM is characterized by the following mean regression model: for observational unit \eqn{i=1,\ldots,N} and species \eqn{j=1,\ldots,M}, conditional on the species belong to archetype \eqn{k},
 
-\deqn{g(\mu_{ij}) = \eta_{ij} = x_i^\top\beta_k,}
+\deqn{g(\mu_{ij}) = \eta_{ij} = u_i^\top\alpha_j + x_i^\top\beta_k,}
 
-where \eqn{g(.)} is a known link function, \eqn{\eta_{ij}} denotes the linear predictor, \eqn{x_i} denotes a vector of predictors for unit \eqn{i} i.e., the \eqn{i}-th row from the created model matrix, \eqn{\beta_k} denotes the corresponding regression coefficients for archetype \eqn{k}. Based on the mean model given above, responses \eqn{y_{ij}} are then simulated from the assumed distribution, using the additional dispersion and power parameters as appropriate. We refer the reader to \href{https://doi.org/10.1016/j.ecolmodel.2010.11.030}{Dunstan et al., (2011)}, \href{https://doi.org/10.1890/12-1322.1}{Hui et al., (2013)}, \href{https://doi.org/10.1007/s13253-013-0146-x}{Dunstan et al., (2013)}, and \href{https://github.com/skiptoniam/ecomix}{Skipton Woolley's ecomix package} for more details about the formulations of SAMs. Additionally, species-specific spatial fields can be included in the linear predictor e.g., to account for residual spatial correlation above and beyond that explained by the archetypal responses.
+where \eqn{g(.)} is a known link function, \eqn{u_i^\top\alpha_j} corresponds to a component that is to kept species-specific e.g., species-specific intercept, \eqn{x_i^\top\beta_k}  denotes the component corresponding to effect of archetypal response \eqn{k}. Additionally, species-specific spatial fields can be included in the linear predictor e.g., to account for residual spatial correlation above and beyond that explained by the archetypal responses. Conditional on the mean model above, the \eqn{y_{ij}} are assumed to be come from some response distribution using the additional dispersion and power parameters as appropriate. We refer the reader to \href{https://doi.org/10.1016/j.ecolmodel.2010.11.030}{Dunstan et al., (2011)}, \href{https://doi.org/10.1890/12-1322.1}{Hui et al., (2013)}, \href{https://doi.org/10.1007/s13253-013-0146-x}{Dunstan et al., (2013)}, and \href{https://github.com/skiptoniam/ecomix}{Skipton Woolley's ecomix package} for more details about the formulations of SAMs. Additionally, species-specific spatial fields can be included in the linear predictor e.g., to account for residual spatial correlation above and beyond that explained by the archetypal responses.
 
 The broad goal of this package is to construct a way of fitting SAMs that are, although approximate, more scalable in the number of sites and species (though not necessarily faster), hence the name asSAMs. We prefer to the corresponding manuscript (in preparation) for details, but to summarize, asSAMs are formed by constructing an approximate likelihood function for a SAM based on using ingredients (i.e., point estimates and the associated observed information matrix) from stacked species distribution models (which are fitted initially in parallel), and then building what is essentially a finite mixture of multivariate Gaussian distributions from this. This is then maximized using an EM algorithm, which can be done scalably and very quickly.
 
@@ -158,7 +161,7 @@ covariate_dat <- rmvnorm(num_units, sigma = H) \%>\%
 rm(H)
 
 true_betas <- runif(num_archetype * num_X, -1, 1) \%>\% matrix(nrow = num_archetype)
-true_intercepts <- runif(num_spp, -2, 0)  
+true_spp_effects <- matrix(runif(num_spp, -2, 0), ncol = 1)
 true_dispparam <- 1/runif(num_spp, 1, 5) 
 true_powerparam <- runif(num_spp, 1.4, 1.8)
 true_mixprop <- c(0.2, 0.25, 0.3, 0.1, 0.15)
@@ -167,7 +170,7 @@ simdat <- create_samlife(family = nbinom2(),
 formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) \%>\% as.formula, 
 data = covariate_dat, 
 betas = true_betas, 
-spp_intercept = true_intercepts, 
+spp_effects = true_spp_effects, 
 spp_dispparam = true_dispparam, 
 spp_powerparam = true_powerparam, 
 mixture_proportion = true_mixprop,
@@ -187,7 +190,7 @@ num_archetypes = num_archetype,
 num_cores = 8)
 
  
-plot(true_intercepts, samfit$spp_intercepts); abline(0,1)
+plot(true_spp_effects, samfit$spp_effects); abline(0,1)
 plot(true_dispparam, samfit$spp_nuisance$dispersion, log = "xy"); abline(0,1)
 #' Note estimates for the archetypal responses and mixture proportions from (as)SAMs should be 
 #' close to the corresponding true values, *up to a reordering* of the mixture component
