@@ -408,7 +408,28 @@ assam <- function(y,
              MtWM <- forceSymmetric(crossprod(mapping_mat, bigW) %*% mapping_mat)
              new_params <- solve(MtWM, crossprod(mapping_mat, bigW) %*% as.vector(qa_object$long_parameters))
              new_params <- as.vector(new_params)
-    
+             
+             #' beta_selection_err <- Inf
+             #' beta_selection_counter <- 0
+             #' cw_params <- new_params
+             #' Dbar <- Diagonal(n = length(new_params))
+             #' diag(Dbar)[-grep("archetype", colnames(mapping_mat))] <- 0
+             #' while(beta_selection_counter < 50 & beta_selection_err > 1e-5) {
+             #'     GammaMatrix_params <- Diagonal(n = length(new_params))
+             #'     diag(GammaMatrix_params)[grep("archetype", colnames(mapping_mat))] <- cw_params[grep("archetype", colnames(mapping_mat))]
+             #'     
+             #'     new_params <- GammaMatrix_params %*% solve(GammaMatrix_params %*% MtWM %*% GammaMatrix_params + 1 * Dbar) %*% GammaMatrix_params %*% crossprod(mapping_mat, bigW) %*% as.vector(qa_object$long_parameters)
+             #'     new_params <- as.vector(new_params)
+             #'     names(new_params) <- colnames(mapping_mat)
+             #'     
+             #'     beta_selection_err <- sum((new_params - cw_params)^2)
+             #'     cw_params <- new_params
+             #'     beta_selection_counter <- beta_selection_counter + 1
+             #'     }
+             #' #' Note the convergence properties of the algorithm does basically ensure exact zeros can be achieved (up to machine error); see [https://doi.org/10.1155/2016/3456153]. However once can also round to zero if interested. In this case, I will round based on eps = 1e-6
+             #' new_params[abs(new_params) < 1e-5] <- 0
+             
+             
              #' ### For constrained solution
              if(!is.null(control$beta_lower) | !is.null(control$beta_upper)) {
                  if(!is.null(control$beta_lower)) {
