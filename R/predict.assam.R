@@ -307,7 +307,7 @@ predict.assam <- function(object,
     
     out <- NULL    
 
-    for(l1 in 1:nrow(object$spp_effects)) {
+    for(l1 in 1:num_spp) {
         #' Set up new parameters as per the asSAM
         use_pars <- .get_pars2(object = object$sdmTMB_fits[[l1]])
         cw_b_j <- c(object$spp_effects[l1,], object$betas[k0,])
@@ -439,7 +439,7 @@ predict.assam <- function(object,
         }
     
     #' Nested foreach loops used here -- Not sure this saves that much time compared to doing foreach at the bootstrap dataset level but whatever...
-    out <- foreach(l2 = 1:nrow(object$spp_effects)) %:% 
+    out <- foreach(l2 = 1:num_spp) %:% 
         foreach(l0 = 1:object$num_archetypes, .combine = "cbind") %dopar% {
             do_fn(l0 = l0, l1 = l2)
         } 
