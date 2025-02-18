@@ -9,6 +9,12 @@
         control$temper_prob <- 0.8
     if(is.null(control$trace))
         control$trace <- FALSE
+    if(is.null(control$beta_lower))
+        control$beta_lower <- NULL
+    if(is.null(control$beta_upper))
+        control$beta_upper <- NULL
+    if(is.null(control$betamatrix_select))
+        control$betamatrix_select <- NULL
     
     return(control)
     }
@@ -19,6 +25,8 @@
 .fill_bootstrap_control <- function(control) {
     if(is.null(control$num_boot))
         control$num_boot <- 100
+    if(is.null(control$bootstrap_method))
+        control$bootstrap_method <- "full"
     if(is.null(control$ci_alpha))
         control$ci_alpha <- 0.05
     if(is.null(control$seed))
@@ -28,6 +36,28 @@
     
     return(control)
     }
+
+
+#' @noRd
+#' @noMd
+.check_betamatrix_selection <- function(control, num_archetypes, num_X) {
+    if(!is.null(control$betamatrix_selection)) {
+        if(!is.null(control$beta_lower) | !is.null(control$beta_upper))
+            stop("If control$betamatrix_selection is supplied, then control$beta_lower and control$beta_upper can not also be supplied.")
+    }
+    
+    if(!is.null(control$betamatrix_selection)) {
+        if(!is.matrix(control$betamatrix_selection))
+            stop("control$betamatrix_selection must be a matrix.")
+        if(nrow(control$betamatrix_selection) != num_archetypes)
+            stop("The number of rows in control$betamatrix_selection must be equal to num_archetypes.")
+        if(ncol(control$betamatrix_selection) != (num_X-1))
+            stop("The number of columns in control$betamatrix_selection must be equal to the number of columns in the model matrix induced by formula and data, minus one.")
+        if(!all(control$betamatrix_selection %in% 0:1))
+            stop("control$betamatrix_selection must be a binary matrix.")
+        }
+    }
+
 
 
 #' @noRd
