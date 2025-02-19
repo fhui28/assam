@@ -71,7 +71,7 @@ simulate.assam <- function(object,
         use_model$spp_dispparam <- object$spp_nuisance$dispersion
     if(object$family$family[1] %in% c("tweedie"))
         use_model$spp_powerparam <- object$spp_nuisance$power
-    if(!is.null(object$mesh)) {
+    if(object$add_spatial) {
         use_model$spp_spatial_sd[!is.finite(use_model$spp_spatial_sd)] <- 1e-6 # This is arbitrary!!!
         use_model$spp_spatial_sd[use_model$spp_spatial_sd < 1e-6] <- 1e-6
         use_model$spp_spatial_sd[use_model$spp_spatial_sd > 1e6] <- 1e6
@@ -128,5 +128,174 @@ simulate.assam <- function(object,
 #' @export 
 simulate <- function(object, ...) {
         UseMethod("simulate")
+    }
+
+
+#' @noRd
+#' @noMd
+.fastsimulate_assam <- function(object,
+                                nsim,
+                                do_parallel,
+                                num_cores,
+                                seed) {
+    
+    if(!inherits(object, "assam")) 
+        stop("object must be of class assam.")
+    if(do_parallel) {
+        if(is.null(num_cores))
+            registerDoParallel(cores = detectCores() - 2)
+        if(!is.null(num_cores))
+            registerDoParallel(cores = num_cores)
+        }
+
+    use_model <- list(family = object$family, 
+                      formula = object$formula,
+                      which_spp_effects = object$which_spp_effects,
+                      offset = object$offset,
+                      betas = object$betas, 
+                      spp_effects = object$spp_effects, 
+                      mixture_proportion = object$mixture_proportion, 
+                      mesh = object$mesh,
+                      spp_spatial_sd = object$spp_nuisance$spatial_SD,
+                      spp_spatial_range = object$spp_nuisance$spatial_range,
+                      trial_size = object$trial_size, 
+                      spp_dispparam = NULL, 
+                      spp_powerparam = NULL) 
+    if(object$family$family[1] %in% c("Beta","nbinom2","Gamma","gaussian","tweedie"))
+        use_model$spp_dispparam <- object$spp_nuisance$dispersion
+    if(object$family$family[1] %in% c("tweedie"))
+        use_model$spp_powerparam <- object$spp_nuisance$power
+    if(object$add_spatial) {
+        use_model$spp_spatial_sd[!is.finite(use_model$spp_spatial_sd)] <- 1e-6 # This is arbitrary!!!
+        use_model$spp_spatial_sd[use_model$spp_spatial_sd < 1e-6] <- 1e-6
+        use_model$spp_spatial_sd[use_model$spp_spatial_sd > 1e6] <- 1e6
+        use_model$spp_spatial_range[!is.finite(use_model$spp_spatial_range)] <- 1e6 # This is arbitrary!!!
+        use_model$spp_spatial_range[use_model$spp_spatial_range < 1e-6] <- 1e-6
+        use_model$spp_spatial_range[use_model$spp_spatial_range > 1e6] <- 1e6
+        }
+    
+    create_seeds <- NULL
+    if(!is.null(seed))
+        create_seeds <- seed + 1:nsim
+    
+    
+    fastsim_fn <- function(family,
+                           mixture_proportion,
+                           which_spp_effects,
+                           betas,
+                           spp_effects,
+                           spp_dispparam,
+                           spp_powerparam,
+                           add_spatial,
+                           spp_spatial_sd,
+                           spp_spatial_range,
+                           seed) {
+        
+        num_archetypes <- nrow(betas)
+        num_spp <- nrow(spp_effects)
+        bootstrap_parameters_dataset <- matrix(NA, nrow = num_spp, ncol = ncol(get_qa$parameters)) 
+        
+        #' Sample bootstrap archetype labels
+        set.seed(seed)
+        archetype_label <- sample(1:num_archetypes, size = num_spp, prob = mixture_proportion, replace = TRUE)
+        set.seed(NULL)
+        
+        #' Sample bootstrap parameters from normal approximation with mean vector and covariance matrix evaluated at the asSAM estimates
+        for(l1 in 1:num_spp) {
+            cw_seed <- NULL
+            if(!is.null(seed))
+                cw_seed <- seed + l1
+        #     
+        #     
+        #     if(!add_spatial) {
+        #         spp_bootstrap_mean <- object$sdmTMB_fits[[l1]]$parameters
+        #         cw_b_j <- c(spp_effects[l1,], betas[archetype_label[l1],])
+        #         cw_b_j[which_spp_effects] <- spp_effects[l1,]
+        #         cw_b_j[-which_spp_effects] <- betas[archetype_label[l1],]
+        #         spp_bootstrap_mean[grep("b_j", names(spp_bootstrap_mean))] <- cw_b_j
+        #         rm(cw_b_j)
+        #         if(family$family[1] %in% c("Beta", "gaussian", "Gamma", "nbinom2", "tweedie")) 
+        #             use_pars[grep("ln_phi", names(spp_bootstrap_mean))] <- log(spp_dispparam[l1])
+        #         if(family$family[1] == "tweedie") 
+        #             use_pars[grep("thetaf", names(spp_bootstrap_mean))] <- qlogis(spp_powerparam[l1] - 1)
+        #         
+        #         spp_bootstrap_covariance <- solve(object$sdmTMB_fits[[l1]]$tmb_obj$he(spp_bootstrap_mean)) #' Not guaranteed to be positive definite!!!
+        #         }
+                
+            
+            #' #' Set up TMB object evaluated at asSAM estimates
+            #' use_pars <- .get_pars2(object = object$sdmTMB_fits[[l1]])
+            #' cw_b_j <- c(spp_effects[l1,], betas[archetype_label[l1],])
+            #' cw_b_j[which_spp_effects] <- spp_effects[l1,]
+            #' cw_b_j[-which_spp_effects] <- betas[archetype_label[l1],]
+            #' use_pars[["b_j"]] <- as.vector(unlist(cw_b_j))
+            #' rm(cw_b_j)
+            #' 
+            #' if(family$family[1] %in% c("Beta", "gaussian", "Gamma", "nbinom2", "tweedie")) 
+            #'     use_pars[["ln_phi"]] <- log(spp_dispparam[l1])
+            #' if(family$family[1] == "tweedie") 
+            #'     use_pars[["thetaf"]] <- qlogis(spp_powerparam[l1] - 1)
+            #' if(add_spatial) {
+            #'     use_pars[["ln_kappa"]] <- matrix(log(1/spp_spatial_range[l1]), nrow = 2, ncol = 1) # This has two rows as set up as sdmTMB
+            #'     use_pars[["ln_tau_O"]] <- 1/(sqrt(4*pi) * object$spp_spatial_sd[l1] * exp(use_pars[["ln_kappa"]][1,1])) 
+            #'     }
+            #' 
+            #' #' Truncate spatial parameters that are very large in magnitude 
+            #' if(use_pars[["ln_tau_O"]] < -30) use_pars[["ln_tau_O"]] <- -30
+            #' if(use_pars[["ln_tau_O"]] > 30) use_pars[["ln_tau_O"]] <- 30
+            #' if(any(use_pars[["ln_kappa"]] < -30)) use_pars[["ln_kappa"]] <- matrix(-30, nrow = 2, ncol = 1)
+            #' if(any(use_pars[["ln_kappa"]] > 30)) use_pars[["ln_kappa"]] <- matrix(30, nrow = 2, ncol = 1)
+            #' 
+            #' #' Set up new map to constrain all parameters at asSAM estimates
+            #' use_map <- object$sdmTMB_fits[[l1]]$tmb_map
+            #' use_map$b_j <- as.factor(rep(NA, length(use_pars[["b_j"]])))
+            #' if(family$family[1] %in% c("Beta", "gaussian", "Gamma", "nbinom2", "tweedie"))
+            #'     use_map$ln_phi <- as.factor(NA)
+            #' if(family$family[1] == "tweedie") 
+            #'     use_map$thetaf <- as.factor(NA)
+            #' if(add_spatial) {
+            #'     use_map$ln_tau_O <- as.factor(NA)
+            #'     use_map$ln_kappa <- as.factor(matrix(NA, 2, 1)) 
+            #'     }
+            #' 
+            #'     
+            #' #' Construct new TMB object
+            #' new_tmb_obj <- TMB::MakeADFun(data = object$sdmTMB_fits[[l1]]$tmb_data, #make_pred_tmb_data,
+            #'                               profile = object$sdmTMB_fits[[l1]]$control$profile,
+            #'                               parameters = use_pars,
+            #'                               map = use_map,
+            #'                               random = object$sdmTMB_fits[[l1]]$tmb_random,
+            #'                               DLL = "sdmTMB",
+            #'                               silent = TRUE)
+            #' 
+            #' new_tmb_obj$fn(new_tmb_obj$par) # need to initialize the new TMB object once
+            #' new_tmb_sdreport <- TMB::sdreport(new_tmb_obj, par.fixed = new_tmb_obj$par) # Update random effects
+            #' 
+            #' spp_bootstrap_mean <- new_tmb_sdreport$par.fixed
+            #' spp_bootstrap_covariance <- new_tmb_sdreport$cov.fixed
+            
+            set.seed(cw_seed)
+            bootstrap_parameters_dataset[l1,] <- mvtnorm::rmvnorm(n = 1, mean = spp_bootstrap_mean, sigma = spp_bootstrap_covariance)
+            set.seed(NULL)
+            }
+            
+        return(bootstrap_parameters_dataset)
+        }
+        
+
+    out <- foreach::foreach(l = 1:nsim, 
+                            .combine = "cbind") %do% fastsim_fn(family = use_model$family, 
+                                                                mixture_proportion = use_model$mixture_proportion, 
+                                                                which_spp_effects = use_model$which_spp_effects,
+                                                                betas = use_model$betas, 
+                                                                spp_effects = use_model$spp_effects, 
+                                                                spp_dispparam = use_model$spp_dispparam, 
+                                                                spp_powerparam = use_model$spp_powerparam, 
+                                                                add_spatial = object$add_spatial,
+                                                                spp_spatial_sd = use_model$spp_spatial_sd,
+                                                                spp_spatial_range = use_model$spp_spatial_range,
+                                                                seed = create_seeds[l])
+    
+    
     }
 

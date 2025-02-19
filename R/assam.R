@@ -6,7 +6,7 @@
 #' Fits approximate and scalable species archetype modeling (asSAMs) for model-based clustering of species based on their environmental response, into a small number of so-called archetypal responses. The basic idea is take the log-likelihood function of SAM, and then construct an approximation of this which (hopefully) is more scalable in both the number of sites and species.
 #' 
 #' @param y A multivariate abundance response matrix.
-#' @param formula An object of class "formula", which represents a symbolic description of the model matrix to be created (based on using this argument along with the \code{data} argument). *Note there should be nothing on the left hand side of the "~".*
+#' @param formula An object of class "formula", which represents a symbolic description of the model matrix to be created (based on using this argument along with the \code{data} argument). *Note there should be nothing on the left hand side of the "~".* Currently, smooth terms are not permitted.
 #' @param data A data frame containing covariate information, from which the model matrix is to be created (based on this argument along with the \code{formula} argument). 
 #' @param which_spp_effects A vector identifying which columns of the model matrix induced by \code{formula} and \code{data} should be treated as species-specific effects. Default to 1, meaning only the first column i.e., the intercept, is species-specific.
 #' @param family a description of the response distribution to be used in the model, as specified by a family function. Please see details below for more information on the distributions currently permitted.
@@ -218,7 +218,7 @@ assam <- function(y,
                   supply_quadapprox = NULL,
                   do_assam_fit = TRUE,
                   control = list(max_iter = 500, tol = 1e-5, temper_prob = 0.8, trace = FALSE, 
-                                 beta_lower = NULL, beta_upper = NULL),
+                                 beta_lower = NULL, beta_upper = NULL, betamatrix_select = NULL),
                   bootstrap_control = list(num_boot = 100, ci_alpha = 0.05, seed = NULL, ci_type = "percentile")) {
     
     ##----------------
@@ -266,7 +266,13 @@ assam <- function(y,
     
     control <- .fill_control(control = control)
     bootstrap_control <- .fill_bootstrap_control(control = bootstrap_control)
+    # if(!(bootstrap_control$bootstrap_method %in% c("full", "fast")))
+    #     stop("bootstrap_control$bootstrap_method currently not supported. Sorry!")
+    if(!(bootstrap_control$ci_type %in% c("percentile", "expanded")))
+        stop("bootstrap_control$ci_type currently not supported. Sorry!")
 
+    .check_betamatrix_selection(control = control, num_archetypes = num_archetypes, num_X = num_X)
+    
     num_unit <- nrow(y)
     num_spp <- ncol(y)
           
@@ -466,16 +472,35 @@ assam <- function(y,
                                                     bvec = final_makebvec)
                  
                  new_params <- Mstep_update$solution
-                 rm(Mstep_update)
+                 rm(Mstep_update, final_makeAmat, final_makebvec)
                  }
              
+             #' ### For subset solution
+             # if(!is.null(control$betamatrix_selection)) {
+             #     A <- Matrix(0, nrow = length(new_params), ncol = sum(control$betamatrix_selection == 0))
+             #     find_zero_indices <- matrix(grep("archetype", colnames(mapping_mat)), nrow = num_archetypes, byrow = TRUE) * (1-control$betamatrix_selection)
+             #     find_zero_indices <- t(find_zero_indices)[t(find_zero_indices) != 0]
+             #     for(l0 in 1:ncol(A))
+             #         A[find_zero_indices[l0], l0] <- 1
+             #     rm(find_zero_indices)
+             #    
+             #     Mstep_update <- quadprog::solve.QP(Dmat = MtWM,
+             #                                        dvec = crossprod(mapping_mat, bigW) %*% as.vector(qa_object$long_parameters),
+             #                                        Amat = A,
+             #                                        meq = ncol(A),
+             #                                        factorized = FALSE)
+             #     new_params <- Mstep_update$solution
+             #     rm(Mstep_update, A)
+             #     }
+             # 
+
              names(new_params) <- colnames(mapping_mat)
              new_spp_effects <- matrix(new_params[grep("spp_effects", names(new_params))], nrow = num_spp, byrow = TRUE)
              new_betas <- matrix(new_params[grep("archetype", names(new_params))], nrow = num_archetypes, byrow = TRUE)
              new_nuisance <- NULL
              if(num_nuisance_perspp > 0) {
                  new_nuisance <- matrix(new_params[grep("spp_nuisance", names(new_params))], nrow = num_spp, byrow = TRUE)
-                 colnames(new_nuisance) <- qa_parameters_colnames[num_X + 1:num_nuisance_perspp]  
+                 colnames(new_nuisance) <- qa_parameters_colnames[num_X + 1:num_nuisance_perspp]
                  }
              rm(bigW, MtWM)
 
@@ -597,6 +622,10 @@ assam <- function(y,
         save(get_qa, file = file.path(tempdir(), "allsdmTMBfits.RData")) # Save sdmTMB_fits into a temporary directory and remove it before running bootstrap...saves a lot of memory which in turn speeds up bootstrapping by a lot!
         rm(get_qa)
         }
+    # if(uncertainty_quantification & bootstrap_control$bootstrap_method == "fast") {
+    #     out_assam$sdmTMB_fits <- get_qa$sdmTMB_fits
+    #     get_qa$sdmTMB_fits <- NULL
+    #     }
     if(!uncertainty_quantification) {
         out_assam$sdmTMB_fits <- get_qa$sdmTMB_fits
         get_qa$sdmTMB_fits <- NULL
@@ -605,11 +634,25 @@ assam <- function(y,
     
     ##----------------
     #' # Standard Error using parametric bootstrap 
-    #' Computation time not great on this at the moment unless you have a HPC!!! Starts from estimated parameters to give a little speed on for the quadratic approximations
+    #' Computation time not great on this at the moment unless you have a HPC!!! Starts from estimated parameters to give a little speed on for the quadratic approximations, so not used...
     ##----------------
+    #' if(uncertainty_quantification & bootstrap_control$bootstrap_method == "fast") {
+    #'     message("Performing fast parametric bootstrap to obtain uncertainty quantification...this will take a little while so go a brew a cup of tea (or two)! Also, please pleaae the results with a grain of salt as they may be a bit crude =P")
+    #'     
+    #'     #' ## Bootstrap datasets
+    #'     class(out_assam) <- "assam"
+    #'     bootresp <- .fastsimulate_assam(out_assam,
+    #'                                     nsim = bootstrap_control$num_boot,
+    #'                                     do_parallel = do_parallel,
+    #'                                     num_cores = num_cores,
+    #'                                     seed = bootstrap_control$seed)
+    #'     
+    #'     
+    #'     
+    #'     }
+    
     if(uncertainty_quantification) {
-        message("Performing parametric bootstrap to obtain uncertainty quantification...this will take a while so go a brew a cup of tea (or two)!")
-        bootstrap_control$ci_type <- match.arg(bootstrap_control$ci_type, choices = c("percentile", "expanded")) 
+        message("Performing full parametric bootstrap to obtain uncertainty quantification...this will take a while so go a brew a cup of tea (or two)!")
         
         #' ## Bootstrap datasets
         class(out_assam) <- "assam"
