@@ -282,7 +282,7 @@ assam <- function(y,
     ##----------------
     message("Commencing fitting...")
     if(!is.null(supply_quadapprox)) {
-        if(inherits(supply_quadapprox, "assam_quadapprox"))
+        if(!inherits(supply_quadapprox, "assam_quadapprox"))
             stop("If supply_quadapprox is supplied, then it must be an object of class \"assam_quadapprox\".")
         
         message("Species-specific quadratic approximations supplied by practitioner...thanks!")
