@@ -344,6 +344,7 @@ assam <- function(y,
     gc()
           
           
+    
     ##----------------
     #' # Run EM algorithm
     ##----------------
@@ -559,7 +560,7 @@ assam <- function(y,
     do_em <- em_fn(qa_object = get_qa)
 
     try_counter <- 0
-    if(any(do_em$new_mixprop < 1e-3) & try_counter < 20) {
+    while(any(do_em$new_mixprop < 1e-3) & try_counter < 20) {
         message("Mixture component is being emptied...altering initial temp probability and restarting EM-algorithm to try and fix this.")
         control$temper_prob <- control$temper_prob + 0.025
           
