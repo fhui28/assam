@@ -69,7 +69,7 @@ set.seed(022025)
 
 num_X <- 10
 num_units <- 1000
-num_spp <- 80
+num_spp <- 100
 num_archetype <- 5
 H <- outer(1:num_X, 1:num_X, "-")
 H <- 0.5^abs(H)
@@ -82,7 +82,7 @@ true_betas <- runif(num_archetype * num_X, -1, 1) \%>\% matrix(nrow = num_archet
 true_spp_effects <- matrix(runif(num_spp, -3, 0), ncol = 1)
 true_dispparam <- 1/runif(num_spp, 0, 5) 
 true_powerparam <- runif(num_spp, 1.4, 1.8)
-true_mixprop <- c(0.2, 0.25, 0.3, 0.1, 0.15)
+true_mixprop <- c(0.2, 0.2, 0.3, 0.15, 0.15)
  
 simdat <- create_samlife(family = nbinom2(), 
 formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) \%>\% as.formula, 
