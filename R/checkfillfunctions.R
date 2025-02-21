@@ -25,8 +25,8 @@
 .fill_bootstrap_control <- function(control) {
     if(is.null(control$num_boot))
         control$num_boot <- 100
-    # if(is.null(control$bootstrap_method))
-    #     control$bootstrap_method <- "full"
+    if(is.null(control$method))
+        control$method <- "full_bootstrap"
     if(is.null(control$ci_alpha))
         control$ci_alpha <- 0.05
     if(is.null(control$seed))
