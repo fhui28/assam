@@ -24,7 +24,9 @@
 #' @noMd
 .fill_beta_selection_control <- function(control) {
     if(is.null(control$lambda))
-        stop("Currently, the tuning parameter for broken adaptive ridge (BAR) penalty *must* be supplied.")
+        stop("Currently, the tuning parameter for the broken adaptive ridge (BAR) penalty *must* be supplied.")
+    if(length(control$lambda) != 1)
+        stop("The assam function is designed for variable selection with a single tuning parameter. Please use the passam function if you want to construct an entire regularization path. Thanks!")
     if(is.null(control$maxit))
         control$maxit <- 100
     if(is.null(control$eps))

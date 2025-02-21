@@ -16,6 +16,7 @@
 #' @param mesh Output from [sdmTMB::make_mesh()], used for adding species-specific spatial fields to the linear predictor.
 #' @param do_parallel Should parallel computing be used to fit the asSAM. Defaults to \code{FALSE}.
 #' @param num_cores If \code{do_parallel = TRUE}, then this argument controls the number of cores used. Defaults to \code{NULL}, in which case it is set to \code{parallel::detectCores() - 2}.
+#' @param beta_selection Should variable selection be performed on the archetypal regression coefficients via the broken adaptive ridge [BAR](https://www.sciencedirect.com/science/article/pii/S0047259X17305067) penalty? Defaults to \code{FALSE}.
 #' @param uncertainty_quantification Should uncertainly intervals be computed via parametric bootstrap?
 #' @param supply_quadapprox An object of class \code{assam_quadapprox}, which is (mostly likely) obtained as a consequence of running an initial fit with \code{do_assam_fit = FALSE}. Supplying this can be useful when multiple asSAMs e.g., with different values of \code{num_archetypes} are needed; see [https://github.com/fhui28/assam/issues/8](https://github.com/fhui28/assam/issues/8) for an example of its usage. 
 #' @param do_assam_fit If \code{FALSE}, then the ingredients needed to construct the approximation to the log-likelihood are returned, *without fitting the asSAM itself*. This can be useful when multiple asSAMs e.g., with different values of \code{num_archetypes} are needed. Otherwise, this function should be kept at its default value of \code{TRUE}. 
@@ -27,6 +28,12 @@
 #' \item{trace:}{controls if messages are printed as part of the estimation process to reflect progress.}
 #' \item{beta_lower:}{a vector that can be used to constrain the lower limit of the regression coefficients for each (and every) archetype, along with the species-specific effects. The length of this vector should be the same as the number of columns of the model matrix induced by \code{formula} and \code{data}. However, no checks are made on this vector, so *please ensure you get the length right to ensure the correct implementation!* Defaults to \code{NULL}, in which there is no constraint.}
 #' \item{beta_upper:}{a vector that can be used to constrain the upper limit of the regression coefficients for each (and every) archetype, along with the species-specific effects. The length of this vector should be the same as the number of columns of the model matrix induced by \code{formula} and \code{data}. However, no checks are made on this vector, so *please ensure you get the length right to ensure the correct implementation!* Defaults to \code{NULL}, in which there is no constraint.}
+#' }
+#' @param beta_selection_control A list containing the following elements to control the broken adaptive ridge (BAR) penalty for variable selection on the archetypal regression coefficients:
+#' \describe{
+#' \item{lambda:}{the tuning parameter for the BAR penalty. Note the function only accepts a single value for this; if you wish to construct a regularization path for the archetypal regression coefficients, then please consider using the [passam()] function instead.}
+#' \item{eps:}{the convergence criterion; the norm of the difference between all estimated parameters from successive iterations must be smaller than this value.}
+#' \item{round_eps:}{a tolerance to round values to zero. The technically not needed as the BAR penalty will produce exactly zero estimates up to machine error, but is included anyway, but is included anyway.}
 #' }
 #' @param bootstrap_control A list containing the following elements to control the parametric bootstrap for uncertainty quantification:
 #' \describe{
@@ -45,12 +52,16 @@
 #'
 #' where \eqn{g(.)} is a known link function, \eqn{u_i^\top\alpha_j} corresponds to a component that is to kept species-specific e.g., species-specific intercept, \eqn{x_i^\top\beta_k}  denotes the component corresponding to effect of archetypal response \eqn{k}. Additionally, species-specific spatial fields can be included in the linear predictor e.g., to account for residual spatial correlation above and beyond that explained by the archetypal responses. Conditional on the mean model above, the \eqn{y_{ij}} are assumed to be come from some response distribution using the additional dispersion and power parameters as appropriate. We refer the reader to [Dunstan et al., (2011)](https://doi.org/10.1016/j.ecolmodel.2010.11.030), [Hui et al., (2013)](https://doi.org/10.1890/12-1322.1), [Dunstan et al., (2013)](https://doi.org/10.1007/s13253-013-0146-x), and [Skipton Woolley's ecomix package](https://github.com/skiptoniam/ecomix) for more details about the formulations of SAMs. Additionally, species-specific spatial fields can be included in the linear predictor e.g., to account for residual spatial correlation above and beyond that explained by the archetypal responses.
 #' 
-#' The broad goal of this package is to construct a way of fitting SAMs that are, although approximate, more scalable in the number of sites and species (though not necessarily faster), hence the name asSAMs. We prefer to the corresponding manuscript (in preparation) for details, but to summarize, asSAMs are formed by constructing an approximate likelihood function for a SAM based on using ingredients (i.e., point estimates and the associated observed information matrix) from stacked species distribution models (which are fitted initially in parallel), and then building what is essentially a finite mixture of multivariate Gaussian distributions from this. This is then maximized using an EM algorithm, which can be done scalably and very quickly.
+#' The broad goal of this package is to construct a way of fitting SAMs that are, although approximate, more scalable in the number of sites and species (though not necessarily faster), hence the name asSAMs. We refer to the corresponding manuscript (in preparation) for details, but to summarize, asSAMs are formed by constructing an approximate likelihood function for a SAM based on using ingredients (i.e., point estimates and the associated observed information matrix) from stacked species distribution models (which are fitted initially in parallel), and then building what is essentially a finite mixture of multivariate Gaussian distributions from this. This is then maximized using an EM algorithm, which can be done scalably and very quickly.
 #' 
-#' For uncertainty quantification, a parametric bootstrap approach is taken along the lines of Section 2.16.2 in [McLachlan and Peel (2004)](https://www.wiley.com/en-us/Finite+Mixture+Models-p-9780471654063). While computationally slow, it is simply in design and often does a decent job for mixture modeling! 
+#' For uncertainty quantification, two forms of parametric bootstrap are available along the lines of Section 2.16.2 in [McLachlan and Peel (2004)](https://www.wiley.com/en-us/Finite+Mixture+Models-p-9780471654063). 
+#' 
+#' Common lower and upper limit constraints can be placed on the \eqn{\beta_k} for each (and every) archetype. 
+#' 
+#' Variable selection on the elements of \eqn{\beta_k} can be performed via the broken adaptive ridge [BAR](https://www.sciencedirect.com/science/article/pii/S0047259X17305067) penalty, via the \code{beta_selection} and \code{beta_selection_control} arguments. The BAR penalty can be interpreted as a kind of approximation to the \eqn{L_0} penalty, and encourages sparsity in the archetypal regression coefficients e.g., to uncover what covariates are informative for each of the archetypal responses. Note the function is set up to only accept a single value for the tuning parameter: to construct a full regularization path for the archetypal regression coefficients given the BAR penalty, please consider using the [passam()] function instead. 
+#' 
 #' 
 #' \subsection{Distributions}{
-#' 
 #' Currently the following response distributions are permitted: 
 #' \describe{
 #' \item{\code{Beta()}:}{Beta distribution using a logit link. The corresponding mean-variance relationship is given by \eqn{V = \mu(1-\mu)/(1+\phi)} where \eqn{\mu} denotes the mean and \eqn{\phi} is the dispersion parameter.}
@@ -99,14 +110,16 @@
 #' 
 #' @author Francis K.C. Hui <fhui28@gmail.com>
 #' 
+#' 
 #' @examples
 #' \dontrun{
 #' ##----------------------
-#' # Generate some multivariate abundance data from a SAM
+#' # Example 1: Generate some multivariate abundance (count) data from a SAM
 #' ##----------------------
 #' library(tidyverse)
 #' library(mvtnorm)
 #' library(GGally)
+#' library(doParallel)
 #' 
 #' set.seed(022025)
 #' 
@@ -138,17 +151,15 @@
 #' seed = 022025)
 #'
 #'  
-#' ##----------------------
-#' # Fit asSAM and assess results 
-#' #' **Most users should start here**
-#' ##----------------------
+#' ## Fit asSAM and assess results 
+#' **Most users should start here**
 #' samfit <- assam(y = simdat$y,
 #' formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) %>% as.formula,
 #' data = covariate_dat,
 #' family = nbinom2(),
 #' uncertainty_quantification = TRUE,
 #' num_archetypes = num_archetype,
-#' num_cores = 8)
+#' num_cores = detectCores() - 2)
 #' 
 #'  
 #' plot(true_spp_effects, samfit$spp_effects); abline(0,1)
@@ -163,9 +174,7 @@
 #' table(simdat$archetype_label, apply(samfit$posterior_probability, 1, which.max))
 #' 
 #'  
-#' ##----------------------
-#' # Demonstrating basic use of functions for asSAM 
-#' ##----------------------
+#' ## Demonstrating basic use of functions for asSAM 
 #' samfit
 #' summary(samfit)
 #' 
@@ -184,6 +193,56 @@
 #' #' Species-level predictions
 #' predict(samfit, newdata = covariate_dat, type = "species_max", num_cores = 8, se_fit = TRUE) 
 #'  
+#'  
+#' ##----------------------
+#' # Example 2: Demonstrating variable selection on the archetypal regression coefficients
+#' # Generate some multivariate abundance (non-negative continuous) data from a sparse SAM
+#' ##----------------------
+#' true_betas <- runif(num_archetype * num_X, -1, 1) %>% matrix(nrow = num_archetype)
+#' true_betas[which(abs(true_betas) < 0.4)] <- 0 # Making archetypal coefficients sparse
+#' true_betas
+#' 
+#' 
+#' simdat <- create_samlife(family = tweedie(),
+#' formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) %>% as.formula,
+#' data = covariate_dat,
+#' betas = true_betas,
+#' spp_effects = true_spp_effects,
+#' spp_dispparam = true_dispparam,
+#' spp_powerparam = true_powerparam,
+#' mixture_proportion = true_mixprop,
+#' seed = 022025)
+#' 
+#' 
+#' ## Fit asSAM and assess results 
+#' **Most users should start here**
+#' samfit_select <- assam(y = simdat$y,
+#' formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) %>% as.formula,
+#' data = covariate_dat,
+#' family = tweedie(),
+#' beta_selection = TRUE,
+#' uncertainty_quantification = FALSE,
+#' num_archetypes = num_archetype,
+#' beta_selection_control = list(lambda = 0.1), # Note this an arbitrary choice!
+#' control = list(trace = 1),
+#' num_cores = detectCores() - 2)
+#' 
+#' samfit_select
+#' samfit_select$betas
+#' true_betas
+#' 
+#' 
+#' plot(true_spp_effects, samfit_select$spp_effects); abline(0,1)
+#' plot(true_dispparam, samfit_select$spp_nuisance$dispersion, log = "xy"); abline(0,1)
+#' plot(true_powerparam, samfit_select$spp_nuisance$power, log = "xy"); abline(0,1)
+#' #' Note estimates for the archetypal responses and mixture proportions from (as)SAMs should be 
+#' #' close to the corresponding true values, *up to a reordering* of the mixture component
+#' #' s/archetypes (since the order is essentially arbitrary)
+#' rbind(true_betas, samfit_select$betas) %>% 
+#' t %>% 
+#' as.data.frame %>%
+#' GGally::ggpairs(.)
+#' table(simdat$archetype_label, apply(samfit_select$posterior_probability, 1, which.max))
 #' }
 #' 
 #' 
@@ -217,13 +276,13 @@ assam <- function(y,
                   do_parallel = TRUE, 
                   num_cores = NULL, 
                   beta_selection = FALSE,
-                  beta_selection_control = list(eps = 1e-5, round_eps = 1e-6, lambda = 1),
                   uncertainty_quantification = TRUE,
                   supply_quadapprox = NULL,
                   do_assam_fit = TRUE,
                   control = list(max_iter = 500, tol = 1e-5, 
                                  temper_prob = 0.8, trace = FALSE, 
                                  beta_lower = NULL, beta_upper = NULL),
+                  beta_selection_control = list(lambda = 1, eps = 1e-5, round_eps = 1e-6),
                   bootstrap_control = list(method = "full_bootstrap", 
                                            num_boot = 100, ci_alpha = 0.05, seed = NULL, 
                                            ci_type = "percentile")) {
@@ -432,12 +491,13 @@ assam <- function(y,
                  cw_params <- new_params
                  Dbar <- Diagonal(n = length(new_params))
                  diag(Dbar)[-grep("archetype", colnames(mapping_mat))] <- 0
+                 lambda_used <- num_spp *  beta_selection_control$lambda 
                  
                  while(beta_s_counter < beta_selection_control$maxit & beta_s_err > beta_selection_control$eps) {
                      GammaMatrix_params <- Diagonal(n = length(new_params))
                      diag(GammaMatrix_params)[grep("archetype", colnames(mapping_mat))] <- cw_params[grep("archetype", colnames(mapping_mat))]
                      
-                     new_params <- GammaMatrix_params %*% solve(GammaMatrix_params %*% MtWM %*% GammaMatrix_params + beta_selection_control$lambda * Dbar) %*% GammaMatrix_params %*% crossprod(mapping_mat, bigW) %*% as.vector(qa_object$long_parameters)
+                     new_params <- GammaMatrix_params %*% solve(GammaMatrix_params %*% MtWM %*% GammaMatrix_params + lambda_used * Dbar) %*% GammaMatrix_params %*% crossprod(mapping_mat, bigW) %*% as.vector(qa_object$long_parameters)
                      new_params <- as.vector(new_params)
                      names(new_params) <- colnames(mapping_mat)
                      
