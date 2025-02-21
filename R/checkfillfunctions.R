@@ -22,6 +22,22 @@
 
 #' @noRd
 #' @noMd
+.fill_beta_selection_control <- function(control) {
+    if(is.null(control$lambda))
+        stop("Currently, the tuning parameter for broken adaptive ridge (BAR) penalty *must* be supplied.")
+    if(is.null(control$maxit))
+        control$maxit <- 100
+    if(is.null(control$eps))
+        control$eps <- 1e-5
+    if(is.null(control$round_eps))
+        control$round_eps <- 1e-6
+
+    return(control)
+    }
+
+
+#' @noRd
+#' @noMd
 .fill_bootstrap_control <- function(control) {
     if(is.null(control$num_boot))
         control$num_boot <- 100
@@ -111,3 +127,19 @@
     }
 
 
+#' @noRd
+#' @noMd
+.check_beta_options <- function(control, 
+                                beta_selection_control, 
+                                beta_selection,
+                                uncertainty_quantification) {
+    
+    if(uncertainty_quantification & beta_selection)
+        stop("Currently, uncertainty quantification is not supported when beta_selection = TRUE...sorry!")
+    if(beta_selection & !is.null(control$beta_lower))
+        stop("beta_selection can not be set to TRUE if lower limit constraints are also supplied through control$beta_lower.")
+    if(beta_selection & !is.null(control$beta_upper))
+        stop("beta_selection can not be set to TRUE if upper limit constraints are also supplied through control$beta_lower.")
+    }
+
+    
