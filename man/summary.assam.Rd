@@ -40,68 +40,7 @@ Currently, the function returns estimated mixture proportions, species-specific 
 
 \examples{
 \dontrun{
-##----------------------
-# Generate some multivariate abundance data from a SAM
-##----------------------
-library(tidyverse)
-library(mvtnorm)
-library(GGally)
-
-set.seed(022025)
-
-num_X <- 10
-num_units <- 1000
-num_spp <- 100
-num_archetype <- 5
-H <- outer(1:num_X, 1:num_X, "-")
-H <- 0.5^abs(H)
-covariate_dat <- rmvnorm(num_units, sigma = H) \%>\% 
-    as.data.frame \%>\% 
-    rename_with(., .fn = function(x) paste0("covariate", x))
-rm(H)
-
-true_betas <- runif(num_archetype * num_X, -1, 1) \%>\% matrix(nrow = num_archetype)
-true_spp_effects <- matrix(runif(num_spp, -3, 0), ncol = 1)
-true_dispparam <- 1/runif(num_spp, 0, 5) 
-true_powerparam <- runif(num_spp, 1.4, 1.8)
-true_mixprop <- c(0.2, 0.2, 0.3, 0.15, 0.15)
- 
- simdat <- create_samlife(family = nbinom2(), 
- formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) \%>\% as.formula, 
- data = covariate_dat, 
- betas = true_betas, 
- spp_effects = true_spp_effects, 
- spp_dispparam = true_dispparam, 
- spp_powerparam = true_powerparam, 
- mixture_proportion = true_mixprop,
-seed = 022025)
- 
- 
- ##----------------------
- # Fit asSAM and assess results 
- #' **Most users should start here**
- ##----------------------
- samfit <- assam(y = simdat$y,
- formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) \%>\% as.formula,
- data = covariate_dat,
- family = nbinom2(),
- num_archetypes = num_archetype,
- num_cores = 8)
- 
- plot(true_spp_effects, samfit$spp_effects); abline(0,1)
- plot(true_dispparam, samfit$spp_nuisance$dispersion, log = "xy"); abline(0,1)
- #' Note estimates for the archetypal responses and mixture proportions from (as)SAMs should be 
- #' close to the corresponding true values, *up to a reordering* of the mixture component
- #' s/archetypes (since the order is essentiually arbtirary)
- rbind(true_betas, samfit$betas) \%>\% 
- t \%>\% 
- as.data.frame \%>\%
- ggpairs
- table(simdat$archetype_label, apply(samfit$posterior_probability, 1, which.max))
- 
- 
- samfit
- summary(samfit)
+Please see the help file for assam for example.
 }
 
 
