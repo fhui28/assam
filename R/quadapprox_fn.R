@@ -12,7 +12,7 @@
     
     num_spp <- ncol(resp)
     if(add_spatial) {
-        if(inherits(mesh, "sdmTMBmesh"))
+        if(!inherits(mesh, "sdmTMBmesh"))
             stop("If mesh is supplied for species-specific spatial fields, then the mesh argument must be an object class of \"sdmTMBmesh\".")
         }
 

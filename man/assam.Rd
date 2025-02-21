@@ -20,15 +20,15 @@ assam(
   supply_quadapprox = NULL,
   do_assam_fit = TRUE,
   control = list(max_iter = 500, tol = 1e-05, temper_prob = 0.8, trace = FALSE,
-    beta_lower = NULL, beta_upper = NULL),
-  bootstrap_control = list(num_boot = 100, ci_alpha = 0.05, seed = NULL, ci_type =
-    "percentile")
+    beta_lower = NULL, beta_upper = NULL, betamatrix_select = NULL),
+  bootstrap_control = list(method = "full_bootstrap", num_boot = 100, ci_alpha = 0.05,
+    seed = NULL, ci_type = "percentile")
 )
 }
 \arguments{
 \item{y}{A multivariate abundance response matrix.}
 
-\item{formula}{An object of class "formula", which represents a symbolic description of the model matrix to be created (based on using this argument along with the \code{data} argument). \emph{Note there should be nothing on the left hand side of the "~".}}
+\item{formula}{An object of class "formula", which represents a symbolic description of the model matrix to be created (based on using this argument along with the \code{data} argument). \emph{Note there should be nothing on the left hand side of the "~".} Currently, smooth terms are not permitted.}
 
 \item{data}{A data frame containing covariate information, from which the model matrix is to be created (based on this argument along with the \code{formula} argument).}
 
@@ -55,7 +55,7 @@ assam(
 \item{do_assam_fit}{If \code{FALSE}, then the ingredients needed to construct the approximation to the log-likelihood are returned, \emph{without fitting the asSAM itself}. This can be useful when multiple asSAMs e.g., with different values of \code{num_archetypes} are needed. Otherwise, this function should be kept at its default value of \code{TRUE}.}
 
 \item{control}{A list containing the following elements:
-\itemize{
+\describe{
 \item{max_iter:}{the maximum number of iterations in the EM algorithm. Usually convergence is quite quick e.g., less than 20 iterations.}
 \item{tol:}{the convergence criterion; the difference in the log-likelihood value of the asSAM from successive iterations must be smaller than this value.}
 \item{temper_prob:}{in the iteration of the EM algorithm, posterior probabilities from the E-step are "tempered" or push away from the 0/1 boundary. This is often useful to get the EM algorithm moving initially.}
@@ -65,7 +65,9 @@ assam(
 }}
 
 \item{bootstrap_control}{A list containing the following elements to control the parametric bootstrap for uncertainty quantification:
-\itemize{
+\describe{
+\item{method:}{method of parametric bootstrap to use. Two options are currently available: 1) "full_bootstrap", which is a full parametric bootstrap where new multivariate abundance responses are simulated and a new approximate likelihood function is formed each time; 2) "fast_bootstrap" which bootstraps directly/only off the approximate likelihood.
+Method 1 should be more accurate, but is computationally slower and less scalable. Defaults to "full_bootstrap".}
 \item{num_boot:}{the number of bootstrapped iterations to do. Defaults to 100, which can already take a long time but should be enough in a lot of settings for uncertainty quantification.}
 \item{ci_alpha:}{the type-1 level for confidence interval construction. \code{100 * (1 - ci_alpha)} percent Confidence intervals are constructed.}
 \item{seed:}{a seed that can be set for bootstrapping the datasets.}
@@ -151,7 +153,7 @@ set.seed(022025)
 
 num_X <- 10
 num_units <- 1000
-num_spp <- 80
+num_spp <- 100
 num_archetype <- 5
 H <- outer(1:num_X, 1:num_X, "-")
 H <- 0.5^abs(H)
@@ -164,7 +166,7 @@ true_betas <- runif(num_archetype * num_X, -1, 1) \%>\% matrix(nrow = num_archet
 true_spp_effects <- matrix(runif(num_spp, -2, 0), ncol = 1)
 true_dispparam <- 1/runif(num_spp, 1, 5) 
 true_powerparam <- runif(num_spp, 1.4, 1.8)
-true_mixprop <- c(0.2, 0.25, 0.3, 0.1, 0.15)
+true_mixprop <- c(0.2, 0.2, 0.3, 0.15, 0.15)
  
 simdat <- create_samlife(family = nbinom2(), 
 formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) \%>\% as.formula, 
@@ -215,7 +217,7 @@ simulate(samfit, data = covariate_dat)
 residuals(samfit, type = "dunnsmyth")
  
 #' Basic residual analysis
-plot(samfit, transform_fitted_values = TRUE)
+plot(samfit, transform_fitted_values = TRUE, envelope = FALSE)
  
 #' Archetype-level predictions
 predict(samfit, newdata = covariate_dat, type = "archetype", se_fit = TRUE) 

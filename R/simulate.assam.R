@@ -71,7 +71,7 @@ simulate.assam <- function(object,
         use_model$spp_dispparam <- object$spp_nuisance$dispersion
     if(object$family$family[1] %in% c("tweedie"))
         use_model$spp_powerparam <- object$spp_nuisance$power
-    if(!is.null(object$mesh)) {
+    if(object$add_spatial) {
         use_model$spp_spatial_sd[!is.finite(use_model$spp_spatial_sd)] <- 1e-6 # This is arbitrary!!!
         use_model$spp_spatial_sd[use_model$spp_spatial_sd < 1e-6] <- 1e-6
         use_model$spp_spatial_sd[use_model$spp_spatial_sd > 1e6] <- 1e6
@@ -128,5 +128,65 @@ simulate.assam <- function(object,
 #' @export 
 simulate <- function(object, ...) {
         UseMethod("simulate")
+    }
+
+
+#' @noRd
+#' @noMd
+.fastsimulate_assam <- function(qa_object,
+                                em_object,
+                                num_X, 
+                                which_spp_effects,
+                                nsim,
+                                do_parallel,
+                                num_cores,
+                                seed) {
+    
+    if(do_parallel) {
+        if(is.null(num_cores))
+            registerDoParallel(cores = detectCores() - 2)
+        if(!is.null(num_cores))
+            registerDoParallel(cores = num_cores)
+        }
+
+    create_seeds <- NULL
+    if(!is.null(seed))
+        create_seeds <- seed + 1:nsim
+    
+    
+    fastsim_fn <- function(qa_object,
+                           em_object,
+                           which_spp_effects,
+                           num_X,
+                           seed) {
+        
+        num_archetypes <- nrow(em_object$new_betas)
+        num_spp <- nrow(qa_object$parameters)
+        bootstrap_parameters_dataset <- matrix(NA, nrow = num_spp, ncol = ncol(qa_object$parameters)) 
+        
+        #' Sample bootstrap archetype labels
+        set.seed(seed)
+        archetype_label <- sample(1:num_archetypes, size = num_spp, prob = em_object$new_mixprop, replace = TRUE)
+
+        #' Sample bootstrap parameters from normal approximation with mean vector and covariance matrix evaluated at the asSAM estimates
+        spp_bootstrap_mean <- cbind(em_object$new_spp_effects, em_object$new_betas[archetype_label,], em_object$new_nuisance)
+        spp_bootstrap_mean[, which_spp_effects] <- em_object$new_spp_effects
+        spp_bootstrap_mean[, (1:num_X)[-which_spp_effects]] <- em_object$new_betas[archetype_label,]
+        
+        for(l1 in 1:num_spp) {
+            bootstrap_parameters_dataset[l1,] <- mvtnorm::rmvnorm(n = 1, mean = spp_bootstrap_mean[l1,], sigma = solve(qa_object$hessian[[l1]]))
+            }
+        set.seed(NULL)
+        
+        return(bootstrap_parameters_dataset)
+        }
+
+    out <- foreach::foreach(l = 1:nsim) %dopar% fastsim_fn(qa_object = qa_object,
+                                                           em_object = em_object,
+                                                           which_spp_effects = which_spp_effects,
+                                                           num_X = num_X,
+                                                           seed = create_seeds[l])
+    
+    return(out)
     }
 

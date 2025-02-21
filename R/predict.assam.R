@@ -48,7 +48,7 @@
 #' 
 #' num_X <- 10
 #' num_units <- 1000
-#' num_spp <- 80
+#' num_spp <- 100
 #' num_archetype <- 5
 #' H <- outer(1:num_X, 1:num_X, "-")
 #' H <- 0.5^abs(H)
@@ -61,7 +61,7 @@
 #' true_spp_effects <- matrix(runif(num_spp, -3, 0), ncol = 1)
 #' true_dispparam <- 1/runif(num_spp, 0, 5) 
 #' true_powerparam <- runif(num_spp, 1.4, 1.8)
-#' true_mixprop <- c(0.2, 0.25, 0.3, 0.1, 0.15)
+#' true_mixprop <- c(0.2, 0.2, 0.3, 0.15, 0.15)
 #'  
 #' simdat <- create_samlife(family = nbinom2(), 
 #' formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) %>% as.formula, 
@@ -307,7 +307,7 @@ predict.assam <- function(object,
     
     out <- NULL    
 
-    for(l1 in 1:nrow(object$spp_effects)) {
+    for(l1 in 1:num_spp) {
         #' Set up new parameters as per the asSAM
         use_pars <- .get_pars2(object = object$sdmTMB_fits[[l1]])
         cw_b_j <- c(object$spp_effects[l1,], object$betas[k0,])
@@ -439,7 +439,7 @@ predict.assam <- function(object,
         }
     
     #' Nested foreach loops used here -- Not sure this saves that much time compared to doing foreach at the bootstrap dataset level but whatever...
-    out <- foreach(l2 = 1:nrow(object$spp_effects)) %:% 
+    out <- foreach(l2 = 1:num_spp) %:% 
         foreach(l0 = 1:object$num_archetypes, .combine = "cbind") %dopar% {
             do_fn(l0 = l0, l1 = l2)
         } 
