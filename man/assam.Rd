@@ -16,11 +16,13 @@ assam(
   mesh = NULL,
   do_parallel = TRUE,
   num_cores = NULL,
+  beta_selection = FALSE,
+  beta_selection_control = list(eps = 1e-05, round_eps = 1e-06, lambda = 1),
   uncertainty_quantification = TRUE,
   supply_quadapprox = NULL,
   do_assam_fit = TRUE,
   control = list(max_iter = 500, tol = 1e-05, temper_prob = 0.8, trace = FALSE,
-    beta_lower = NULL, beta_upper = NULL, betamatrix_select = NULL),
+    beta_lower = NULL, beta_upper = NULL),
   bootstrap_control = list(method = "full_bootstrap", num_boot = 100, ci_alpha = 0.05,
     seed = NULL, ci_type = "percentile")
 )
@@ -223,7 +225,7 @@ plot(samfit, transform_fitted_values = TRUE, envelope = FALSE)
 predict(samfit, newdata = covariate_dat, type = "archetype", se_fit = TRUE) 
 
 #' Species-level predictions
-predict(samfit,  newdata = covariate_dat, type = "species_max", num_cores = 8, se_fit = TRUE) 
+predict(samfit, newdata = covariate_dat, type = "species_max", num_cores = 8, se_fit = TRUE) 
  
 }
 

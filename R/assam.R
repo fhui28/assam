@@ -30,6 +30,8 @@
 #' }
 #' @param bootstrap_control A list containing the following elements to control the parametric bootstrap for uncertainty quantification:
 #' \describe{
+#' \item{method:}{method of parametric bootstrap to use. Two options are currently available: 1) "full_bootstrap", which is a full parametric bootstrap where new multivariate abundance responses are simulated and a new approximate likelihood function is formed each time; 2) "fast_bootstrap" which bootstraps directly/only off the approximate likelihood. 
+#' Method 1 should be more accurate, but is computationally slower and less scalable. Defaults to "full_bootstrap".}
 #' \item{num_boot:}{the number of bootstrapped iterations to do. Defaults to 100, which can already take a long time but should be enough in a lot of settings for uncertainty quantification.}
 #' \item{ci_alpha:}{the type-1 level for confidence interval construction. \code{100 * (1 - ci_alpha)} percent Confidence intervals are constructed.}
 #' \item{seed:}{a seed that can be set for bootstrapping the datasets.}
@@ -123,7 +125,7 @@
 #' true_spp_effects <- matrix(runif(num_spp, -2, 0), ncol = 1)
 #' true_dispparam <- 1/runif(num_spp, 1, 5) 
 #' true_powerparam <- runif(num_spp, 1.4, 1.8)
-#' true_mixprop <- c(0.2, 0.25, 0.3, 0.1, 0.15)
+#' true_mixprop <- c(0.2, 0.2, 0.3, 0.15, 0.15)
 #'  
 #' simdat <- create_samlife(family = nbinom2(), 
 #' formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) %>% as.formula, 
@@ -146,7 +148,6 @@
 #' family = nbinom2(),
 #' uncertainty_quantification = TRUE,
 #' num_archetypes = num_archetype,
-#' bootstrap_control = list(num_boot = 100, method = "fast"),
 #' num_cores = 8)
 #' 
 #'  
@@ -175,13 +176,13 @@
 #' residuals(samfit, type = "dunnsmyth")
 #'  
 #' #' Basic residual analysis
-#' plot(samfit, transform_fitted_values = TRUE, envelope = FALSE))
+#' plot(samfit, transform_fitted_values = TRUE, envelope = FALSE)
 #'  
 #' #' Archetype-level predictions
 #' predict(samfit, newdata = covariate_dat, type = "archetype", se_fit = TRUE) 
 #' 
 #' #' Species-level predictions
-#' predict(samfit,  newdata = covariate_dat, type = "species_max", num_cores = 8, se_fit = TRUE) 
+#' predict(samfit, newdata = covariate_dat, type = "species_max", num_cores = 8, se_fit = TRUE) 
 #'  
 #' }
 #' 
@@ -275,8 +276,6 @@ assam <- function(y,
     bootstrap_control <- .fill_bootstrap_control(control = bootstrap_control)
     bootstrap_control$method <- match.arg(bootstrap_control$method, choices = c("full_bootstrap", "fast_bootstrap"))
     bootstrap_control$ci_type <- match.arg(bootstrap_control$ci_type, choices = c("percentile", "expanded"))
-    print(bootstrap_control)
-    
     
     .check_beta_options(control = control, 
                         beta_selection_control = beta_selection_control, 
@@ -531,6 +530,7 @@ assam <- function(y,
              #     }
              #              names(new_params) <- colnames(mapping_mat)
              
+             names(new_params) <- colnames(mapping_mat)
              new_spp_effects <- matrix(new_params[grep("spp_effects", names(new_params))], nrow = num_spp, byrow = TRUE)
              new_betas <- matrix(new_params[grep("archetype", names(new_params))], nrow = num_archetypes, byrow = TRUE)
              new_nuisance <- NULL
@@ -616,6 +616,8 @@ assam <- function(y,
                       num_nuisance_perspp = num_nuisance_perspp,
                       trial_size = trial_size,
                       offset = as(offset, "sparseMatrix"),
+                      beta_selection = beta_selection,
+                      beta_selection_control = beta_selection_control,
                       add_spatial = add_spatial,
                       mesh = mesh,
                       num_archetypes = num_archetypes,
@@ -762,126 +764,129 @@ assam <- function(y,
         file.remove(file.path(tempdir(), "allsdmTMBfits.RData"))
         }
         
-    find_errors <- which(sapply(bootrun, function(x) inherits(x, "try-error")))
-    if(length(find_errors) > 0) {
-        warning("Bootstrap datasets #", find_errors, " encountered problems during fitting, and are subsequently ignored...\nIf the number of datasets with fitting problems is large, it may point to deeper issues with the asSAM itself.")
-        bootrun <- bootrun[-find_errors]
-        }
-    rm(find_errors)
-    gc()
-    
-    
-    #' ## Account for potential label-switching across the bootstrapped datasets, and also transform nuisance parameters as appropriate
-    if(num_archetypes > 1) {
-        boot_params <- lapply(bootrun, function(x) cbind(x$new_betas, x$new_mixprop))
-        boot_params <- abind::abind(boot_params, along = 0)
-        switch_labels <- label.switching::pra(mcmc.pars = boot_params, 
-                                              pivot = cbind(out_assam$betas, out_assam$mixture_proportion))$permutations
-        }
-    if(num_archetypes == 1) {
-        boot_params <- NULL
-        switch_labels <- NULL
-        }
-    
-    bootrun <- lapply(1:length(bootrun), function(k0) {
+    if(uncertainty_quantification) {
+        find_errors <- which(sapply(bootrun, function(x) inherits(x, "try-error")))
+        if(length(find_errors) > 0) {
+            warning("Bootstrap datasets #", find_errors, " encountered problems during fitting, and are subsequently ignored...\nIf the number of datasets with fitting problems is large, it may point to deeper issues with the asSAM itself.")
+            bootrun <- bootrun[-find_errors]
+            }
+        rm(find_errors)
+        gc()
+        
+        
+        #' ## Account for potential label-switching across the bootstrapped datasets, and also transform nuisance parameters as appropriate
         if(num_archetypes > 1) {
-            bootrun[[k0]]$new_mixprop <- bootrun[[k0]]$new_mixprop[switch_labels[k0,]]
-            bootrun[[k0]]$new_betas <- bootrun[[k0]]$new_betas[switch_labels[k0,],]
-            #bootrun[[k0]]$post_prob <- bootrun[[k0]]$post_prob[,switch_labels[k0,]] #' Not actually used later on so omit! 
+            boot_params <- lapply(bootrun, function(x) cbind(x$new_betas, x$new_mixprop))
+            boot_params <- abind::abind(boot_params, along = 0)
+            switch_labels <- label.switching::pra(mcmc.pars = boot_params, 
+                                                  pivot = cbind(out_assam$betas, out_assam$mixture_proportion))$permutations
+            }
+        if(num_archetypes == 1) {
+            boot_params <- NULL
+            switch_labels <- NULL
             }
         
-        #' A vector of all parameters ordered in the same way as the columns of the mapping matrix, plus the mixture proportions
-        if(num_nuisance_perspp == 0)
-            bootrun[[k0]]$boot_params <- c(as.vector(t(bootrun[[k0]]$new_spp_effects)), 
-                                           as.vector(t(bootrun[[k0]]$new_betas)), 
-                                           bootrun[[k0]]$new_mixprop)
-        if(num_nuisance_perspp > 0)
-            bootrun[[k0]]$boot_params <- c(as.vector(t(bootrun[[k0]]$new_spp_effects)), 
-                                           as.vector(t(bootrun[[k0]]$new_betas)), 
-                                           as.vector(unlist(t(bootrun[[k0]]$new_nuisance))), # Note untransformed parameters passed here as this is what comes out of EM alg
-                                           bootrun[[k0]]$new_mixprop)
-        names(bootrun[[k0]]$boot_params) <- c(colnames(mapping_mat), paste0(names(out_assam$mixture_proportion), "_", "mixture_proportion"))
-        
-        bootrun[[k0]]$new_logL <- bootrun[[k0]]$post_prob <- bootrun[[k0]]$new_params <- NULL
-        return(bootrun[[k0]])
-    })
-    rm(boot_params, switch_labels, bootresp)
-    
-        
-    #' ## Form the intervals
-    form_cis <- list()
-    modified_alpha <- bootstrap_control$ci_alpha
-    if(bootstrap_control$ci_type == "expanded")
-        modified_alpha <- 2*pnorm(sqrt(num_spp/(num_spp-1)) * qt(bootstrap_control$ci_alpha/2, df = num_spp - 1))
-    form_cis$spp_effects <- apply(abind::abind(lapply(bootrun, function(x) x$new_spp_effects), along = 0), c(2,3), quantile, prob = c(modified_alpha/2, 1 - modified_alpha/2), na.rm = TRUE)
-    form_cis$spp_effects <- list(lower = form_cis$spp_effects[1,,,drop=FALSE], upper = form_cis$spp_effects[2,,,drop=FALSE])
-    if(length(which_spp_effects) == 1) {
-        form_cis$spp_effects$lower <- matrix(form_cis$spp_effects$lower, nrow = 1)
-        form_cis$spp_effects$upper <- matrix(form_cis$spp_effects$upper, nrow = 1)
-        }
-    
-    form_cis$betas <- apply(abind::abind(lapply(bootrun, function(x) x$new_betas), along = 0), c(2,3), quantile, prob = c(modified_alpha/2, 1 - modified_alpha/2), na.rm = TRUE)
-    form_cis$betas <- list(lower = form_cis$betas[1,,], upper = form_cis$betas[2,,])
-    if(num_archetypes == 1) {
-        form_cis$betas$lower <- matrix(form_cis$betas$lower, nrow = 1)
-        form_cis$betas$upper <- matrix(form_cis$betas$upper, nrow = 1)
-        }
-    
-    if(num_nuisance_perspp > 0) {
-        form_cis$spp_nuisance <- apply(abind::abind(lapply(bootrun, function(x) x$new_transformed_nuisance), along = 0), c(2,3), quantile, prob = c(modified_alpha/2, 1 - modified_alpha/2), na.rm = TRUE)
-        form_cis$spp_nuisance <- list(lower = form_cis$spp_nuisance[1,,,drop = FALSE], upper = form_cis$spp_nuisance[2,,,drop = FALSE])
-    
-        }
-    if(num_archetypes > 1)
-        form_cis$mixture_proportion <- data.frame( t(apply(sapply(bootrun, function(x) x$new_mixprop), 1, quantile, prob = c(modified_alpha/2, 1 - modified_alpha/2), na.rm = TRUE)))
-    
-    rownames(form_cis$spp_effects$lower) <- rownames(form_cis$spp_effects$upper) <- colnames(out_assam$spp_effects)
-    if(num_archetypes > 1) {
-        colnames(form_cis$mixture_proportion) <- c("lower", "upper")
-        }
-    rownames(form_cis$betas$lower) <- rownames(form_cis$betas$lower) <- rownames(out_assam$betas)
-    if(num_nuisance_perspp > 0) 
-        dimnames(form_cis$spp_nuisance$lower)[[3]] <- dimnames(form_cis$spp_nuisance$upper)[[3]] <- colnames(out_assam$spp_nuisance)
-    
-    out_assam$confidence_intervals <- form_cis
-    out_assam$bootstrap_parameters <- t(sapply(bootrun, function(x) x$boot_params))
-        
-        
-    #' ## Calculate bootstrapped posterior probabilities of *original species data* belong to each archetype
-    .calc_posterior_prob <- function(cw_bootstrap_spp_effects, cw_bootstrap_betas, cw_bootstrap_nuisance, cw_bootstrap_mixprop, qa_object) {
-        post_prob <- matrix(NA, nrow = num_spp, ncol = num_archetypes)
-        rownames(post_prob) <- colnames(y)
-        colnames(post_prob) <- paste0("archetype", 1:num_archetypes)
-        logL_spp <- NULL         
-        
-        for(j in 1:num_spp) { 
-            cw_Quad <- sapply(1:num_archetypes, function(k) {
-                cw_params <- c(cw_bootstrap_spp_effects[j,], cw_bootstrap_betas[k,], cw_bootstrap_nuisance[j,])
-                cw_params[which_spp_effects] <- cw_bootstrap_spp_effects[j,]
-                cw_params[(1:num_X)[-which_spp_effects]] <- cw_bootstrap_betas[k,]
-                
-                cw_v <- matrix(cw_params - qa_object$parameters[j,], ncol = 1)
-                return(-0.5 * (crossprod(cw_v, qa_object$hessian[[j]]) %*% cw_v))
-                })
-            eps <- max(cw_Quad)
+        bootrun <- lapply(1:length(bootrun), function(k0) {
+            if(num_archetypes > 1) {
+                bootrun[[k0]]$new_mixprop <- bootrun[[k0]]$new_mixprop[switch_labels[k0,]]
+                bootrun[[k0]]$new_betas <- bootrun[[k0]]$new_betas[switch_labels[k0,],]
+                #bootrun[[k0]]$post_prob <- bootrun[[k0]]$post_prob[,switch_labels[k0,]] #' Not actually used later on so omit! 
+                }
             
-            logL_spp[j] <- log(sum(cw_bootstrap_mixprop * exp(cw_Quad - eps))) + eps
-            post_prob[j,] <- exp((log(cw_bootstrap_mixprop) + cw_Quad) - logL_spp[j])
-            rm(eps, cw_Quad)
+            #' A vector of all parameters ordered in the same way as the columns of the mapping matrix, plus the mixture proportions
+            if(num_nuisance_perspp == 0)
+                bootrun[[k0]]$boot_params <- c(as.vector(t(bootrun[[k0]]$new_spp_effects)), 
+                                               as.vector(t(bootrun[[k0]]$new_betas)), 
+                                               bootrun[[k0]]$new_mixprop)
+            if(num_nuisance_perspp > 0)
+                bootrun[[k0]]$boot_params <- c(as.vector(t(bootrun[[k0]]$new_spp_effects)), 
+                                               as.vector(t(bootrun[[k0]]$new_betas)), 
+                                               as.vector(unlist(t(bootrun[[k0]]$new_nuisance))), # Note untransformed parameters passed here as this is what comes out of EM alg
+                                               bootrun[[k0]]$new_mixprop)
+            names(bootrun[[k0]]$boot_params) <- c(colnames(mapping_mat), paste0(names(out_assam$mixture_proportion), "_", "mixture_proportion"))
+            
+            bootrun[[k0]]$new_logL <- bootrun[[k0]]$post_prob <- bootrun[[k0]]$new_params <- NULL
+            return(bootrun[[k0]])
+            })
+        rm(boot_params, switch_labels, bootresp)
+        
+        
+        #' ## Form the intervals
+        form_cis <- list()
+        modified_alpha <- bootstrap_control$ci_alpha
+        if(bootstrap_control$ci_type == "expanded")
+            modified_alpha <- 2*pnorm(sqrt(num_spp/(num_spp-1)) * qt(bootstrap_control$ci_alpha/2, df = num_spp - 1))
+        form_cis$spp_effects <- apply(abind::abind(lapply(bootrun, function(x) x$new_spp_effects), along = 0), c(2,3), quantile, prob = c(modified_alpha/2, 1 - modified_alpha/2), na.rm = TRUE)
+        form_cis$spp_effects <- list(lower = form_cis$spp_effects[1,,,drop=FALSE], upper = form_cis$spp_effects[2,,,drop=FALSE])
+        if(length(which_spp_effects) == 1) {
+            form_cis$spp_effects$lower <- matrix(form_cis$spp_effects$lower, nrow = 1)
+            form_cis$spp_effects$upper <- matrix(form_cis$spp_effects$upper, nrow = 1)
+        }
+        
+        form_cis$betas <- apply(abind::abind(lapply(bootrun, function(x) x$new_betas), along = 0), c(2,3), quantile, prob = c(modified_alpha/2, 1 - modified_alpha/2), na.rm = TRUE)
+        form_cis$betas <- list(lower = form_cis$betas[1,,], upper = form_cis$betas[2,,])
+        if(num_archetypes == 1) {
+            form_cis$betas$lower <- matrix(form_cis$betas$lower, nrow = 1)
+            form_cis$betas$upper <- matrix(form_cis$betas$upper, nrow = 1)
             }
         
-        return(post_prob)
+        if(num_nuisance_perspp > 0) {
+            form_cis$spp_nuisance <- apply(abind::abind(lapply(bootrun, function(x) x$new_transformed_nuisance), along = 0), c(2,3), quantile, prob = c(modified_alpha/2, 1 - modified_alpha/2), na.rm = TRUE)
+            form_cis$spp_nuisance <- list(lower = form_cis$spp_nuisance[1,,,drop = FALSE], upper = form_cis$spp_nuisance[2,,,drop = FALSE])
+            
+            }
+        if(num_archetypes > 1)
+            form_cis$mixture_proportion <- data.frame( t(apply(sapply(bootrun, function(x) x$new_mixprop), 1, quantile, prob = c(modified_alpha/2, 1 - modified_alpha/2), na.rm = TRUE)))
+        
+        rownames(form_cis$spp_effects$lower) <- rownames(form_cis$spp_effects$upper) <- colnames(out_assam$spp_effects)
+        if(num_archetypes > 1) {
+            colnames(form_cis$mixture_proportion) <- c("lower", "upper")
+            }
+        rownames(form_cis$betas$lower) <- rownames(form_cis$betas$lower) <- rownames(out_assam$betas)
+        if(num_nuisance_perspp > 0) 
+            dimnames(form_cis$spp_nuisance$lower)[[3]] <- dimnames(form_cis$spp_nuisance$upper)[[3]] <- colnames(out_assam$spp_nuisance)
+        
+        out_assam$confidence_intervals <- form_cis
+        out_assam$bootstrap_parameters <- t(sapply(bootrun, function(x) x$boot_params))
+        
+        
+        #' ## Calculate bootstrapped posterior probabilities of *original species data* belong to each archetype
+        .calc_posterior_prob <- function(cw_bootstrap_spp_effects, cw_bootstrap_betas, cw_bootstrap_nuisance, cw_bootstrap_mixprop, qa_object) {
+            post_prob <- matrix(NA, nrow = num_spp, ncol = num_archetypes)
+            rownames(post_prob) <- colnames(y)
+            colnames(post_prob) <- paste0("archetype", 1:num_archetypes)
+            logL_spp <- NULL         
+            
+            for(j in 1:num_spp) { 
+                cw_Quad <- sapply(1:num_archetypes, function(k) {
+                    cw_params <- c(cw_bootstrap_spp_effects[j,], cw_bootstrap_betas[k,], cw_bootstrap_nuisance[j,])
+                    cw_params[which_spp_effects] <- cw_bootstrap_spp_effects[j,]
+                    cw_params[(1:num_X)[-which_spp_effects]] <- cw_bootstrap_betas[k,]
+                    
+                    cw_v <- matrix(cw_params - qa_object$parameters[j,], ncol = 1)
+                    return(-0.5 * (crossprod(cw_v, qa_object$hessian[[j]]) %*% cw_v))
+                })
+                eps <- max(cw_Quad)
+                
+                logL_spp[j] <- log(sum(cw_bootstrap_mixprop * exp(cw_Quad - eps))) + eps
+                post_prob[j,] <- exp((log(cw_bootstrap_mixprop) + cw_Quad) - logL_spp[j])
+                rm(eps, cw_Quad)
+            }
+            
+            return(post_prob)
         }
+        
+        
+        out_assam$bootstrap_posterior_probability <- abind::abind(lapply(1:length(bootrun), function(k0) 
+            .calc_posterior_prob(cw_bootstrap_spp_effects = bootrun[[k0]]$new_spp_effects, 
+                                 cw_bootstrap_betas = bootrun[[k0]]$new_betas, 
+                                 cw_bootstrap_nuisance = bootrun[[k0]]$new_nuisance, 
+                                 cw_bootstrap_mixprop = bootrun[[k0]]$new_mixprop, 
+                                 qa_object = get_qa)),
+            along = 3)
+        }
+       
     
-    
-    out_assam$bootstrap_posterior_probability <- abind::abind(lapply(1:length(bootrun), function(k0) 
-        .calc_posterior_prob(cw_bootstrap_spp_effects = bootrun[[k0]]$new_spp_effects, 
-                             cw_bootstrap_betas = bootrun[[k0]]$new_betas, 
-                             cw_bootstrap_nuisance = bootrun[[k0]]$new_nuisance, 
-                             cw_bootstrap_mixprop = bootrun[[k0]]$new_mixprop, 
-                             qa_object = get_qa)),
-        along = 3)
-
     ##----------------
     #' # Done! Final touches if any
     ##----------------
