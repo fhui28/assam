@@ -22,7 +22,8 @@ assam(
   do_assam_fit = TRUE,
   control = list(max_iter = 500, tol = 1e-05, temper_prob = 0.8, trace = FALSE,
     beta_lower = NULL, beta_upper = NULL),
-  beta_selection_control = list(lambda = 1, eps = 1e-05, round_eps = 1e-06),
+  beta_selection_control = list(lambda = 1, max_iter = 100, eps = 1e-05, round_eps =
+    1e-06),
   bootstrap_control = list(method = "full_bootstrap", num_boot = 100, ci_alpha = 0.05,
     seed = NULL, ci_type = "percentile")
 )
@@ -71,6 +72,7 @@ assam(
 \item{beta_selection_control}{A list containing the following elements to control the broken adaptive ridge (BAR) penalty for variable selection on the archetypal regression coefficients:
 \describe{
 \item{lambda:}{the tuning parameter for the BAR penalty. Note the function only accepts a single value for this; if you wish to construct a regularization path for the archetypal regression coefficients, then please consider using the \code{\link[=passam]{passam()}} function instead.}
+\item{max_iter:}{the maximum number of iterations in the BAR optimization part of the EM algorithm.}
 \item{eps:}{the convergence criterion; the norm of the difference between all estimated parameters from successive iterations must be smaller than this value.}
 \item{round_eps:}{a tolerance to round values to zero. The technically not needed as the BAR penalty will produce exactly zero estimates up to machine error, but is included anyway, but is included anyway.}
 }}
@@ -111,6 +113,7 @@ Otherwise, if \code{do_assam_fit = TRUE} as is the default, then an object of cl
 \item{linear_predictor:}{Estimated array of archetype-specific linear predictors. The last dimension of the array corresponds to the number of archetypes.}
 \item{control:}{Same as input argument.}
 \item{bootstrap_control:}{Same as input argument.}
+\item{beta_selection_control:}{Same as input argument.}
 \item{confidence_intervals:}{A list of estimated parametric bootstrap confidence intervals for all the parameters in the asSAM, with each element in the list corresponding to one of the parameters e.g., the species-specific effects, the mixture proportions, and so on.}
 \item{bootstrap_paramters:}{A matrix of estimated (untransformed) parameters from the parametric bootstrap. \emph{This output can be safely ignored by most users}, but those curious, it is used to uncertainty quantification for downstream predictions, say.}
 \item{bootstrap_posterior_probability:}{An array of estimated posterior probabilities from the parametric bootstrap. \emph{This output can be safely ignored by most users}, but those curious, it is used to uncertainty quantification for downstream predictions, say.}
@@ -126,7 +129,7 @@ For the purposes of the package, the SAM is characterized by the following mean 
 
 \deqn{g(\mu_{ij}) = \eta_{ij} = u_i^\top\alpha_j + x_i^\top\beta_k,}
 
-where \eqn{g(.)} is a known link function, \eqn{u_i^\top\alpha_j} corresponds to a component that is to kept species-specific e.g., species-specific intercept, \eqn{x_i^\top\beta_k}  denotes the component corresponding to effect of archetypal response \eqn{k}. Additionally, species-specific spatial fields can be included in the linear predictor e.g., to account for residual spatial correlation above and beyond that explained by the archetypal responses. Conditional on the mean model above, the \eqn{y_{ij}} are assumed to be come from some response distribution using the additional dispersion and power parameters as appropriate. We refer the reader to \href{https://doi.org/10.1016/j.ecolmodel.2010.11.030}{Dunstan et al., (2011)}, \href{https://doi.org/10.1890/12-1322.1}{Hui et al., (2013)}, \href{https://doi.org/10.1007/s13253-013-0146-x}{Dunstan et al., (2013)}, and \href{https://github.com/skiptoniam/ecomix}{Skipton Woolley's ecomix package} for more details about the formulations of SAMs. Additionally, species-specific spatial fields can be included in the linear predictor e.g., to account for residual spatial correlation above and beyond that explained by the archetypal responses.
+where \eqn{g(.)} is a known link function, \eqn{u_i^\top\alpha_j} corresponds to a component that is to kept species-specific e.g., species-specific intercept, \eqn{x_i^\top\beta_k}  denotes the component corresponding to effect of archetypal response \eqn{k}. Additionally, species-specific spatial fields can be included in the linear predictor e.g., to account for residual spatial correlation above and beyond that explained by the archetypal responses. Conditional on the mean model above, the \eqn{y_{ij}} are assumed to be come from some response distribution using the additional dispersion and power parameters as appropriate. We refer the reader to \href{https://doi.org/10.1016/j.ecolmodel.2010.11.030}{Dunstan et al., (2011)}, \href{https://doi.org/10.1890/12-1322.1}{Hui et al., (2013)}, \href{https://doi.org/10.1007/s13253-013-0146-x}{Dunstan et al., (2013)}, and \href{https://github.com/skiptoniam/ecomix}{Skipton Woolley's ecomix package} for more details about the formulations of SAMs.
 
 The broad goal of this package is to construct a way of fitting SAMs that are, although approximate, more scalable in the number of sites and species (though not necessarily faster), hence the name asSAMs. We refer to the corresponding manuscript (in preparation) for details, but to summarize, asSAMs are formed by constructing an approximate likelihood function for a SAM based on using ingredients (i.e., point estimates and the associated observed information matrix) from stacked species distribution models (which are fitted initially in parallel), and then building what is essentially a finite mixture of multivariate Gaussian distributions from this. This is then maximized using an EM algorithm, which can be done scalably and very quickly.
 
@@ -240,6 +243,8 @@ predict(samfit, newdata = covariate_dat, type = "species_max", num_cores = 8, se
 ##----------------------
 # Example 2: Demonstrating variable selection on the archetypal regression coefficients
 # Generate some multivariate abundance (non-negative continuous) data from a sparse SAM
+# Note only a single tuning parameter is used below; please see the [passam()] for 
+# constructing a proper regularization path.
 ##----------------------
 true_betas <- runif(num_archetype * num_X, -1, 1) \%>\% matrix(nrow = num_archetype)
 true_betas[which(abs(true_betas) < 0.4)] <- 0 # Making archetypal coefficients sparse
