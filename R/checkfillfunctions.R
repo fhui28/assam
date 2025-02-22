@@ -22,13 +22,15 @@
 
 #' @noRd
 #' @noMd
-.fill_beta_selection_control <- function(control) {
-    if(is.null(control$lambda))
-        stop("Currently, the tuning parameter for the broken adaptive ridge (BAR) penalty *must* be supplied.")
-    if(length(control$lambda) != 1)
-        stop("The assam function is designed for variable selection with a single tuning parameter. Please use the passam function if you want to construct an entire regularization path. Thanks!")
-    if(is.null(control$maxit))
-        control$maxit <- 100
+.fill_beta_selection_control <- function(control, lambda_fill = TRUE) {
+    if(lambda_fill) {
+        if(is.null(control$lambda))
+            stop("Currently, the tuning parameter for the broken adaptive ridge (BAR) penalty *must* be supplied.")
+        if(length(control$lambda) != 1)
+            stop("The assam function is designed for variable selection with a single tuning parameter. Please use the passam function if you want to construct an entire regularization path. Thanks!")
+        }
+    if(is.null(control$max_iter))
+        control$max_iter <- 100
     if(is.null(control$eps))
         control$eps <- 1e-5
     if(is.null(control$round_eps))
