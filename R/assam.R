@@ -152,12 +152,12 @@
 #'
 #'  
 #' ## Fit asSAM and assess results 
-#' **Most users should start here**
+#' #' **Most users should start here**
 #' samfit <- assam(y = simdat$y,
 #' formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) %>% as.formula,
 #' data = covariate_dat,
 #' family = nbinom2(),
-#' uncertainty_quantification = TRUE,
+#' uncertainty_quantification = FALSE,
 #' num_archetypes = num_archetype,
 #' num_cores = detectCores() - 2)
 #' 
@@ -215,7 +215,7 @@
 #' 
 #' 
 #' ## Fit asSAM and assess results 
-#' **Most users should start here**
+#' #' **Most users should start here**
 #' samfit_select <- assam(y = simdat$y,
 #' formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) %>% as.formula,
 #' data = covariate_dat,
