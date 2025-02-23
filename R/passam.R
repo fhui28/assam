@@ -125,7 +125,6 @@
 #' family = nbinom2(),
 #' min_df = 5, #' Minimum tuning parameter is such that there are at least five non-zero coefficients
 #' num_archetypes = num_archetype,
-#' control = list(trace = 1),
 #' num_cores = detectCores() - 2)
 #' 
 #' samfit_select$regularization_frame
@@ -140,10 +139,10 @@
 #' data = covariate_dat,
 #' family = nbinom2(),
 #' beta_selection = TRUE,
-#' uncertainty_quantification = FALSE,
 #' num_archetypes = num_archetype,
 #' supply_quadapprox = samfit_select$quad_approx,
 #' beta_selection_control = list(lambda = samfit_select$lambda[use_BIC2]),
+#' bootstrap_control = list(method = "fast"),
 #' num_cores = detectCores() - 2)
 #' 
 #' 
@@ -161,6 +160,25 @@
 #' as.data.frame %>%
 #' GGally::ggpairs(.)
 #' table(simdat$archetype_label, apply(samfit$posterior_probability, 1, which.max))
+#' 
+#' 
+#' ## Demonstrating basic use of functions for asSAM 
+#' summary(samfit)
+#' 
+#' fitted(samfit)
+#'  
+#' simulate(samfit, data = covariate_dat)
+#' 
+#' residuals(samfit, type = "dunnsmyth")
+#'  
+#' #' Basic residual analysis
+#' plot(samfit, transform_fitted_values = TRUE, envelope = FALSE)
+#'  
+#' #' Archetype-level predictions
+#' predict(samfit, newdata = covariate_dat, type = "archetype", se_fit = TRUE) 
+#' 
+#' #' Species-level predictions
+#' predict(samfit, newdata = covariate_dat, type = "species_max", num_cores = 8, se_fit = TRUE) 
 #' }
 
 
