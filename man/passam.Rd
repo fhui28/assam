@@ -63,7 +63,7 @@ passam(
 \item{max_iter:}{the maximum number of iterations in the EM algorithm. Usually convergence is quite quick e.g., less than 20 iterations.}
 \item{tol:}{the convergence criterion; the difference in the log-likelihood value of the asSAM from successive iterations must be smaller than this value.}
 \item{temper_prob:}{in the iteration of the EM algorithm, posterior probabilities from the E-step are "tempered" or push away from the 0/1 boundary. This is often useful to get the EM algorithm moving initially.}
-\item{trace:}{controls if messages are printed as part of the estimation process to reflect progress.}
+\item{trace:}{controls if messages printed as part of the estimation process to reflect progress.}
 }}
 
 \item{beta_selection_control}{A list containing the following elements to control the broken adaptive ridge (BAR) penalty for variable selection on the archetypal regression coefficients:

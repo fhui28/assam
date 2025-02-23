@@ -27,7 +27,7 @@
 #' \item{max_iter:}{the maximum number of iterations in the EM algorithm. Usually convergence is quite quick e.g., less than 20 iterations.}
 #' \item{tol:}{the convergence criterion; the difference in the log-likelihood value of the asSAM from successive iterations must be smaller than this value.}
 #' \item{temper_prob:}{in the iteration of the EM algorithm, posterior probabilities from the E-step are "tempered" or push away from the 0/1 boundary. This is often useful to get the EM algorithm moving initially.}
-#' \item{trace:}{controls if messages are printed as part of the estimation process to reflect progress.}
+#' \item{trace:}{controls if messages printed as part of the estimation process to reflect progress.}
 #' }
 #' @param beta_selection_control A list containing the following elements to control the broken adaptive ridge (BAR) penalty for variable selection on the archetypal regression coefficients:
 #' \describe{
@@ -422,7 +422,7 @@ passam <- function(y,
             #' ## Finish iteration
             ##-------------------
             diff <- new_logL - cw_logL 
-            if(control$trace >= 2) {
+            if(control$trace) {
                 message("Iteration: ", counter, "\t New Log-likelihood:", round(new_logL, 4), "\t Difference in Log-likelihood: ", round(new_logL - cw_logL, 4))
                 #, "\t Norm difference in parameters: ", round(sum((new_params - cw_params)^2), 5))
                 }
@@ -499,7 +499,7 @@ passam <- function(y,
     message("Constructing regularization path...")
 
     cwfit_fn <- function(l) {
-        if(control$trace >= 1)
+        if(control$trace)
             message("Commencing penalized EM algorithm at lambda = ", round(lambdaseq[l], 4))
         
         cwfit <- pem_fn(qa_object = get_qa, 
@@ -507,7 +507,7 @@ passam <- function(y,
                         beta_selection_control = beta_selection_control)
         try_counter <- 0
         while(any(cwfit$new_mixprop < 1e-3) & try_counter < 20) {
-            if(control$trace >= 1)
+            if(control$trace)
                 message("Mixture component is being emptied...altering initial temp probability and restarting EM-algorithm to try and fix this.")
             control$temper_prob <- control$temper_prob + 0.025
             
