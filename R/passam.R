@@ -1,9 +1,9 @@
-#' @title Penalized approximate and scalable species archetype models (asSAMs)
+#' @title Penalized approximate and scalable species archetype models (pasSAMs)
 #' 
 #' @description 
 #' `r lifecycle::badge("experimental")`
 #' 
-#' Fits approximate and scalable species archetype modeling (asSAMs) for model-based clustering of species based on their environmental response, into a small number of so-called archetypal responses. This is a modification of the main [assam()] function where a penalty is augmented to the approximate log-likelihood function to encourage sparsity in the archetypal regression coefficients.
+#' Fits penalized approximate and scalable species archetype modeling (asSAMs) for model-based clustering of species based on their environmental response, into a small number of so-called archetypal responses. This is a modification of the main [assam()] function where a penalty is augmented to the approximate log-likelihood function to encourage sparsity in the archetypal regression coefficients.
 #' 
 #' 
 #' @param y A multivariate abundance response matrix.
@@ -59,6 +59,9 @@
 #' \item{add_spatial:}{Were species-specific spatial fields included?}
 #' \item{mesh:}{Same as input argument.}
 #' \item{num_archetypes:}{Same as input argument.}
+#' \item{nlambda:}{Same as input argument.}
+#' \item{lambda_min_ratio:}{Same as input argument.}
+#' \item{min_df:}{Same as input argument.}
 #' \item{lambda:}{The actual sequence of tuning parameter, lambda, values used.}
 #' \item{betas_df:}{The number of non-zero archetypal regression coefficients at each value of lambda.}
 #' \item{betas_path:}{The estimated archetypal regression coefficients at each value of lambda. This takes the form of a three-dimensional array, where the third dimension corresponds to the lambda. So example \code{betas_path[,,1]} corresponds to the estimated archetypal regression coefficients at the first value of lambda.}
@@ -127,6 +130,7 @@
 #' num_archetypes = num_archetype,
 #' num_cores = detectCores() - 2)
 #' 
+#' samfit_select
 #' samfit_select$regularization_frame
 #' use_BIC2 <- which.min(samfit_select$BIC2)
 #' samfit_select$betas_path[,,use_BIC2]
@@ -560,7 +564,10 @@ passam <- function(y,
                       offset = as(offset, "sparseMatrix"),
                       add_spatial = add_spatial,
                       mesh = mesh,
-                      num_archetypes = num_archetypes)
+                      num_archetypes = num_archetypes,
+                      nlambda = nlambda, 
+                      lambda_min_ratio = 1e-6,
+                      min_df = min_df)
     
     out_assam$lambda <- lambdaseq
     out_assam$betas_df <- df_path

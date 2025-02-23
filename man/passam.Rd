@@ -2,7 +2,7 @@
 % Please edit documentation in R/passam.R
 \name{passam}
 \alias{passam}
-\title{Penalized approximate and scalable species archetype models (asSAMs)}
+\title{Penalized approximate and scalable species archetype models (pasSAMs)}
 \usage{
 passam(
   y,
@@ -84,6 +84,9 @@ An object of class \code{passam} with the following elements (as appropriate, an
 \item{add_spatial:}{Were species-specific spatial fields included?}
 \item{mesh:}{Same as input argument.}
 \item{num_archetypes:}{Same as input argument.}
+\item{nlambda:}{Same as input argument.}
+\item{lambda_min_ratio:}{Same as input argument.}
+\item{min_df:}{Same as input argument.}
 \item{lambda:}{The actual sequence of tuning parameter, lambda, values used.}
 \item{betas_df:}{The number of non-zero archetypal regression coefficients at each value of lambda.}
 \item{betas_path:}{The estimated archetypal regression coefficients at each value of lambda. This takes the form of a three-dimensional array, where the third dimension corresponds to the lambda. So example \code{betas_path[,,1]} corresponds to the estimated archetypal regression coefficients at the first value of lambda.}
@@ -99,7 +102,7 @@ An object of class \code{passam} with the following elements (as appropriate, an
 \description{
 \ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
 
-Fits approximate and scalable species archetype modeling (asSAMs) for model-based clustering of species based on their environmental response, into a small number of so-called archetypal responses. This is a modification of the main \code{\link[=assam]{assam()}} function where a penalty is augmented to the approximate log-likelihood function to encourage sparsity in the archetypal regression coefficients.
+Fits penalized approximate and scalable species archetype modeling (asSAMs) for model-based clustering of species based on their environmental response, into a small number of so-called archetypal responses. This is a modification of the main \code{\link[=assam]{assam()}} function where a penalty is augmented to the approximate log-likelihood function to encourage sparsity in the archetypal regression coefficients.
 }
 \details{
 For the purposes of the package, the SAM is characterized by the following mean regression model: for observational unit \eqn{i=1,\ldots,N} and species \eqn{j=1,\ldots,M}, conditional on the species belong to archetype \eqn{k},
@@ -168,6 +171,7 @@ min_df = 5, #' Minimum tuning parameter is such that there are at least five non
 num_archetypes = num_archetype,
 num_cores = detectCores() - 2)
 
+samfit_select
 samfit_select$regularization_frame
 use_BIC2 <- which.min(samfit_select$BIC2)
 samfit_select$betas_path[,,use_BIC2]
