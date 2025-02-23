@@ -178,7 +178,8 @@ simulate <- function(object, ...) {
             }
         set.seed(NULL)
         
-        return(bootstrap_parameters_dataset)
+        return(list(bootstrap_parameters = bootstrap_parameters_dataset, 
+                    archetype_label = archetype_label))
         }
 
     out <- foreach::foreach(l = 1:nsim) %dopar% fastsim_fn(qa_object = qa_object,
