@@ -22,6 +22,26 @@
 
 #' @noRd
 #' @noMd
+.fill_beta_selection_control <- function(control, lambda_fill = TRUE) {
+    if(lambda_fill) {
+        if(is.null(control$lambda))
+            stop("Currently, the tuning parameter for the broken adaptive ridge (BAR) penalty *must* be supplied.")
+        if(length(control$lambda) != 1)
+            stop("The assam function is designed for variable selection with a single tuning parameter. Please use the passam function if you want to construct an entire regularization path. Thanks!")
+        }
+    if(is.null(control$max_iter))
+        control$max_iter <- 100
+    if(is.null(control$eps))
+        control$eps <- 1e-5
+    if(is.null(control$round_eps))
+        control$round_eps <- 1e-6
+
+    return(control)
+    }
+
+
+#' @noRd
+#' @noMd
 .fill_bootstrap_control <- function(control) {
     if(is.null(control$num_boot))
         control$num_boot <- 100
@@ -111,3 +131,19 @@
     }
 
 
+#' @noRd
+#' @noMd
+.check_beta_options <- function(control, 
+                                beta_selection_control, 
+                                beta_selection,
+                                uncertainty_quantification) {
+    
+    if(uncertainty_quantification & beta_selection)
+        warning("Uncertainty quantification (via parametric bootstrap) when beta_selection = TRUE may be problematic...please take the results with a grain salt!")
+    if(beta_selection & !is.null(control$beta_lower))
+        stop("beta_selection can not be set to TRUE if lower limit constraints are also supplied through control$beta_lower.")
+    if(beta_selection & !is.null(control$beta_upper))
+        stop("beta_selection can not be set to TRUE if upper limit constraints are also supplied through control$beta_lower.")
+    }
+
+    

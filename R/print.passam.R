@@ -1,11 +1,11 @@
-#' @title Print a approximate and scalable SAM (asSAM) object
+#' @title Print a approximate and scalable SAM (pasSAM) object
 #' 
 #' @description 
 #' `r lifecycle::badge("stable")
 #'
-#' The default print method for a \code{assam} object.
+#' The default print method for a \code{passam} object.
 #' 
-#' @param x An object of class \code{assam}.
+#' @param x An object of class \code{passam}.
 #' @param ... Not used.
 #'
 #' @details
@@ -16,27 +16,26 @@
 #' 
 #' @examples
 #' \dontrun{
-#' #' Please see the help file for assam for example.
+#' #' Please see the help file for assam and passam for example.
 #' }
 #' 
-#' @method print assam 
+#' @method print passam 
 #' @export
 #' @md
 
 
 
-print.assam <- function(x, ...) {
+print.passam <- function(x, ...) {
     message("Call:")
     print(x$call)
     message()
     
-    message("--- Approximate and scalable species archetype model (asSAM) ---") 
+    message("--- Penalized approximate and scalable species archetype model (asSAM) ---") 
     message("Family: ", x$family$family[1], "\nNo. of sites: ", dim(x$linear_predictor)[1], "\nNo. of species: ", dim(x$linear_predictor)[2]) 
     message("No. of archetypes: ", nrow(x$betas)) 
     message("Archetypal response-environment relationship: ", x$formula) 
     message("Were species-specific spatial fields included? (TRUE/FALSE): ", x$add_spatial)
-    message("Were constraints imposed on the archetypal regression coefficients? (TRUE/FALSE): ", (!is.null(x$control$beta_lower) | !is.null(x$control$beta_upper))) 
-    message("Was variable selection performed on the regression coefficients? (TRUE/FALSE): ", x$beta_selection) 
-    message("Were confident intervals constructed? (TRUE/FALSE): ", x$uncertainty_quantification) 
+    message("")
+    message("Please see regularization_frame for information about the estimated regularization path.")
     message("---") 
     }
