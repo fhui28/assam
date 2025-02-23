@@ -2,7 +2,7 @@
 % Please edit documentation in R/print.assam.R
 \name{print.assam}
 \alias{print.assam}
-\title{Print a (approximate and scalable) SAM object}
+\title{Print a approximate and scalable SAM (asSAM) object}
 \usage{
 \method{print}{assam}(x, ...)
 }

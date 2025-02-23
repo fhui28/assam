@@ -1,4 +1,4 @@
-#' @title Print a (approximate and scalable) SAM object
+#' @title Print a approximate and scalable SAM (asSAM) object
 #' 
 #' @description 
 #' `r lifecycle::badge("stable")
