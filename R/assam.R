@@ -159,7 +159,6 @@
 #' formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) %>% as.formula,
 #' data = covariate_dat,
 #' family = nbinom2(),
-#' uncertainty_quantification = FALSE,
 #' num_archetypes = num_archetype,
 #' num_cores = detectCores() - 2)
 #' 
@@ -196,6 +195,7 @@
 #' predict(samfit, newdata = covariate_dat, type = "species_max", num_cores = 8, se_fit = TRUE) 
 #'  
 #'  
+#'  
 #' ##----------------------
 #' # Example 2: Demonstrating variable selection on the archetypal regression coefficients
 #' # Generate some multivariate abundance (non-negative continuous) data from a sparse SAM
@@ -225,10 +225,9 @@
 #' data = covariate_dat,
 #' family = tweedie(),
 #' beta_selection = TRUE,
-#' uncertainty_quantification = FALSE,
 #' num_archetypes = num_archetype,
 #' beta_selection_control = list(lambda = 0.1), # Note this an arbitrary choice!
-#' control = list(trace = 1),
+#' bootstrap_control = list(num_boot = 10), 
 #' num_cores = detectCores() - 2)
 #' 
 #' samfit_select
@@ -247,6 +246,25 @@
 #' as.data.frame %>%
 #' GGally::ggpairs(.)
 #' table(simdat$archetype_label, apply(samfit_select$posterior_probability, 1, which.max))
+#' 
+#' 
+#' ## Demonstrating basic use of functions for asSAM 
+#' summary(samfit_select)
+#' 
+#' fitted(samfit_select)
+#'  
+#' simulate(samfit_select, data = covariate_dat)
+#' 
+#' residuals(samfit, type = "dunnsmyth")
+#'  
+#' #' Basic residual analysis
+#' plot(samfit_select, transform_fitted_values = TRUE, envelope = FALSE)
+#'  
+#' #' Archetype-level predictions
+#' predict(samfit_select, newdata = covariate_dat, type = "archetype", se_fit = TRUE) 
+#' 
+#' #' Species-level predictions
+#' predict(samfit_select, newdata = covariate_dat, type = "species_max", num_cores = 8, se_fit = TRUE) 
 #' }
 #' 
 #' 
@@ -419,7 +437,9 @@ assam <- function(y,
     ##----------------
     #' # Run EM algorithm
     ##----------------
-    em_fn <- function(qa_object) {
+    em_fn <- function(qa_object, 
+                      dobar_penalty,
+                      betamatrix_selection = NULL) {
          counter <- 0
          diff <- 10
          cw_logL <- -Inf
@@ -434,12 +454,22 @@ assam <- function(y,
          while(diff > control$tol & counter < control$max_iter) {
              if(counter == 0) {
                  do_kmeans <- cluster::pam(qa_object$parameters[, (1:num_X)[-which_spp_effects], drop = FALSE], k = num_archetypes)  
-                 cw_betas <- do_kmeans$medoids
+                 if(is.null(betamatrix_selection)) {
+                     cw_betas <- do_kmeans$medoids
+                     cw_mixprop <- as.vector(table(do_kmeans$clustering)) / num_spp
+                     }
+                 #' Reordering to try and get to a starting value that best respects the desired sparsity pattern. No guarantees this actually works that well in practice, especially if a lot of non-zero coefficients are weak!
+                 if(!is.null(betamatrix_selection)) {
+                     switch_labels <- label.switching::pra(mcmc.pars = abind::abind(do_kmeans$medoids, along = 0), 
+                                                         pivot = betamatrix_selection)$permutations
+                     cw_betas <- do_kmeans$medoids[switch_labels[1,], ]
+                     cw_mixprop <- as.vector(table(do_kmeans$clustering))[switch_labels[1,]] / num_spp
+                     rm(switch_labels)
+                     }
                  cw_spp_effects <- qa_object$parameters[, which_spp_effects, drop = FALSE]
                  cw_nuisance <- NULL
                  if(num_nuisance_perspp > 0)
                     cw_nuisance <- qa_object$parameters[, num_X + 1:num_nuisance_perspp, drop = FALSE]
-                 cw_mixprop <- as.vector(table(do_kmeans$clustering)) / num_spp
                  rm(do_kmeans)
                  }
              
@@ -489,7 +519,7 @@ assam <- function(y,
              
              
              #' ### For selection on the archetypal coefficients via the broken adaptive ridge (BAR) penalty 
-             if(beta_selection) {
+             if(dobar_penalty) {
                  beta_s_err <- Inf
                  beta_s_counter <- 0
                  cw_params <- new_params
@@ -572,28 +602,29 @@ assam <- function(y,
                                                     bvec = final_makebvec)
                  
                  new_params <- Mstep_update$solution
+                 new_params[abs(new_params) < .Machine$double.eps] <- 0
                  rm(Mstep_update, final_makeAmat, final_makebvec)
                  }
              
              #' ### For subset solution
-             # if(!is.null(control$betamatrix_selection)) {
-             #     A <- Matrix(0, nrow = length(new_params), ncol = sum(control$betamatrix_selection == 0))
-             #     find_zero_indices <- matrix(grep("archetype", colnames(mapping_mat)), nrow = num_archetypes, byrow = TRUE) * (1-control$betamatrix_selection)
-             #     find_zero_indices <- t(find_zero_indices)[t(find_zero_indices) != 0]
-             #     for(l0 in 1:ncol(A))
-             #         A[find_zero_indices[l0], l0] <- 1
-             #     rm(find_zero_indices)
-             #    
-             #     Mstep_update <- quadprog::solve.QP(Dmat = MtWM,
-             #                                        dvec = crossprod(mapping_mat, bigW) %*% as.vector(qa_object$long_parameters),
-             #                                        Amat = A,
-             #                                        meq = ncol(A),
-             #                                        factorized = FALSE)
-             #     new_params <- Mstep_update$solution
-             #     rm(Mstep_update, A)
-             #     }
-             #              names(new_params) <- colnames(mapping_mat)
-             
+             if(!is.null(betamatrix_selection)) {
+                 A <- Matrix(0, nrow = length(new_params), ncol = sum(betamatrix_selection == 0))
+                 find_zero_indices <- matrix(grep("archetype", colnames(mapping_mat)), nrow = num_archetypes, byrow = TRUE) * (betamatrix_selection == 0)
+                 find_zero_indices <- t(find_zero_indices)[t(find_zero_indices) != 0]
+                 for(l0 in 1:ncol(A))
+                     A[find_zero_indices[l0], l0] <- 1
+                 rm(find_zero_indices)
+
+                 Mstep_update <- quadprog::solve.QP(Dmat = MtWM,
+                                                    dvec = crossprod(mapping_mat, bigW) %*% as.vector(qa_object$long_parameters),
+                                                    Amat = A,
+                                                    meq = ncol(A),
+                                                    factorized = FALSE)
+                 new_params <- Mstep_update$solution
+                 new_params[abs(new_params) < .Machine$double.eps] <- 0
+                 rm(Mstep_update, A)
+                 }
+
              names(new_params) <- colnames(mapping_mat)
              new_spp_effects <- matrix(new_params[grep("spp_effects", names(new_params))], nrow = num_spp, byrow = TRUE)
              new_betas <- matrix(new_params[grep("archetype", names(new_params))], nrow = num_archetypes, byrow = TRUE)
@@ -656,7 +687,8 @@ assam <- function(y,
 
     if(control$trace)
         message("Commencing EM algorithm...")
-    do_em <- em_fn(qa_object = get_qa)
+    do_em <- em_fn(qa_object = get_qa,
+                   dobar_penalty = beta_selection)
 
     try_counter <- 0
     while(any(do_em$new_mixprop < 1e-3) & try_counter < 20) {
@@ -737,6 +769,7 @@ assam <- function(y,
     ##----------------
     #' # Standard Error using full or fast but crude parametric bootstrap approach
     #' Computation time for full parametric bootstrap is crap at the moment unless you have a HPC!!! Starts from estimated parameters to give a little speed on for the quadratic approximations, so not used...
+    #' In the case model selection is performed (beta_selection = TRUE), bootstrap is performed conditional on selected model 
     ##----------------
     if(uncertainty_quantification & bootstrap_control$method == "fast_bootstrap") {
         message("Performing a fast but crude parametric bootstrap approach to obtain uncertainty quantification. Please take the results with a grain of salt!")
@@ -755,16 +788,22 @@ assam <- function(y,
         #' ## Fit asSAM to each bootstrapped dataset
         bootcov_fast_fn <- function(b0) { 
             get_boot_qa <- get_qa
-            get_boot_qa$parameters <- bootresp[[b0]]
+            get_boot_qa$parameters <- bootresp[[b0]]$bootstrap_parameters
             get_boot_qa$long_parameters <- apply(get_boot_qa$parameters, 1, function(x) kronecker(rep(1, num_archetypes), x)) # Repeats species-specific estimates num_archetypes times; object has num_spp columns
             
             ##----------------
             #' # Run EM algorithm for bootstrap datasets
             ##----------------
-            do_em <- try(em_fn(qa_object = get_boot_qa), silent = TRUE)
+            if(!beta_selection)
+                do_boot_em <- try(em_fn(qa_object = get_boot_qa,
+                                        dobar_penalty = FALSE), silent = TRUE)
+            if(beta_selection)
+                do_boot_em <- try(em_fn(qa_object = get_boot_qa, 
+                                        dobar_penalty = FALSE,
+                                        betamatrix_selection = out_assam$betas), silent = TRUE)
             
             setTxtProgressBar(pb, b0)
-            return(do_em)
+            return(do_boot_em)
             }          
         
         pb <- txtProgressBar(min = 0, max = bootstrap_control$num_boot, style = 3)
@@ -811,7 +850,13 @@ assam <- function(y,
             ##----------------
             #' # Run EM algorithm for bootstrap datasets
             ##----------------
-            do_em <- try(em_fn(qa_object = get_boot_qa), silent = TRUE)
+            if(!beta_selection)
+                do_em <- try(em_fn(qa_object = get_boot_qa,
+                                   dobar_penalty = FALSE), silent = TRUE)
+            if(beta_selection)
+                do_em <- try(em_fn(qa_object = get_boot_qa,
+                                   dobar_penalty = FALSE,
+                                   betamatrix_selection = out_assam$betas), silent = TRUE)
             
             setTxtProgressBar(pb, b0)
             return(do_em)
@@ -843,7 +888,7 @@ assam <- function(y,
             boot_params <- lapply(bootrun, function(x) cbind(x$new_betas, x$new_mixprop))
             boot_params <- abind::abind(boot_params, along = 0)
             switch_labels <- label.switching::pra(mcmc.pars = boot_params, 
-                                                  pivot = cbind(out_assam$betas, out_assam$mixture_proportion))$permutations
+                                                  pivot = cbind(out_assam$betas, out_assam$mixture_proportion))$permutations #' This should technically be avoided when model selection has been performed and a particular sparsity pattern is sought. But in practice hopefully this makes little difference!
             }
         if(num_archetypes == 1) {
             boot_params <- NULL
@@ -885,7 +930,7 @@ assam <- function(y,
         if(length(which_spp_effects) == 1) {
             form_cis$spp_effects$lower <- matrix(form_cis$spp_effects$lower, nrow = 1)
             form_cis$spp_effects$upper <- matrix(form_cis$spp_effects$upper, nrow = 1)
-        }
+            }
         
         form_cis$betas <- apply(abind::abind(lapply(bootrun, function(x) x$new_betas), along = 0), c(2,3), quantile, prob = c(modified_alpha/2, 1 - modified_alpha/2), na.rm = TRUE)
         form_cis$betas <- list(lower = form_cis$betas[1,,], upper = form_cis$betas[2,,])
@@ -929,16 +974,16 @@ assam <- function(y,
                     
                     cw_v <- matrix(cw_params - qa_object$parameters[j,], ncol = 1)
                     return(-0.5 * (crossprod(cw_v, qa_object$hessian[[j]]) %*% cw_v))
-                })
+                    })
                 eps <- max(cw_Quad)
                 
                 logL_spp[j] <- log(sum(cw_bootstrap_mixprop * exp(cw_Quad - eps))) + eps
                 post_prob[j,] <- exp((log(cw_bootstrap_mixprop) + cw_Quad) - logL_spp[j])
                 rm(eps, cw_Quad)
-            }
+                }
             
             return(post_prob)
-        }
+            }
         
         
         out_assam$bootstrap_posterior_probability <- abind::abind(lapply(1:length(bootrun), function(k0) 

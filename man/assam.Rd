@@ -203,7 +203,6 @@ samfit <- assam(y = simdat$y,
 formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) \%>\% as.formula,
 data = covariate_dat,
 family = nbinom2(),
-uncertainty_quantification = FALSE,
 num_archetypes = num_archetype,
 num_cores = detectCores() - 2)
 
@@ -240,6 +239,7 @@ predict(samfit, newdata = covariate_dat, type = "archetype", se_fit = TRUE)
 predict(samfit, newdata = covariate_dat, type = "species_max", num_cores = 8, se_fit = TRUE) 
  
  
+ 
 ##----------------------
 # Example 2: Demonstrating variable selection on the archetypal regression coefficients
 # Generate some multivariate abundance (non-negative continuous) data from a sparse SAM
@@ -269,10 +269,9 @@ formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) \%>\% as.
 data = covariate_dat,
 family = tweedie(),
 beta_selection = TRUE,
-uncertainty_quantification = FALSE,
 num_archetypes = num_archetype,
 beta_selection_control = list(lambda = 0.1), # Note this an arbitrary choice!
-control = list(trace = 1),
+bootstrap_control = list(num_boot = 10), 
 num_cores = detectCores() - 2)
 
 samfit_select
@@ -291,6 +290,25 @@ t \%>\%
 as.data.frame \%>\%
 GGally::ggpairs(.)
 table(simdat$archetype_label, apply(samfit_select$posterior_probability, 1, which.max))
+
+
+## Demonstrating basic use of functions for asSAM 
+summary(samfit_select)
+
+fitted(samfit_select)
+ 
+simulate(samfit_select, data = covariate_dat)
+
+residuals(samfit, type = "dunnsmyth")
+ 
+#' Basic residual analysis
+plot(samfit_select, transform_fitted_values = TRUE, envelope = FALSE)
+ 
+#' Archetype-level predictions
+predict(samfit_select, newdata = covariate_dat, type = "archetype", se_fit = TRUE) 
+
+#' Species-level predictions
+predict(samfit_select, newdata = covariate_dat, type = "species_max", num_cores = 8, se_fit = TRUE) 
 }
 
 
