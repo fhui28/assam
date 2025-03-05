@@ -139,7 +139,7 @@
                                 uncertainty_quantification) {
     
     if(uncertainty_quantification & beta_selection)
-        warning("Uncertainty quantification (via parametric bootstrap) when beta_selection = TRUE may be problematic...please take the results with a grain salt!")
+        warning("Uncertainty quantification (via parametric bootstrap) when beta_selection = TRUE may be problematic...please take the results with a grain of salt!")
     if(beta_selection & !is.null(control$beta_lower))
         stop("beta_selection can not be set to TRUE if lower limit constraints are also supplied through control$beta_lower.")
     if(beta_selection & !is.null(control$beta_upper))
