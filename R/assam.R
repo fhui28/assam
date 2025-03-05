@@ -695,7 +695,8 @@ assam <- function(y,
         message("Mixture component is being emptied...altering initial temp probability and restarting EM-algorithm to try and fix this.")
         control$temper_prob <- control$temper_prob + 0.025
           
-        do_em <- em_fn(qa_object = get_qa)
+        do_em <- em_fn(qa_object = get_qa,
+                       dobar_penalty = beta_selection)
         try_counter <- try_counter + 1
         }
 
