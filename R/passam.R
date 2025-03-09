@@ -21,7 +21,6 @@
 #' @param nlambda The number of tuning parameters values to consider when forming the regularization path.
 #' @param lambda_min_ratio The smallest value for the tuning parameter lambda, as a fraction of the maximum internally-derived lambda value.
 #' @param lambda A user-supplied tuning parameter sequence. Note this is usually not supplied, as it is standard to have the function itself compute its own lambda sequence based on \code{nlambda} and \code{lambda_min_ratio}.
-#' @param min_df The minimum number of non-zero archetypal regression coefficients allowed in the asSAM. This is useful to supply if, when the function tries to find a appropriate lambda sequence, the user wants the maximum value of lambda to not necessarily shrink to all the penalized estimates to zero. Defaults to zero.
 #' @param control A list containing the following elements:
 #' \describe{
 #' \item{max_iter:}{the maximum number of iterations in the EM algorithm. Usually convergence is quite quick e.g., less than 20 iterations.}
@@ -31,6 +30,7 @@
 #' }
 #' @param beta_selection_control A list containing the following elements to control the broken adaptive ridge (BAR) penalty for variable selection on the archetypal regression coefficients:
 #' \describe{
+#' \item{min_df:}{The minimum number of non-zero archetypal regression coefficients allowed in the asSAM. This is useful to supply if, when the function tries to find a appropriate lambda sequence, the user wants the maximum value of lambda to not necessarily shrink to all the penalized estimates to zero. Defaults to zero.}
 #' \item{max_iter:}{the maximum number of iterations in the BAR optimization part of the EM algorithm.}
 #' \item{eps:}{the convergence criterion; the norm of the difference between all estimated parameters from successive iterations must be smaller than this value.}
 #' \item{round_eps:}{a tolerance to round values to zero. The technically not needed as the BAR penalty will produce exactly zero estimates up to machine error, but is included anyway, but is included anyway.}
@@ -61,7 +61,6 @@
 #' \item{num_archetypes:}{Same as input argument.}
 #' \item{nlambda:}{Same as input argument.}
 #' \item{lambda_min_ratio:}{Same as input argument.}
-#' \item{min_df:}{Same as input argument.}
 #' \item{lambda:}{The actual sequence of tuning parameter, lambda, values used.}
 #' \item{betas_df:}{The number of non-zero archetypal regression coefficients at each value of lambda.}
 #' \item{betas_path:}{The estimated archetypal regression coefficients at each value of lambda. This takes the form of a three-dimensional array, where the third dimension corresponds to the lambda. So example \code{betas_path[,,1]} corresponds to the estimated archetypal regression coefficients at the first value of lambda.}
@@ -121,14 +120,16 @@
 #' 
 #' ## First construct regularization path for asSAMs  
 #' #' **Most users should start here**
+#' #' Minimum tuning parameter is such that there are at least five non-zero coefficients
 #' # Note this can take a bit of time...apologies!
 #' samfit_select <- passam(y = simdat$y,
 #' formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) %>% as.formula,
 #' data = covariate_dat,
 #' family = nbinom2(),
-#' min_df = 5, #' Minimum tuning parameter is such that there are at least five non-zero coefficients
 #' num_archetypes = num_archetype,
-#' num_cores = detectCores() - 2)
+#' num_cores = detectCores() - 2,
+#' beta_selection_control = list(min_df = 5))
+#' 
 #' 
 #' samfit_select
 #' samfit_select$regularization_frame
@@ -212,14 +213,13 @@ passam <- function(y,
                   mesh = NULL, 
                   do_parallel = TRUE, 
                   num_cores = NULL, 
+                  selection_on = "beta",
                   supply_quadapprox = NULL,
                   nlambda = 100, 
                   lambda_min_ratio = 1e-6,
                   lambda = NULL, 
-                  min_df = 0,
-                  control = list(max_iter = 500, tol = 1e-5, 
-                                 temper_prob = 0.8, trace = FALSE),
-                  beta_selection_control = list(max_iter = 100, eps = 1e-5, round_eps = 1e-6)) {
+                  control = list(max_iter = 500, tol = 1e-5, temper_prob = 0.8, trace = FALSE),
+                  beta_selection_control = list(min_df = 0, max_iter = 100, eps = 1e-5, round_eps = 1e-6)) {
     
     ##----------------
     # Checks and balances
@@ -270,6 +270,7 @@ passam <- function(y,
     num_unit <- nrow(y)
     num_spp <- ncol(y)
           
+    selection_on <- match.arg(selection_on, choices = c("beta", "mixing_proportions"))
 
     ##----------------
     # Construct quadratic approximations for each species, and set up relevant quantities
@@ -406,39 +407,45 @@ passam <- function(y,
             new_params <- as.vector(new_params)
             
             
-            beta_s_err <- Inf
-            beta_s_counter <- 0
-            cw_params <- new_params
-            Dbar <- Diagonal(n = length(new_params))
-            diag(Dbar)[-grep("archetype", colnames(mapping_mat))] <- 0
-            lambda_used <- num_spp * lambda 
-            
-            while(beta_s_counter < beta_selection_control$max_iter & beta_s_err > beta_selection_control$eps) {
-                GammaMatrix_params <- Diagonal(n = length(new_params))
-                diag(GammaMatrix_params)[grep("archetype", colnames(mapping_mat))] <- cw_params[grep("archetype", colnames(mapping_mat))]
-                
-                new_params <- GammaMatrix_params %*% solve(GammaMatrix_params %*% MtWM %*% GammaMatrix_params + lambda_used * Dbar) %*% GammaMatrix_params %*% crossprod(mapping_mat, bigW) %*% as.vector(qa_object$long_parameters)
-                new_params <- as.vector(new_params)
-                names(new_params) <- colnames(mapping_mat)
-                
-                beta_s_err <- sum((new_params - cw_params)^2)
+            ##-------------------
+            #' ### Penalize the archetypal regression coefficients
+            ##-------------------
+            if(selection_on == "beta") {
+                beta_s_err <- Inf
+                beta_s_counter <- 0
                 cw_params <- new_params
-                beta_s_counter <- beta_s_counter + 1
+                Dbar <- Diagonal(n = length(new_params))
+                diag(Dbar)[-grep("archetype", colnames(mapping_mat))] <- 0
+                lambda_used <- num_spp * lambda 
+                
+                while(beta_s_counter < beta_selection_control$max_iter & beta_s_err > beta_selection_control$eps) {
+                    GammaMatrix_params <- Diagonal(n = length(new_params))
+                    diag(GammaMatrix_params)[grep("archetype", colnames(mapping_mat))] <- cw_params[grep("archetype", colnames(mapping_mat))]
+                    
+                    new_params <- GammaMatrix_params %*% solve(GammaMatrix_params %*% MtWM %*% GammaMatrix_params + lambda_used * Dbar) %*% GammaMatrix_params %*% crossprod(mapping_mat, bigW) %*% as.vector(qa_object$long_parameters)
+                    new_params <- as.vector(new_params)
+                    names(new_params) <- colnames(mapping_mat)
+                    
+                    beta_s_err <- sum((new_params - cw_params)^2)
+                    cw_params <- new_params
+                    beta_s_counter <- beta_s_counter + 1
+                    }
+                #' Note the convergence properties of the algorithm does ensure exact zeros can be achieved (up to machine error); see [https://doi.org/10.1155/2016/3456153]. However once can also round to zero if interested.
+                new_params[abs(new_params) < beta_selection_control$round_eps] <- 0
+                rm(beta_s_counter, beta_s_err, GammaMatrix_params, Dbar)
+                
+                
+                names(new_params) <- colnames(mapping_mat)
+                new_spp_effects <- matrix(new_params[grep("spp_effects", names(new_params))], nrow = num_spp, byrow = TRUE)
+                new_betas <- matrix(new_params[grep("archetype", names(new_params))], nrow = num_archetypes, byrow = TRUE)
+                new_nuisance <- NULL
+                if(num_nuisance_perspp > 0) {
+                    new_nuisance <- matrix(new_params[grep("spp_nuisance", names(new_params))], nrow = num_spp, byrow = TRUE)
+                    colnames(new_nuisance) <- qa_parameters_colnames[num_X + 1:num_nuisance_perspp]  
+                    }
+                rm(bigW, MtWM)
                 }
-            #' Note the convergence properties of the algorithm does ensure exact zeros can be achieved (up to machine error); see [https://doi.org/10.1155/2016/3456153]. However once can also round to zero if interested.
-            new_params[abs(new_params) < beta_selection_control$round_eps] <- 0
-            rm(beta_s_counter, beta_s_err, GammaMatrix_params, Dbar)
             
-            
-            names(new_params) <- colnames(mapping_mat)
-            new_spp_effects <- matrix(new_params[grep("spp_effects", names(new_params))], nrow = num_spp, byrow = TRUE)
-            new_betas <- matrix(new_params[grep("archetype", names(new_params))], nrow = num_archetypes, byrow = TRUE)
-            new_nuisance <- NULL
-            if(num_nuisance_perspp > 0) {
-                new_nuisance <- matrix(new_params[grep("spp_nuisance", names(new_params))], nrow = num_spp, byrow = TRUE)
-                colnames(new_nuisance) <- qa_parameters_colnames[num_X + 1:num_nuisance_perspp]  
-                }
-            rm(bigW, MtWM)
             
             ##-------------------
             #' ## Finish iteration
@@ -497,17 +504,20 @@ passam <- function(y,
     if(is.null(lambda)) {
         message("Finding an appropriate sequence of lambda values...")
         lambda_max <- 1
-        fast_beta_selection_control <- beta_selection_control
-        fast_beta_selection_control$max_iter <- 20 
-        fit_togetmaxlambda <- pem_fn(qa_object = get_qa, 
-                                     lambda = lambda_max,
-                                     beta_selection_control = fast_beta_selection_control)
         
-        while(sum(fit_togetmaxlambda$new_betas != 0) > min_df) {
-            lambda_max <- lambda_max*2
+        if(selection_on == "beta") {
+            fast_beta_selection_control <- beta_selection_control
+            fast_beta_selection_control$max_iter <- 20 
             fit_togetmaxlambda <- pem_fn(qa_object = get_qa, 
                                          lambda = lambda_max,
                                          beta_selection_control = fast_beta_selection_control)
+            
+            while(sum(fit_togetmaxlambda$new_betas != 0) > beta_selection_control$min_df) {
+                lambda_max <- lambda_max*2
+                fit_togetmaxlambda <- pem_fn(qa_object = get_qa, 
+                                             lambda = lambda_max,
+                                             beta_selection_control = fast_beta_selection_control)
+                }
             }
         
         lambdaseq <- lseq(lambda_max, lambda_max*lambda_min_ratio, length = nlambda, decreasing = TRUE)
@@ -523,20 +533,22 @@ passam <- function(y,
     cwfit_fn <- function(l) {
         if(control$trace)
             message("Commencing penalized EM algorithm at lambda = ", round(lambdaseq[l], 4))
-        
-        cwfit <- pem_fn(qa_object = get_qa, 
-                        lambda = lambdaseq[l], 
-                        beta_selection_control = beta_selection_control)
-        try_counter <- 0
-        while(any(cwfit$new_mixprop < 1e-3) & try_counter < 20) {
-            if(control$trace)
-                message("Mixture component is being emptied...altering initial temp probability and restarting EM-algorithm to try and fix this.")
-            control$temper_prob <- control$temper_prob + 0.025
-            
+         
+        if(selection_on == "beta") {
             cwfit <- pem_fn(qa_object = get_qa, 
                             lambda = lambdaseq[l], 
                             beta_selection_control = beta_selection_control)
-            try_counter <- try_counter + 1
+            try_counter <- 0
+            while(any(cwfit$new_mixprop < 1e-3) & try_counter < 20) {
+                if(control$trace)
+                    message("Mixture component is being emptied...altering initial temp probability and restarting EM-algorithm to try and fix this.")
+                control$temper_prob <- control$temper_prob + 0.025
+                
+                cwfit <- pem_fn(qa_object = get_qa, 
+                                lambda = lambdaseq[l], 
+                                beta_selection_control = beta_selection_control)
+                try_counter <- try_counter + 1
+                }
             }
         
         return(cwfit)
@@ -546,9 +558,12 @@ passam <- function(y,
     toc <- proc.time()
     gc()
     
-    coefficients_path <- abind::abind(lapply(allfits, function(x) x$new_betas), along = 3)
-    df_path <- sapply(allfits, function(x) sum(x$new_betas != 0))
-    passam_logL_path <- sapply(allfits, function(x) x$new_logL)
+    if(selection_on == "beta") {
+        coefficients_path <- abind::abind(lapply(allfits, function(x) x$new_betas), along = 3)
+        df_path <- sapply(allfits, function(x) sum(x$new_betas != 0))
+        passam_logL_path <- sapply(allfits, function(x) x$new_logL)
+        }
+    
     
     ##----------------
     #' # Format output
@@ -566,12 +581,13 @@ passam <- function(y,
                       mesh = mesh,
                       num_archetypes = num_archetypes,
                       nlambda = nlambda, 
-                      lambda_min_ratio = 1e-6,
-                      min_df = min_df)
+                      lambda_min_ratio = lambda_min_ratio)
     
     out_assam$lambda <- lambdaseq
-    out_assam$betas_df <- df_path
-    out_assam$betas_path <- coefficients_path
+    if(selection_on == "beta") {
+        out_assam$betas_df <- df_path
+        out_assam$betas_path <- coefficients_path
+        }
     out_assam$logL <- passam_logL_path
     out_assam$AIC <- -2*passam_logL_path + 2*df_path
     out_assam$BIC <- -2*passam_logL_path + log(num_spp)*df_path
