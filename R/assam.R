@@ -696,7 +696,8 @@ assam <- function(y,
         message("Mixture component is being emptied...altering initial temp probability and restarting EM-algorithm to try and fix this.")
         control$temper_prob <- control$temper_prob + 0.025
           
-        do_em <- em_fn(qa_object = get_qa)
+        do_em <- em_fn(qa_object = get_qa,
+                       dobar_penalty = beta_selection)
         try_counter <- try_counter + 1
         }
 
@@ -770,7 +771,7 @@ assam <- function(y,
     ##----------------
     #' # Standard Error using full or fast but crude parametric bootstrap approach
     #' Computation time for full parametric bootstrap is crap at the moment unless you have a HPC!!! Starts from estimated parameters to give a little speed on for the quadratic approximations, so not used...
-    #' In the case model selection is performed (beta_selection = TRUE), bootstrap is performed conditional on selected model 
+    #' In the case model selection is performed i.e., beta_selection = TRUE, **bootstrap is performed conditional on selected model** 
     ##----------------
     if(uncertainty_quantification & bootstrap_control$method == "fast_bootstrap") {
         message("Performing a fast but crude parametric bootstrap approach to obtain uncertainty quantification. Please take the results with a grain of salt!")
