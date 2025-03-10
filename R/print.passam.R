@@ -31,8 +31,8 @@ print.passam <- function(x, ...) {
     message()
     
     message("--- Penalized approximate and scalable species archetype model (asSAM) ---") 
-    message("Family: ", x$family$family[1], "\nNo. of sites: ", dim(x$linear_predictor)[1], "\nNo. of species: ", dim(x$linear_predictor)[2]) 
-    message("No. of archetypes: ", nrow(x$betas)) 
+    message("Family: ", x$family$family[1], "\nNo. of sites: ", dim(x$quad_approx$sdmTMB_fits[[1]]$data)[1], "\nNo. of species: ", dim(x$quad_approx$parameters)[2]) 
+    message("(Maximumz) No. of archetypes: ", x$num_archetypes) 
     message("Archetypal response-environment relationship: ", x$formula) 
     message("Were species-specific spatial fields included? (TRUE/FALSE): ", x$add_spatial)
     message("")

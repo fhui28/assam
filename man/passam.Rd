@@ -16,13 +16,14 @@ passam(
   mesh = NULL,
   do_parallel = TRUE,
   num_cores = NULL,
+  selection_on = "betas",
   supply_quadapprox = NULL,
   nlambda = 100,
   lambda_min_ratio = 1e-06,
   lambda = NULL,
-  min_df = 0,
   control = list(max_iter = 500, tol = 1e-05, temper_prob = 0.8, trace = FALSE),
-  beta_selection_control = list(max_iter = 100, eps = 1e-05, round_eps = 1e-06)
+  beta_selection_control = list(min_df = 0, max_iter = 100, eps = 1e-05, round_eps =
+    1e-06)
 )
 }
 \arguments{
@@ -40,13 +41,15 @@ passam(
 
 \item{trial_size}{Trial sizes to use for binomial distribution. This should equal to a scalar.}
 
-\item{num_archetypes}{Number of archetypes (clusters) to assume in the asSAM.}
+\item{num_archetypes}{Number of archetypes (clusters) to assume in the asSAM. Note when \code{selection_on = "mixing_proportions"}, then this should be an upper bound i.e., a maximum number of archetypes the practitioner wants in their asSAM.}
 
 \item{mesh}{Output from \code{\link[sdmTMB:make_mesh]{sdmTMB::make_mesh()}}, used for adding species-specific spatial fields to the linear predictor.}
 
 \item{do_parallel}{Should parallel computing be used to fit the asSAM. Defaults to \code{FALSE}.}
 
 \item{num_cores}{If \code{do_parallel = TRUE}, then this argument controls the number of cores used. Defaults to \code{NULL}, in which case it is set to \code{parallel::detectCores() - 2}.}
+
+\item{selection_on}{Should the penalty be applied, and thus sparsity be encouraged, on the archetypal regression coefficients or the mixing proportions? Current choices are \code{"betas"}, which is former, or \code{"mixing_proportions"}, which is the latter. Defaults to \code{"betas"}.}
 
 \item{supply_quadapprox}{An object of class \code{assam_quadapprox}, which is (mostly likely) obtained as a consequence of running an initial fit using \code{\link[=assam]{assam()}} with \code{do_assam_fit = FALSE}.}
 
@@ -55,8 +58,6 @@ passam(
 \item{lambda_min_ratio}{The smallest value for the tuning parameter lambda, as a fraction of the maximum internally-derived lambda value.}
 
 \item{lambda}{A user-supplied tuning parameter sequence. Note this is usually not supplied, as it is standard to have the function itself compute its own lambda sequence based on \code{nlambda} and \code{lambda_min_ratio}.}
-
-\item{min_df}{The minimum number of non-zero archetypal regression coefficients allowed in the asSAM. This is useful to supply if, when the function tries to find a appropriate lambda sequence, the user wants the maximum value of lambda to not necessarily shrink to all the penalized estimates to zero. Defaults to zero.}
 
 \item{control}{A list containing the following elements:
 \describe{
@@ -68,6 +69,7 @@ passam(
 
 \item{beta_selection_control}{A list containing the following elements to control the broken adaptive ridge (BAR) penalty for variable selection on the archetypal regression coefficients:
 \describe{
+\item{min_df:}{The minimum number of non-zero archetypal regression coefficients allowed in the asSAM. This is useful to supply if, when the function tries to find a appropriate lambda sequence, the user wants the maximum value of lambda to not necessarily shrink to all the penalized estimates to zero. Defaults to zero.}
 \item{max_iter:}{the maximum number of iterations in the BAR optimization part of the EM algorithm.}
 \item{eps:}{the convergence criterion; the norm of the difference between all estimated parameters from successive iterations must be smaller than this value.}
 \item{round_eps:}{a tolerance to round values to zero. The technically not needed as the BAR penalty will produce exactly zero estimates up to machine error, but is included anyway, but is included anyway.}
@@ -86,12 +88,12 @@ An object of class \code{passam} with the following elements (as appropriate, an
 \item{num_archetypes:}{Same as input argument.}
 \item{nlambda:}{Same as input argument.}
 \item{lambda_min_ratio:}{Same as input argument.}
-\item{min_df:}{Same as input argument.}
 \item{lambda:}{The actual sequence of tuning parameter, lambda, values used.}
-\item{betas_df:}{The number of non-zero archetypal regression coefficients at each value of lambda.}
-\item{betas_path:}{The estimated archetypal regression coefficients at each value of lambda. This takes the form of a three-dimensional array, where the third dimension corresponds to the lambda. So example \code{betas_path[,,1]} corresponds to the estimated archetypal regression coefficients at the first value of lambda.}
+\item{betas_df/mixing_proportions_df:}{The number of non-zero archetypal regression coefficients at each value of lambda/The number of estimated non-zero parameters (mixing proportions and archetypal regression coefficients) at each value of lambda. Note in both cases, the number of species-specific parameters is not counted since this does not change irrespective of the value of lambda.}
+\item{betas_path/mixing_proportions_path:}{The estimated archetypal regression coefficients at each value of lambda. For \code{betas_path}, this takes the form of a three-dimensional array, where the third dimension corresponds to the lambda e.g., \code{betas_path[,,1]} corresponds to the estimated archetypal regression coefficients at the first value of lambda.
+For \code{mixing_proportions_path}, this takes the form of a matrix where second dimension corresponds to the lambda e.g.,  \code{mixing_proportions_path[,1]} corresponds to the estimated mixing proportions at the first value of lambda}.
 \item{logL:}{Estimated log-likelihood value of the asSAM i.e. the value of the approximated log-likelihood function, at each value of lambda.}
-\item{AIC:}{The Akaike Information Criterion at each value of lambda. The AIC is defined as \eqn{-2\log(L) + 2df}, where \eqn{L} is the log-likelihood value and \eqn{df} is the number of non-zero archetypal regression coefficients.}
+\item{AIC:}{The Akaike Information Criterion at each value of lambda. The AIC is defined as \eqn{-2\log(L) + 2df}, where \eqn{L} is the log-likelihood value and \eqn{df} is the given by \code{betas_df/mixing_proportions_df}.}
 \item{BIC:}{The Bayesian Information Criterion at each value of lambda. The BIC is defined as \eqn{-2\log(L) + \log(M)df}, where \eqn{M} is the number of species.}
 \item{BIC2:}{The Bayesian Information Criterion, version 2, at each value of lambda. The BIC is defined as \eqn{-2\log(L) + \log(MN)df}, where \eqn{M} is the number of species and \eqn{N} is the number of observational units. Compared to BIC, BIC2 uses a more severe model complexity penalty and thus is more likely to selection a sparse asSAM.}
 \item{regularization_frame:}{A data frame combining some of the above information for easy "digestion".}
@@ -102,7 +104,7 @@ An object of class \code{passam} with the following elements (as appropriate, an
 \description{
 \ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
 
-Fits penalized approximate and scalable species archetype modeling (asSAMs) for model-based clustering of species based on their environmental response, into a small number of so-called archetypal responses. This is a modification of the main \code{\link[=assam]{assam()}} function where a penalty is augmented to the approximate log-likelihood function to encourage sparsity in the archetypal regression coefficients.
+Fits penalized approximate and scalable species archetype modeling (asSAMs) for model-based clustering of species based on their environmental response, into a small number of so-called archetypal responses. This is a modification of the main \code{\link[=assam]{assam()}} function, where a penalty is augmented to the approximate log-likelihood function to encourage sparsity in either the archetypal regression coefficients or the mixing proportions.
 }
 \details{
 For the purposes of the package, the SAM is characterized by the following mean regression model: for observational unit \eqn{i=1,\ldots,N} and species \eqn{j=1,\ldots,M}, conditional on the species belong to archetype \eqn{k},
@@ -111,7 +113,13 @@ For the purposes of the package, the SAM is characterized by the following mean 
 
 where \eqn{g(.)} is a known link function, \eqn{u_i^\top\alpha_j} corresponds to a component that is to kept species-specific e.g., species-specific intercept, \eqn{x_i^\top\beta_k}  denotes the component corresponding to effect of archetypal response \eqn{k}. Additionally, species-specific spatial fields can be included in the linear predictor e.g., to account for residual spatial correlation above and beyond that explained by the archetypal responses. Conditional on the mean model above, the \eqn{y_{ij}} are assumed to be come from some response distribution using the additional dispersion and power parameters as appropriate. We refer the reader to the main \code{\link[=assam]{assam()}} function for more details and references for SAMs.
 
-This function is specifically designed for performing variable selection, and building an associated regularization path, on the elements of \eqn{\beta_k} via the broken adaptive ridge \href{https://www.sciencedirect.com/science/article/pii/S0047259X17305067}{BAR} penalty. The BAR penalty can be interpreted as a kind of approximation to the \eqn{L_0} penalty, and encourages sparsity in the archetypal regression coefficients e.g., to uncover what covariates are informative for each of the archetypal responses. After building a regularization path using this function, one can examine the path and select the tuning parameter minimizing one of the provided information criterion, say, to pass to \code{\link[=assam]{assam()}} function for fitting the final, sparse asSAM.
+This function is specifically designed for performing variable selection, and building an associated regularization path, on either:
+\enumerate{
+\item the elements of \eqn{\beta_k} via the broken adaptive ridge \href{https://www.sciencedirect.com/science/article/pii/S0047259X17305067}{BAR} penalty. The BAR penalty can be interpreted as a kind of approximation to the \eqn{L_0} penalty, and encourages sparsity in the archetypal regression coefficients e.g., to uncover what covariates are informative for each of the archetypal responses;
+\item the mixing proportions \eqn{\pi_k} via the log penalty of \href{https://www3.stat.sinica.edu.tw/statistica/J27N1/J27N17/J27N17.html}{equation (2.3) in}. The log penalty can be interpreted as like a \href{https://en.wikipedia.org/wiki/Lasso_(statistics)}{Lasso or \eqn{L_1} penalty} except more "steep", and encourages sparsity in the mixing proportions i.e., sends one or more of the \eqn{\pi_k}'s to zero and can be used to decide how many archetypes are needed in the SAM. Note when a mixing proportion is set to zero, the corresponding archetype is removed from the SAM.
+}
+
+After building a regularization path using this function, one can examine the path and select the tuning parameter minimizing one of the provided information criterion, say, to pass to \code{\link[=assam]{assam()}} function for fitting the final, sparse asSAM.
 }
 \section{Distributions and parallelization}{
 
@@ -160,16 +168,42 @@ mixture_proportion = true_mixprop,
 seed = 022025)
 
 
-## First construct regularization path for asSAMs  
+##----------------------
+# First construct regularization path for the mixing proportions in the asSAMs to decide 
+# the number of archetypes. Then given this, construct regularization 
+# path for the archetypal regression coefficients.
 #' **Most users should start here**
+##----------------------
+samfit_select <- passam(y = simdat$y,
+formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) \%>\% as.formula,
+data = covariate_dat,
+family = nbinom2(),
+num_archetypes = 10, #' Maximum number of archetypes is ten
+selection_on = "mixing_proportions",
+num_cores = detectCores() - 2,
+beta_selection_control = list(min_df = 5))
+
+samfit_select
+samfit_select$regularization_frame
+use_BIC2 <- which.min(samfit_select$BIC2)
+samfit_select$mixing_proportions_path[,use_BIC2]
+select_num_archetypes <- sum(samfit_select$mixing_proportions_path[,use_BIC2] > 0)
+#' The above suggests five archetypes should be included in the asSAM. 
+
+
+#' Now perfrom selection on the archetypal regression coefficients/
+#' Minimum tuning parameter is such that there are at least five non-zero coefficients
 # Note this can take a bit of time...apologies!
 samfit_select <- passam(y = simdat$y,
 formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) \%>\% as.formula,
 data = covariate_dat,
 family = nbinom2(),
-min_df = 5, #' Minimum tuning parameter is such that there are at least five non-zero coefficients
-num_archetypes = num_archetype,
-num_cores = detectCores() - 2)
+num_archetypes = select_num_archetypes,
+selection_on = "betas",
+supply_quadapprox = samfit_select$quad_approx,
+num_cores = detectCores() - 2,
+beta_selection_control = list(min_df = 5))
+
 
 samfit_select
 samfit_select$regularization_frame

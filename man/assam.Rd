@@ -137,7 +137,7 @@ For uncertainty quantification, two forms of parametric bootstrap are available 
 
 Common lower and upper limit constraints can be placed on the \eqn{\beta_k} for each (and every) archetype.
 
-Variable selection on the elements of \eqn{\beta_k} can be performed via the broken adaptive ridge \href{https://www.sciencedirect.com/science/article/pii/S0047259X17305067}{BAR} penalty, via the \code{beta_selection} and \code{beta_selection_control} arguments. The BAR penalty can be interpreted as a kind of approximation to the \eqn{L_0} penalty, and encourages sparsity in the archetypal regression coefficients e.g., to uncover what covariates are informative for each of the archetypal responses. Note the function is set up to only accept a single value for the tuning parameter: to construct a full regularization path for the archetypal regression coefficients given the BAR penalty, please consider using the \code{\link[=passam]{passam()}} function instead. Note, in the case model selection is performed, bootstrap uncertainty quantification is performed \emph{conditional on selected model}.
+Variable selection on the elements of \eqn{\beta_k} can be performed via the broken adaptive ridge \href{https://www.sciencedirect.com/science/article/pii/S0047259X17305067}{BAR} penalty, via the \code{beta_selection} and \code{beta_selection_control} arguments. The BAR penalty can be interpreted as a kind of approximation to the \eqn{L_0} penalty, and encourages sparsity in the archetypal regression coefficients e.g., to uncover what covariates are informative for each of the archetypal responses. Note the function is set up to only accept a single value for the tuning parameter: to construct a full regularization path for the archetypal regression coefficients given the BAR penalty and/or to peform selection on the mixture proportions and thus select the number of archetypes to include in a asSAM, please consider using the \code{\link[=passam]{passam()}} function instead. Note, in the case model selection is performed, bootstrap uncertainty quantification is performed \emph{conditional on selected model}.
 
 \subsection{Distributions}{
 Currently the following response distributions are permitted:
@@ -244,7 +244,8 @@ predict(samfit, newdata = covariate_dat, type = "species_max", num_cores = 8, se
 # Example 2: Demonstrating variable selection on the archetypal regression coefficients
 # Generate some multivariate abundance (non-negative continuous) data from a sparse SAM
 # Note only a single tuning parameter is used below; please see the [passam()] for 
-# constructing a proper regularization path.
+# constructing a proper regularization path, as well as to perform selection on the 
+mixing proportions i.e., choose the number of archetypes. 
 ##----------------------
 true_betas <- runif(num_archetype * num_X, -1, 1) \%>\% matrix(nrow = num_archetype)
 true_betas[which(abs(true_betas) < 0.4)] <- 0 # Making archetypal coefficients sparse
