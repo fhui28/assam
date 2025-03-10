@@ -3,7 +3,7 @@
 #' @description 
 #' `r lifecycle::badge("experimental")`
 #' 
-#' Fits penalized approximate and scalable species archetype modeling (asSAMs) for model-based clustering of species based on their environmental response, into a small number of so-called archetypal responses. This is a modification of the main [assam()] function where a penalty is augmented to the approximate log-likelihood function to encourage sparsity in the archetypal regression coefficients.
+#' Fits penalized approximate and scalable species archetype modeling (asSAMs) for model-based clustering of species based on their environmental response, into a small number of so-called archetypal responses. This is a modification of the main [assam()] function, where a penalty is augmented to the approximate log-likelihood function to encourage sparsity in either the archetypal regression coefficients or the mixing proportions.
 #' 
 #' 
 #' @param y A multivariate abundance response matrix.
@@ -13,10 +13,11 @@
 #' @param family a description of the response distribution to be used in the model, as specified by a family function. Please see details below for more information on the distributions currently permitted.
 #' @param offset A matrix of offset terms, of the same dimension as \code{y}.
 #' @param trial_size Trial sizes to use for binomial distribution. This should equal to a scalar.
-#' @param num_archetypes Number of archetypes (clusters) to assume in the asSAM.
+#' @param num_archetypes Number of archetypes (clusters) to assume in the asSAM. Note when \code{selection_on = "mixing_proportions"}, then this should be an upper bound i.e., a maximum number of archetypes the practitioner wants in their asSAM.
 #' @param mesh Output from [sdmTMB::make_mesh()], used for adding species-specific spatial fields to the linear predictor.
 #' @param do_parallel Should parallel computing be used to fit the asSAM. Defaults to \code{FALSE}.
 #' @param num_cores If \code{do_parallel = TRUE}, then this argument controls the number of cores used. Defaults to \code{NULL}, in which case it is set to \code{parallel::detectCores() - 2}.
+#' @param selection_on Should the penalty be applied, and thus sparsity be encouraged, on the archetypal regression coefficients or the mixing proportions? Current choices are \code{"betas"}, which is former, or \code{"mixing_proportions"}, which is the latter. Defaults to \code{"betas"}.
 #' @param supply_quadapprox An object of class \code{assam_quadapprox}, which is (mostly likely) obtained as a consequence of running an initial fit using [assam()] with \code{do_assam_fit = FALSE}. 
 #' @param nlambda The number of tuning parameters values to consider when forming the regularization path.
 #' @param lambda_min_ratio The smallest value for the tuning parameter lambda, as a fraction of the maximum internally-derived lambda value.
@@ -44,7 +45,12 @@
 #'
 #' where \eqn{g(.)} is a known link function, \eqn{u_i^\top\alpha_j} corresponds to a component that is to kept species-specific e.g., species-specific intercept, \eqn{x_i^\top\beta_k}  denotes the component corresponding to effect of archetypal response \eqn{k}. Additionally, species-specific spatial fields can be included in the linear predictor e.g., to account for residual spatial correlation above and beyond that explained by the archetypal responses. Conditional on the mean model above, the \eqn{y_{ij}} are assumed to be come from some response distribution using the additional dispersion and power parameters as appropriate. We refer the reader to the main [assam()] function for more details and references for SAMs.
 #' 
-#' This function is specifically designed for performing variable selection, and building an associated regularization path, on the elements of \eqn{\beta_k} via the broken adaptive ridge [BAR](https://www.sciencedirect.com/science/article/pii/S0047259X17305067) penalty. The BAR penalty can be interpreted as a kind of approximation to the \eqn{L_0} penalty, and encourages sparsity in the archetypal regression coefficients e.g., to uncover what covariates are informative for each of the archetypal responses. After building a regularization path using this function, one can examine the path and select the tuning parameter minimizing one of the provided information criterion, say, to pass to [assam()] function for fitting the final, sparse asSAM.
+#' This function is specifically designed for performing variable selection, and building an associated regularization path, on either: 
+#' 1. the elements of \eqn{\beta_k} via the broken adaptive ridge [BAR](https://www.sciencedirect.com/science/article/pii/S0047259X17305067) penalty. The BAR penalty can be interpreted as a kind of approximation to the \eqn{L_0} penalty, and encourages sparsity in the archetypal regression coefficients e.g., to uncover what covariates are informative for each of the archetypal responses;
+#' 2. the mixing proportions \eqn{\pi_k} via the log penalty of [equation (2.3) in](https://www3.stat.sinica.edu.tw/statistica/J27N1/J27N17/J27N17.html). The log penalty can be interpreted as like a [Lasso or \eqn{L_1} penalty](https://en.wikipedia.org/wiki/Lasso_(statistics)) except more "steep", and encourages sparsity in the mixing proportions i.e., sends one or more of the \eqn{\pi_k}'s to zero and can be used to decide how many archetypes are needed in the SAM. Note when a mixing proportion is set to zero, the corresponding archetype is removed from the SAM.
+#' 
+#' After building a regularization path using this function, one can examine the path and select the tuning parameter minimizing one of the provided information criterion, say, to pass to [assam()] function for fitting the final, sparse asSAM.
+#' 
 #' 
 #' @section Distributions and parallelization:
 #' Please see the [assam()] function for more details on the distributions currently supported by the package, and how to properly parallelize the fitting process.
@@ -62,10 +68,11 @@
 #' \item{nlambda:}{Same as input argument.}
 #' \item{lambda_min_ratio:}{Same as input argument.}
 #' \item{lambda:}{The actual sequence of tuning parameter, lambda, values used.}
-#' \item{betas_df:}{The number of non-zero archetypal regression coefficients at each value of lambda.}
-#' \item{betas_path:}{The estimated archetypal regression coefficients at each value of lambda. This takes the form of a three-dimensional array, where the third dimension corresponds to the lambda. So example \code{betas_path[,,1]} corresponds to the estimated archetypal regression coefficients at the first value of lambda.}
+#' \item{betas_df/mixing_proportions_df:}{The number of non-zero archetypal regression coefficients at each value of lambda/The number of estimated non-zero parameters (mixing proportions and archetypal regression coefficients) at each value of lambda. Note in both cases, the number of species-specific parameters is not counted since this does not change irrespective of the value of lambda.}
+#' \item{betas_path/mixing_proportions_path:}{The estimated archetypal regression coefficients at each value of lambda. For \code{betas_path}, this takes the form of a three-dimensional array, where the third dimension corresponds to the lambda e.g., \code{betas_path[,,1]} corresponds to the estimated archetypal regression coefficients at the first value of lambda. 
+#' For \code{mixing_proportions_path}, this takes the form of a matrix where second dimension corresponds to the lambda e.g.,  \code{mixing_proportions_path[,1]} corresponds to the estimated mixing proportions at the first value of lambda}.
 #' \item{logL:}{Estimated log-likelihood value of the asSAM i.e. the value of the approximated log-likelihood function, at each value of lambda.}
-#' \item{AIC:}{The Akaike Information Criterion at each value of lambda. The AIC is defined as \eqn{-2\log(L) + 2df}, where \eqn{L} is the log-likelihood value and \eqn{df} is the number of non-zero archetypal regression coefficients.}
+#' \item{AIC:}{The Akaike Information Criterion at each value of lambda. The AIC is defined as \eqn{-2\log(L) + 2df}, where \eqn{L} is the log-likelihood value and \eqn{df} is the given by \code{betas_df/mixing_proportions_df}.}
 #' \item{BIC:}{The Bayesian Information Criterion at each value of lambda. The BIC is defined as \eqn{-2\log(L) + \log(M)df}, where \eqn{M} is the number of species.}
 #' \item{BIC2:}{The Bayesian Information Criterion, version 2, at each value of lambda. The BIC is defined as \eqn{-2\log(L) + \log(MN)df}, where \eqn{M} is the number of species and \eqn{N} is the number of observational units. Compared to BIC, BIC2 uses a more severe model complexity penalty and thus is more likely to selection a sparse asSAM.}
 #' \item{regularization_frame:}{A data frame combining some of the above information for easy "digestion".}
@@ -118,15 +125,39 @@
 #' seed = 022025)
 #' 
 #' 
-#' ## First construct regularization path for asSAMs  
+#' ##----------------------
+#' # First construct regularization path for the mixing proportions in the asSAMs to decide 
+#' # the number of archetypes. Then given this, construct regularization 
+#' # path for the archetypal regression coefficients.
 #' #' **Most users should start here**
+#' ##----------------------
+#' samfit_select <- passam(y = simdat$y,
+#' formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) %>% as.formula,
+#' data = covariate_dat,
+#' family = nbinom2(),
+#' num_archetypes = 10, #' Maximum number of archetypes is ten
+#' selection_on = "mixing_proportions",
+#' num_cores = detectCores() - 2,
+#' beta_selection_control = list(min_df = 5))
+#' 
+#' samfit_select
+#' samfit_select$regularization_frame
+#' use_BIC2 <- which.min(samfit_select$BIC2)
+#' samfit_select$mixing_proportions_path[,use_BIC2]
+#' select_num_archetypes <- sum(samfit_select$mixing_proportions_path[,use_BIC2] > 0)
+#' #' The above suggests five archetypes should be included in the asSAM. 
+#' 
+#' 
+#' #' Now perfrom selection on the archetypal regression coefficients/
 #' #' Minimum tuning parameter is such that there are at least five non-zero coefficients
 #' # Note this can take a bit of time...apologies!
 #' samfit_select <- passam(y = simdat$y,
 #' formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) %>% as.formula,
 #' data = covariate_dat,
 #' family = nbinom2(),
-#' num_archetypes = num_archetype,
+#' num_archetypes = select_num_archetypes,
+#' selection_on = "betas",
+#' supply_quadapprox = samfit_select$quad_approx,
 #' num_cores = detectCores() - 2,
 #' beta_selection_control = list(min_df = 5))
 #' 
@@ -203,23 +234,23 @@
 #' @md
 
 passam <- function(y, 
-                  formula, 
-                  data, 
-                  which_spp_effects = 1,
-                  family, 
-                  offset = NULL, 
-                  trial_size = 1, 
-                  num_archetypes,
-                  mesh = NULL, 
-                  do_parallel = TRUE, 
-                  num_cores = NULL, 
-                  selection_on = "beta",
-                  supply_quadapprox = NULL,
-                  nlambda = 100, 
-                  lambda_min_ratio = 1e-6,
-                  lambda = NULL, 
-                  control = list(max_iter = 500, tol = 1e-5, temper_prob = 0.8, trace = FALSE),
-                  beta_selection_control = list(min_df = 0, max_iter = 100, eps = 1e-5, round_eps = 1e-6)) {
+                   formula, 
+                   data, 
+                   which_spp_effects = 1,
+                   family, 
+                   offset = NULL, 
+                   trial_size = 1, 
+                   num_archetypes,
+                   mesh = NULL, 
+                   do_parallel = TRUE, 
+                   num_cores = NULL, 
+                   selection_on = "betas",
+                   supply_quadapprox = NULL,
+                   nlambda = 100, 
+                   lambda_min_ratio = 1e-6,
+                   lambda = NULL, 
+                   control = list(max_iter = 500, tol = 1e-5, temper_prob = 0.8, trace = FALSE),
+                   beta_selection_control = list(min_df = 0, max_iter = 100, eps = 1e-5, round_eps = 1e-6)) {
     
     ##----------------
     # Checks and balances
@@ -270,7 +301,7 @@ passam <- function(y,
     num_unit <- nrow(y)
     num_spp <- ncol(y)
           
-    selection_on <- match.arg(selection_on, choices = c("beta", "mixing_proportions"))
+    selection_on <- match.arg(selection_on, choices = c("betas", "mixing_proportions"))
 
     ##----------------
     # Construct quadratic approximations for each species, and set up relevant quantities
@@ -338,7 +369,9 @@ passam <- function(y,
     ##----------------
     #' # Set up penalized EM algorithm function
     ##----------------
-    pem_fn <- function(qa_object, lambda, beta_selection_control) {
+    pem_fn <- function(qa_object,
+                       lambda, 
+                       beta_selection_control) {
         counter <- 0
         diff <- 10
         cw_logL <- -Inf
@@ -360,6 +393,8 @@ passam <- function(y,
                     cw_nuisance <- qa_object$parameters[, num_X + 1:num_nuisance_perspp, drop = FALSE]
                 cw_mixprop <- as.vector(table(do_kmeans$clustering)) / num_spp
                 rm(do_kmeans)
+                
+                track_empty_archetypes <- NULL
                 }
             
             ##-------------------
@@ -374,7 +409,7 @@ passam <- function(y,
                     
                     cw_v <- matrix(cw_params - qa_object$parameters[j,], ncol = 1)
                     return(-0.5 * (crossprod(cw_v, qa_object$hessian[[j]]) %*% cw_v))
-                })
+                    })
                 eps <- max(cw_Quad)
                 # cw_Quad <- sapply(1:num_archetypes, function(k) {
                 #     out <- dmvnorm(c(cw_spp_intercept[j], cw_betas[k,], cw_nuisance[j,]), mean = qa_object$parameters[j,], sigma = solve(qa_object$hessian[[j]]), log = TRUE)
@@ -398,19 +433,42 @@ passam <- function(y,
             
             ##-------------------
             #' ## M-step
-            #' Make the unpenalized estimate at the current M-step first (more for formatting reasons, and it has relatively little overhead, before penalizing)
+            #' Make the unpenalized estimate at the current M-step first (more for formatting reasons, and it has relatively little overhead). Then implement penalties...
             ##-------------------
             new_mixprop <- colMeans(post_prob)
             bigW <- Diagonal(x = rep(as.vector(t(sqrt(post_prob))), each = nrow(qa_object$hessian[[j]]))) %*% basic_bigW %*% Diagonal(x = rep(as.vector(t(sqrt(post_prob))), each = nrow(qa_object$hessian[[j]])))
             MtWM <- forceSymmetric(crossprod(mapping_mat, bigW) %*% mapping_mat)
-            new_params <- solve(MtWM, crossprod(mapping_mat, bigW) %*% as.vector(qa_object$long_parameters))
-            new_params <- as.vector(new_params)
+            
+            if(length(track_empty_archetypes) == 0) {
+                new_params <- solve(MtWM, crossprod(mapping_mat, bigW) %*% as.vector(qa_object$long_parameters))
+                new_params <- as.vector(new_params)
+                }
+            if(length(track_empty_archetypes) > 0) {
+                new_params <- rep(0, ncol(mapping_mat))
+                find_nonzero_components <- which(diag(MtWM) != 0) #' This relies on the diagonal elements of MtWM being non-zero when the corresponding archetypes are not empty. Perhaps this could be done more systematically, but anyway...
+                new_params[find_nonzero_components] <- solve(MtWM[find_nonzero_components,find_nonzero_components], 
+                                                             (crossprod(mapping_mat, bigW) %*% as.vector(qa_object$long_parameters))[find_nonzero_components])
+                new_params <- as.vector(new_params)
+                }
+            
+            
+            ##-------------------
+            #' ### Penalize the mixing proportions
+            ##-------------------
+            if(selection_on == "mixing_proportions") {
+                new_mixprop <- pmax(0, (colMeans(post_prob) - lambda) / (1 - lambda * num_archetypes))
+                #new_mixprop <- pmax(0, (colMeans(post_prob) - lambda * ncol(qa_object$parameters)) / (1 - lambda * ncol(qa_object$parameters) * num_archetypes))
+                names(new_mixprop) <- colnames(post_prob)
+                new_mixprop <- new_mixprop / sum(new_mixprop) #' (http://www.jstor.com/stable/44114365) suggests renormalizing only at the end of the EM-algorithm. However not normalizing here causes issues with computation of the log-likelihood!
+                }
+            
+            track_empty_archetypes <- which(new_mixprop == 0) #' By construction this has length zero if selection_on == "betas"
             
             
             ##-------------------
             #' ### Penalize the archetypal regression coefficients
             ##-------------------
-            if(selection_on == "beta") {
+            if(selection_on == "betas") {
                 beta_s_err <- Inf
                 beta_s_counter <- 0
                 cw_params <- new_params
@@ -433,23 +491,22 @@ passam <- function(y,
                 #' Note the convergence properties of the algorithm does ensure exact zeros can be achieved (up to machine error); see [https://doi.org/10.1155/2016/3456153]. However once can also round to zero if interested.
                 new_params[abs(new_params) < beta_selection_control$round_eps] <- 0
                 rm(beta_s_counter, beta_s_err, GammaMatrix_params, Dbar)
-                
-                
-                names(new_params) <- colnames(mapping_mat)
-                new_spp_effects <- matrix(new_params[grep("spp_effects", names(new_params))], nrow = num_spp, byrow = TRUE)
-                new_betas <- matrix(new_params[grep("archetype", names(new_params))], nrow = num_archetypes, byrow = TRUE)
-                new_nuisance <- NULL
-                if(num_nuisance_perspp > 0) {
-                    new_nuisance <- matrix(new_params[grep("spp_nuisance", names(new_params))], nrow = num_spp, byrow = TRUE)
-                    colnames(new_nuisance) <- qa_parameters_colnames[num_X + 1:num_nuisance_perspp]  
-                    }
-                rm(bigW, MtWM)
                 }
-            
-            
+                
+                
             ##-------------------
             #' ## Finish iteration
             ##-------------------
+            names(new_params) <- colnames(mapping_mat)
+            new_spp_effects <- matrix(new_params[grep("spp_effects", names(new_params))], nrow = num_spp, byrow = TRUE)
+            new_betas <- matrix(new_params[grep("archetype", names(new_params))], nrow = num_archetypes, byrow = TRUE)
+            new_nuisance <- NULL
+            if(num_nuisance_perspp > 0) {
+                new_nuisance <- matrix(new_params[grep("spp_nuisance", names(new_params))], nrow = num_spp, byrow = TRUE)
+                colnames(new_nuisance) <- qa_parameters_colnames[num_X + 1:num_nuisance_perspp]  
+                }
+            rm(bigW, MtWM)
+            
             diff <- new_logL - cw_logL 
             if(control$trace) {
                 message("Iteration: ", counter, "\t New Log-likelihood:", round(new_logL, 4), "\t Difference in Log-likelihood: ", round(new_logL - cw_logL, 4))
@@ -487,7 +544,6 @@ passam <- function(y,
             }
         
         return(list(new_logL = new_logL, 
-                    new_mixprop = new_mixprop, 
                     new_spp_effects = new_spp_effects, 
                     new_betas = new_betas, 
                     new_nuisance = new_nuisance, 
@@ -496,8 +552,11 @@ passam <- function(y,
                     counter = counter, 
                     post_prob = post_prob))          
         }
+    
+    
     ##----------------
-    ## Attempt to determine a minimum and maximum lambda, if required, for BAR penalty
+    #' ## Attempt to determine a minimum and maximum lambda, if required, for BAR or log penalty
+    #' With the way the log pi penalty is set up, I think shrinkage to zero only occurs if  colMeans(post_prob) < lambda < 1/K. So no need to search beyond 1/K here for optimal lambda. Here, we make an arbitrary choice that the maximum lambda is consider is 1/(K + eps) for some small eps
     ##----------------
     if(!is.null(lambda))
         lambdaseq <- lambda
@@ -505,7 +564,7 @@ passam <- function(y,
         message("Finding an appropriate sequence of lambda values...")
         lambda_max <- 1
         
-        if(selection_on == "beta") {
+        if(selection_on == "betas") {
             fast_beta_selection_control <- beta_selection_control
             fast_beta_selection_control$max_iter <- 20 
             fit_togetmaxlambda <- pem_fn(qa_object = get_qa, 
@@ -518,10 +577,15 @@ passam <- function(y,
                                              lambda = lambda_max,
                                              beta_selection_control = fast_beta_selection_control)
                 }
+            
+            rm(fit_togetmaxlambda, fast_beta_selection_control)
             }
-        
+    
+        if(selection_on == "mixing_proportions") {
+            lambda_max <- 1/(num_archetypes + 1e-2)
+            }    
+            
         lambdaseq <- lseq(lambda_max, lambda_max*lambda_min_ratio, length = nlambda, decreasing = TRUE)
-        rm(fit_togetmaxlambda, fast_beta_selection_control)
         }
     
     ##----------------
@@ -534,11 +598,12 @@ passam <- function(y,
         if(control$trace)
             message("Commencing penalized EM algorithm at lambda = ", round(lambdaseq[l], 4))
          
-        if(selection_on == "beta") {
+        if(selection_on == "betas") {
             cwfit <- pem_fn(qa_object = get_qa, 
                             lambda = lambdaseq[l], 
                             beta_selection_control = beta_selection_control)
             try_counter <- 0
+            
             while(any(cwfit$new_mixprop < 1e-3) & try_counter < 20) {
                 if(control$trace)
                     message("Mixture component is being emptied...altering initial temp probability and restarting EM-algorithm to try and fix this.")
@@ -551,6 +616,12 @@ passam <- function(y,
                 }
             }
         
+        if(selection_on == "mixing_proportions") {
+            cwfit <- pem_fn(qa_object = get_qa, 
+                            lambda = lambdaseq[l], 
+                            beta_selection_control = beta_selection_control)
+            }    
+            
         return(cwfit)
         }
     
@@ -558,9 +629,16 @@ passam <- function(y,
     toc <- proc.time()
     gc()
     
-    if(selection_on == "beta") {
+    
+    if(selection_on == "betas") {
         coefficients_path <- abind::abind(lapply(allfits, function(x) x$new_betas), along = 3)
         df_path <- sapply(allfits, function(x) sum(x$new_betas != 0))
+        passam_logL_path <- sapply(allfits, function(x) x$new_logL)
+        }
+    if(selection_on == "mixing_proportions") {
+        coefficients_path <- sapply(allfits, function(x) x$new_mixprop)
+        df_path <- apply(coefficients_path, 2, function(x) sum(x != 0))
+        df_path <- (df_path - 1) + df_path * ncol(get_qa$parameters)
         passam_logL_path <- sapply(allfits, function(x) x$new_logL)
         }
     
@@ -584,9 +662,13 @@ passam <- function(y,
                       lambda_min_ratio = lambda_min_ratio)
     
     out_assam$lambda <- lambdaseq
-    if(selection_on == "beta") {
+    if(selection_on == "betas") {
         out_assam$betas_df <- df_path
         out_assam$betas_path <- coefficients_path
+        }
+    if(selection_on == "mixing_proportions") {
+        out_assam$mixing_proportions_df <- df_path
+        out_assam$mixing_proportions_path <- coefficients_path
         }
     out_assam$logL <- passam_logL_path
     out_assam$AIC <- -2*passam_logL_path + 2*df_path
