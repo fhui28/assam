@@ -107,7 +107,8 @@ predict.assam <- function(object,
         tmp_formula <- as.formula(paste("response", paste(as.character(object$formula),collapse = " ") ) )
         nullfit <- sdmTMB(tmp_formula, 
                           spatial = FALSE,
-                          data = data.frame(newdata, response = rnorm(nrow(newdata)))) #' This may not work in the future if smootihng terms are included, say, due to the standardization that needs to be applied    
+                          data = data.frame(newdata, response = rnorm(nrow(newdata))),
+                          do_fit = FALSE) #' This may not work in the future if smootihng terms are included, say, due to the standardization that needs to be applied    
         X <- model.matrix(nullfit$formula[[1]], data = nullfit$data)
         
         get_eta <- tcrossprod(X[, -object$which_spp_effects, drop = FALSE], object$betas)
