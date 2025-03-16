@@ -544,6 +544,7 @@ passam <- function(y,
             }
         
         return(list(new_logL = new_logL, 
+                    new_mixprop = new_mixprop, 
                     new_spp_effects = new_spp_effects, 
                     new_betas = new_betas, 
                     new_nuisance = new_nuisance, 
