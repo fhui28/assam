@@ -583,7 +583,7 @@ passam <- function(y,
             }
     
         if(selection_on == "mixing_proportions") {
-            lambda_max <- 1/(num_archetypes + 1e-2)
+            lambda_max <- 1/(num_archetypes + 1e-3)
             }    
             
         lambdaseq <- lseq(lambda_max, lambda_max*lambda_min_ratio, length = nlambda, decreasing = TRUE)
