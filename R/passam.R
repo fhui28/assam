@@ -480,7 +480,7 @@ passam <- function(y,
                     GammaMatrix_params <- Diagonal(n = length(new_params))
                     diag(GammaMatrix_params)[grep("archetype", colnames(mapping_mat))] <- cw_params[grep("archetype", colnames(mapping_mat))]
                     
-                    new_params <- GammaMatrix_params %*% solve(GammaMatrix_params %*% MtWM %*% GammaMatrix_params + lambda_used * Dbar) %*% GammaMatrix_params %*% crossprod(mapping_mat, bigW) %*% as.vector(qa_object$long_parameters)
+                    new_params <- GammaMatrix_params %*% solve(GammaMatrix_params %*% MtWM %*% GammaMatrix_params + lambda_used * Dbar) %*% GammaMatrix_params %*% (crossprod(mapping_mat, bigW) %*% as.vector(qa_object$long_parameters))
                     new_params <- as.vector(new_params)
                     names(new_params) <- colnames(mapping_mat)
                     
