@@ -202,8 +202,7 @@ num_archetypes = select_num_archetypes,
 selection_on = "betas",
 supply_quadapprox = samfit_select$quad_approx,
 num_cores = detectCores() - 2,
-beta_selection_control = list(min_df = 5),
-control = list(trace = 1))
+beta_selection_control = list(min_df = 5))
 
 
 samfit_select

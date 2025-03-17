@@ -405,7 +405,7 @@ passam <- function(y,
                     cw_nuisance <- warm_start$new_nuisance
                     cw_mixprop <- warm_start$new_mixprop
                     
-                    #track_empty_archetypes <- which(cw_mixprop == 0)
+                    track_empty_archetypes <- which(cw_mixprop == 0)
                     }
                 
                 }
