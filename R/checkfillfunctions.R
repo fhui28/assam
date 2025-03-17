@@ -4,7 +4,7 @@
     if(is.null(control$max_iter))
         control$max_iter <- 500
     if(is.null(control$tol))
-        control$tol <- 1e-5
+        control$tol <- 1e-4
     if(is.null(control$temper_prob))
         control$temper_prob <- 0.8
     if(is.null(control$trace))
@@ -32,9 +32,9 @@
     if(is.null(control$max_iter))
         control$max_iter <- 100
     if(is.null(control$eps))
-        control$eps <- 1e-5
+        control$eps <- 1e-4
     if(is.null(control$round_eps))
-        control$round_eps <- 1e-6
+        control$round_eps <- 1e-5
 
     return(control)
     }
