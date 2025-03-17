@@ -21,9 +21,9 @@ passam(
   nlambda = 100,
   lambda_min_ratio = 1e-06,
   lambda = NULL,
-  control = list(max_iter = 500, tol = 1e-05, temper_prob = 0.8, trace = FALSE),
-  beta_selection_control = list(min_df = 0, max_iter = 100, eps = 1e-05, round_eps =
-    1e-06)
+  control = list(max_iter = 500, tol = 1e-04, temper_prob = 0.8, trace = FALSE),
+  beta_selection_control = list(min_df = 0, max_iter = 100, eps = 1e-04, round_eps =
+    1e-05)
 )
 }
 \arguments{
@@ -202,7 +202,8 @@ num_archetypes = select_num_archetypes,
 selection_on = "betas",
 supply_quadapprox = samfit_select$quad_approx,
 num_cores = detectCores() - 2,
-beta_selection_control = list(min_df = 5))
+beta_selection_control = list(min_df = 5),
+control = list(trace = 1))
 
 
 samfit_select

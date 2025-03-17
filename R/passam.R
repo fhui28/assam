@@ -249,8 +249,8 @@ passam <- function(y,
                    nlambda = 100, 
                    lambda_min_ratio = 1e-6,
                    lambda = NULL, 
-                   control = list(max_iter = 500, tol = 1e-5, temper_prob = 0.8, trace = FALSE),
-                   beta_selection_control = list(min_df = 0, max_iter = 100, eps = 1e-5, round_eps = 1e-6)) {
+                   control = list(max_iter = 500, tol = 1e-4, temper_prob = 0.8, trace = FALSE),
+                   beta_selection_control = list(min_df = 0, max_iter = 100, eps = 1e-4, round_eps = 1e-5)) {
     
     ##----------------
     # Checks and balances
@@ -371,6 +371,7 @@ passam <- function(y,
     ##----------------
     pem_fn <- function(qa_object,
                        lambda, 
+                       warm_start = NULL,
                        beta_selection_control) {
         counter <- 0
         diff <- 10
@@ -385,16 +386,28 @@ passam <- function(y,
         
         while(diff > control$tol & counter < control$max_iter) {
             if(counter == 0) {
-                do_kmeans <- cluster::pam(qa_object$parameters[, (1:num_X)[-which_spp_effects], drop = FALSE], k = num_archetypes)  
-                cw_betas <- do_kmeans$medoids
-                cw_spp_effects <- qa_object$parameters[, which_spp_effects, drop = FALSE]
-                cw_nuisance <- NULL
-                if(num_nuisance_perspp > 0)
-                    cw_nuisance <- qa_object$parameters[, num_X + 1:num_nuisance_perspp, drop = FALSE]
-                cw_mixprop <- as.vector(table(do_kmeans$clustering)) / num_spp
-                rm(do_kmeans)
+                if(is.null(warm_start)) {
+                    do_kmeans <- cluster::pam(qa_object$parameters[, (1:num_X)[-which_spp_effects], drop = FALSE], k = num_archetypes)  
+                    cw_betas <- do_kmeans$medoids
+                    cw_spp_effects <- qa_object$parameters[, which_spp_effects, drop = FALSE]
+                    cw_nuisance <- NULL
+                    if(num_nuisance_perspp > 0)
+                        cw_nuisance <- qa_object$parameters[, num_X + 1:num_nuisance_perspp, drop = FALSE]
+                    cw_mixprop <- as.vector(table(do_kmeans$clustering)) / num_spp
+                    rm(do_kmeans)                    
+                    
+                    track_empty_archetypes <- NULL
+                    }
                 
-                track_empty_archetypes <- NULL
+                if(!is.null(warm_start)) {
+                    cw_betas <- warm_start$new_betas
+                    cw_spp_effects <- warm_start$new_spp_effects
+                    cw_nuisance <- warm_start$new_nuisance
+                    cw_mixprop <- warm_start$new_mixprop
+                    
+                    #track_empty_archetypes <- which(cw_mixprop == 0)
+                    }
+                
                 }
             
             ##-------------------
@@ -429,7 +442,15 @@ passam <- function(y,
                         post_prob[j,] <- (2*alpha_temper*post_prob[j,]-alpha_temper+1)/(2*alpha_temper - alpha_temper*num_archetypes + num_archetypes)
                     new_logL <- -1e8               
                     }
+                
+                if(!is.null(warm_start) & selection_on == "betas") {
+                    post_prob <- warm_start$post_prob
+                    new_logL <- warm_start$new_logL
+                    }
+                
                 }
+            
+            
             
             ##-------------------
             #' ## M-step
@@ -457,7 +478,6 @@ passam <- function(y,
             ##-------------------
             if(selection_on == "mixing_proportions") {
                 new_mixprop <- pmax(0, (colMeans(post_prob) - lambda) / (1 - lambda * num_archetypes))
-                #new_mixprop <- pmax(0, (colMeans(post_prob) - lambda * ncol(qa_object$parameters)) / (1 - lambda * ncol(qa_object$parameters) * num_archetypes))
                 names(new_mixprop) <- colnames(post_prob)
                 new_mixprop <- new_mixprop / sum(new_mixprop) #' (http://www.jstor.com/stable/44114365) suggests renormalizing only at the end of the EM-algorithm. However not normalizing here causes issues with computation of the log-likelihood!
                 }
@@ -563,7 +583,7 @@ passam <- function(y,
         lambdaseq <- lambda
     if(is.null(lambda)) {
         message("Finding an appropriate sequence of lambda values...")
-        lambda_max <- 1
+        lambda_max <- 0.5
         
         if(selection_on == "betas") {
             fast_beta_selection_control <- beta_selection_control
@@ -600,8 +620,13 @@ passam <- function(y,
             message("Commencing penalized EM algorithm at lambda = ", round(lambdaseq[l], 4))
          
         if(selection_on == "betas") {
+            make_warm_start <- NULL
+            if(l > 1)
+                make_warm_start <- allfits[[l-1]]
+            
             cwfit <- pem_fn(qa_object = get_qa, 
                             lambda = lambdaseq[l], 
+                            warm_start = make_warm_start,
                             beta_selection_control = beta_selection_control)
             try_counter <- 0
             
@@ -626,17 +651,24 @@ passam <- function(y,
         return(cwfit)
         }
     
-    allfits <- foreach(l = 1:length(lambdaseq)) %dopar% cwfit_fn(l = l)
-    toc <- proc.time()
-    gc()
-    
-    
     if(selection_on == "betas") {
+        allfits <- vector("list", length = length(lambdaseq))
+        allfits[[1]] <- cwfit_fn(l = 1)
+        for(l in 2:length(lambdaseq)) 
+            allfits[[l]] <- cwfit_fn(l = l)
+        #allfits <- foreach(l = 1:length(lambdaseq)) %dopar% cwfit_fn(l = l)
+        toc <- proc.time()
+        gc()
+        
         coefficients_path <- abind::abind(lapply(allfits, function(x) x$new_betas), along = 3)
         df_path <- sapply(allfits, function(x) sum(x$new_betas != 0))
         passam_logL_path <- sapply(allfits, function(x) x$new_logL)
         }
     if(selection_on == "mixing_proportions") {
+        allfits <- foreach(l = 1:length(lambdaseq)) %dopar% cwfit_fn(l = l)
+        toc <- proc.time()
+        gc()
+        
         coefficients_path <- sapply(allfits, function(x) x$new_mixprop)
         df_path <- apply(coefficients_path, 2, function(x) sum(x != 0))
         df_path <- (df_path - 1) + df_path * ncol(get_qa$parameters)
