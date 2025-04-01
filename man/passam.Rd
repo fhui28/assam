@@ -69,7 +69,7 @@ passam(
 
 \item{beta_selection_control}{A list containing the following elements to control the broken adaptive ridge (BAR) penalty for variable selection on the archetypal regression coefficients:
 \describe{
-\item{min_df:}{The minimum number of non-zero archetypal regression coefficients allowed in the asSAM. This is useful to supply if, when the function tries to find a appropriate lambda sequence, the user wants the maximum value of lambda to not necessarily shrink to all the penalized estimates to zero. Defaults to zero.}
+\item{min_df:}{The minimum number of non-zero archetypal regression coefficients allowed in the asSAM. This is useful to supply if, when the function tries to find an appropriate lambda sequence, the largest value of lambda is determined such that the number of archetypal regression coefficients estimated as non-zero is equal to or below this number. Defaults to zero.}
 \item{max_iter:}{the maximum number of iterations in the BAR optimization part of the EM algorithm.}
 \item{eps:}{the convergence criterion; the norm of the difference between all estimated parameters from successive iterations must be smaller than this value.}
 \item{round_eps:}{a tolerance to round values to zero. The technically not needed as the BAR penalty will produce exactly zero estimates up to machine error, but is included anyway, but is included anyway.}
@@ -89,17 +89,18 @@ An object of class \code{passam} with the following elements (as appropriate, an
 \item{nlambda:}{Same as input argument.}
 \item{lambda_min_ratio:}{Same as input argument.}
 \item{lambda:}{The actual sequence of tuning parameter, lambda, values used.}
-\item{betas_df/mixing_proportions_df:}{The number of non-zero archetypal regression coefficients at each value of lambda/The number of estimated non-zero parameters (mixing proportions and archetypal regression coefficients) at each value of lambda. Note in both cases, the number of species-specific parameters is not counted since this does not change irrespective of the value of lambda.}
-\item{betas_path/mixing_proportions_path:}{The estimated archetypal regression coefficients at each value of lambda. For \code{betas_path}, this takes the form of a three-dimensional array, where the third dimension corresponds to the lambda e.g., \code{betas_path[,,1]} corresponds to the estimated archetypal regression coefficients at the first value of lambda.
-For \code{mixing_proportions_path}, this takes the form of a matrix where second dimension corresponds to the lambda e.g.,  \code{mixing_proportions_path[,1]} corresponds to the estimated mixing proportions at the first value of lambda}.
+\item{parameters_df:}{The number of non-zero archetypal regression coefficients (if \code{selection_on = "betas"}) or number of estimated non-zero parameters (mixing proportions and archetypal regression coefficients, if \code{selection_on = "mixing_proportions"}) at each value of lambda. Note in both cases, the number of species-specific parameters is not counted since this does not change irrespective of the value of lambda.}
+\item{parameters_path:}{The estimated archetypal regression coefficients (if \code{selection_on = "betas"}) or the estimated mixing proportions (if \code{selection_on = "mixing_proportions"}) at each value of lambda.
+For the former, this takes the form of a three-dimensional array, where the third dimension corresponds to the lambda e.g., \code{betas_path[,,1]} corresponds to the estimated archetypal regression coefficients at the first value of lambda.
+For the latter, this takes the form of a matrix where second dimension corresponds to the lambda e.g.,  \code{mixing_proportions_path[,1]} corresponds to the estimated mixing proportions at the first value of lambda}.
 \item{logL:}{Estimated log-likelihood value of the asSAM i.e. the value of the approximated log-likelihood function, at each value of lambda.}
 \item{AIC:}{The Akaike Information Criterion at each value of lambda. The AIC is defined as \eqn{-2\log(L) + 2df}, where \eqn{L} is the log-likelihood value and \eqn{df} is the given by \code{betas_df/mixing_proportions_df}.}
 \item{BIC:}{The Bayesian Information Criterion at each value of lambda. The BIC is defined as \eqn{-2\log(L) + \log(M)df}, where \eqn{M} is the number of species.}
 \item{BIC2:}{The Bayesian Information Criterion, version 2, at each value of lambda. The BIC is defined as \eqn{-2\log(L) + \log(MN)df}, where \eqn{M} is the number of species and \eqn{N} is the number of observational units. Compared to BIC, BIC2 uses a more severe model complexity penalty and thus is more likely to selection a sparse asSAM.}
 \item{regularization_frame:}{A data frame combining some of the above information for easy "digestion".}
+\item{betas_path/spp_effects_path/spp_nuisance_path/mixing_proportions_path/posterior_probability_path/logL_path}{Additional regularization path information for other parameters. This set of output can be safely ignored unless the user is interested in the path of these parameters, or wants to use some of these as warm starts for downstream applications of the \code{assam} function; see the example below.}
 \item{control:}{Same as input argument.}
 \item{beta_selection_control:}{Same as input argument.}
-\item{quad_approx:}{An object of class \code{assam_quadapprox}, which contains the ingredients needed to fit asSAMs. This is useful for supplying to downstream applications of the \code{\link[=assam]{assam()}} function e.g., see the example below.}
 }
 \description{
 \ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
@@ -174,25 +175,38 @@ seed = 022025)
 # path for the archetypal regression coefficients.
 #' **Most users should start here**
 ##----------------------
+## Construct the initial stacked species model fits that will be used throughout 
+# the model selection process below
+samfit_prefit <- assam(y = simdat$y,
+formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) \%>\% as.formula,
+data = covariate_dat,
+family = nbinom2(),
+num_archetypes = 2, #' This is arbitrary
+num_cores = detectCores() - 2,
+do_assam_fit = FALSE)
+
+
+## Model selection for the number of archetypes
 samfit_select <- passam(y = simdat$y,
 formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) \%>\% as.formula,
 data = covariate_dat,
 family = nbinom2(),
 num_archetypes = 10, #' Maximum number of archetypes is ten
 selection_on = "mixing_proportions",
+supply_quadapprox = samfit_prefit,
 num_cores = detectCores() - 2,
 beta_selection_control = list(min_df = 5))
 
 samfit_select
 samfit_select$regularization_frame
-use_BIC2 <- which.min(samfit_select$BIC2)
-samfit_select$mixing_proportions_path[,use_BIC2]
-select_num_archetypes <- sum(samfit_select$mixing_proportions_path[,use_BIC2] > 0)
+use_BIC <- which.min(samfit_select$BIC)
+samfit_select$mixing_proportions_path[,use_BIC]
+select_num_archetypes <- sum(samfit_select$mixing_proportions_path[,use_BIC] > 0)
 #' The above suggests five archetypes should be included in the asSAM. 
 
 
-#' Now perfrom selection on the archetypal regression coefficients/
-#' Minimum tuning parameter is such that there are at least five non-zero coefficients
+## Now perform selection on the archetypal regression coefficients
+# Minimum tuning parameter is such that there are at least five non-zero coefficients
 # Note this can take a bit of time...apologies!
 samfit_select <- passam(y = simdat$y,
 formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) \%>\% as.formula,
@@ -200,27 +214,26 @@ data = covariate_dat,
 family = nbinom2(),
 num_archetypes = select_num_archetypes,
 selection_on = "betas",
-supply_quadapprox = samfit_select$quad_approx,
+supply_quadapprox = samfit_prefit,
 num_cores = detectCores() - 2,
 beta_selection_control = list(min_df = 5))
 
 
 samfit_select
 samfit_select$regularization_frame
-use_BIC2 <- which.min(samfit_select$BIC2)
-samfit_select$betas_path[,,use_BIC2]
+use_BIC <- which.min(samfit_select$BIC)
+samfit_select$betas_path[,,use_BIC]
 
 
 ## Now fit the final asSAMs given a chosen value of the tuning parameter
-# Note the supply of the quadratic approximations to speed up [assam()]!
 samfit <- assam(y = simdat$y,
 formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) \%>\% as.formula,
 data = covariate_dat,
 family = nbinom2(),
 beta_selection = TRUE,
 num_archetypes = num_archetype,
-supply_quadapprox = samfit_select$quad_approx,
-beta_selection_control = list(lambda = samfit_select$lambda[use_BIC2]),
+supply_quadapprox = samfit_prefit,
+beta_selection_control = list(lambda = samfit_select$lambda[use_BIC]),
 bootstrap_control = list(method = "fast"),
 num_cores = detectCores() - 2)
 
@@ -231,9 +244,9 @@ true_betas
 
 plot(true_spp_effects, samfit$spp_effects); abline(0,1)
 plot(true_dispparam, samfit$spp_nuisance$dispersion, log = "xy"); abline(0,1)
-#' Note estimates for the archetypal responses and mixture proportions from (as)SAMs should be 
-#' close to the corresponding true values, *up to a reordering* of the mixture component
-#' s/archetypes (since the order is essentially arbitrary)
+# Note estimates for the archetypal responses and mixture proportions from (as)SAMs should be 
+# close to the corresponding true values, *up to a reordering* of the mixture component
+# s/archetypes (since the order is essentially arbitrary)
 rbind(true_betas, samfit$betas) \%>\% 
 t \%>\% 
 as.data.frame \%>\%
@@ -250,14 +263,14 @@ simulate(samfit, data = covariate_dat)
 
 residuals(samfit, type = "dunnsmyth")
  
-#' Basic residual analysis
+# Basic residual analysis
 plot(samfit, transform_fitted_values = TRUE, envelope = FALSE)
  
-#' Archetype-level predictions
+# Archetype-level predictions
 predict(samfit, newdata = covariate_dat, type = "archetype", se_fit = TRUE) 
 
-#' Species-level predictions
-predict(samfit, newdata = covariate_dat, type = "species_max", num_cores = 8, se_fit = TRUE) 
+# Species-level predictions
+predict(samfit, newdata = covariate_dat, type = "species_max", num_cores = 8, se_fit = FALSE) 
 }
 }
 \author{
