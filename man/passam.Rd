@@ -165,7 +165,7 @@ betas = true_betas,
 spp_effects = true_spp_effects, 
 spp_dispparam = true_dispparam, 
 spp_powerparam = true_powerparam, 
-mixture_proportion = true_mixprop,
+mixing_proportion = true_mixprop,
 seed = 022025)
 
 
