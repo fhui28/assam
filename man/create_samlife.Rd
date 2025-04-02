@@ -17,7 +17,7 @@ create_samlife(
   mesh = NULL,
   spp_spatial_sd = NULL,
   spp_spatial_range = NULL,
-  mixture_proportion,
+  mixing_proportion,
   trial_size = 1,
   archetype_label = NULL,
   seed = NULL
@@ -48,11 +48,11 @@ create_samlife(
 
 \item{spp_spatial_range}{A vector of range parameters corresponding to the species-specific spatial fields. This is equal to \eqn{1/\kappa} where \eqn{\kappa} is described in \href{https://pbs-assess.github.io/sdmTMB/articles/model-description.html#gaussian-random-fields}{sdmTMB's parametrization of Gaussian random fields}.}
 
-\item{mixture_proportion}{A vector of mixture proportions corresponding to the probability of belonging to each archetype.}
+\item{mixing_proportion}{A vector of mixture proportions corresponding to the probability of belonging to each archetype.}
 
 \item{trial_size}{Trial sizes to use for binomial distribution. This should equal to a scalar.}
 
-\item{archetype_label}{If desired, the user can manually supply the archetype labels for each species. In this case, \code{mixture_proportion} must still be supplied but is subsequently ignored.}
+\item{archetype_label}{If desired, the user can manually supply the archetype labels for each species. In this case, \code{mixing_proportion} must still be supplied but is subsequently ignored.}
 
 \item{seed}{A seed that can be set for simulating datasets.}
 }
@@ -135,7 +135,7 @@ spp_powerparam = true_powerparam,
 #mesh = sdmTMB::make_mesh(covariate_dat, xy_cols = c("x", "y"), n_knots = 80),
 #spp_spatial_sd = true_spatial_sd,
 #spp_spatial_range = true_spatial_range,
-mixture_proportion = true_mixprop,
+mixing_proportion = true_mixprop,
 seed = 022025)
 }
 

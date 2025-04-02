@@ -49,40 +49,40 @@ residuals.assam <- function(object, type = "dunnsmyth", seed = NULL, ...) {
     
     for(k0 in 1:num_archetype) {
         if(object$family$family[1] %in% c("Beta")) 
-            out <- out + object$mixture_proportion[k0]*pbeta(y, 
+            out <- out + object$mixing_proportion[k0]*pbeta(y,
                                                              shape1 = matrix(object$spp_nuisance$dispersion, nrow = nrow(y), ncol = ncol(y), byrow = TRUE) * get_fitted[,,k0],
                                                              shape2 = matrix(object$spp_nuisance$dispersion, nrow = nrow(y), ncol = ncol(y), byrow = TRUE) * (1-get_fitted[,,k0]))
         
         if(object$family$family[1] %in% c("gaussian")) 
-            out <- out + object$mixture_proportion[k0]*pnorm(y, mean = get_fitted[,,k0], sd = matrix(object$spp_nuisance$dispersion, nrow = nrow(y), ncol = ncol(y), byrow = TRUE))
+            out <- out + object$mixing_proportion[k0]*pnorm(y, mean = get_fitted[,,k0], sd = matrix(object$spp_nuisance$dispersion, nrow = nrow(y), ncol = ncol(y), byrow = TRUE))
         
         if(object$family$family[1] %in% c("Gamma")) 
-            out <- out + object$mixture_proportion[k0]*pgamma(y, 
+            out <- out + object$mixing_proportion[k0]*pgamma(y,
                                                               scale = matrix(object$spp_nuisance$dispersion, nrow = nrow(y), ncol = ncol(y), byrow = TRUE) * get_fitted[,,k0], 
                                                               shape = matrix(1/object$spp_nuisance$dispersion, nrow = nrow(y), ncol = ncol(y), byrow = TRUE))
         
         if(object$family$family[1] %in% c("poisson")) {
-            a <- a + object$mixture_proportion[k0]*ppois(y-1, lambda = get_fitted[,,k0])
-            b <- b + object$mixture_proportion[k0]*ppois(y, lambda = get_fitted[,,k0])
+            a <- a + object$mixing_proportion[k0]*ppois(y-1, lambda = get_fitted[,,k0])
+            b <- b + object$mixing_proportion[k0]*ppois(y, lambda = get_fitted[,,k0])
             }
         
         if(object$family$family[1] %in% c("binomial")) {
-            a <- a + object$mixture_proportion[k0]*pbinom(y-1, size = object$trial_size, prob = get_fitted[,,k0])
-            b <- b + object$mixture_proportion[k0]*pbinom(y, size = object$trial_size, prob = get_fitted[,,k0])
+            a <- a + object$mixing_proportion[k0]*pbinom(y-1, size = object$trial_size, prob = get_fitted[,,k0])
+            b <- b + object$mixing_proportion[k0]*pbinom(y, size = object$trial_size, prob = get_fitted[,,k0])
             }
         
         if(object$family$family[1] %in% c("nbinom2")) {
-            a <- a + object$mixture_proportion[k0]*pnbinom(y-1, mu = get_fitted[,,k0], size = matrix(object$spp_nuisance$dispersion, nrow = nrow(y), ncol = ncol(y), byrow = TRUE))
-            b <- b + object$mixture_proportion[k0]*pnbinom(y, mu = get_fitted[,,k0], size = matrix(object$spp_nuisance$dispersion, nrow = nrow(y), ncol = ncol(y), byrow = TRUE))
+            a <- a + object$mixing_proportion[k0]*pnbinom(y-1, mu = get_fitted[,,k0], size = matrix(object$spp_nuisance$dispersion, nrow = nrow(y), ncol = ncol(y), byrow = TRUE))
+            b <- b + object$mixing_proportion[k0]*pnbinom(y, mu = get_fitted[,,k0], size = matrix(object$spp_nuisance$dispersion, nrow = nrow(y), ncol = ncol(y), byrow = TRUE))
             }
         
         if(object$family$family[1] %in% c("tweedie")) {
             for(j in 1:ncol(y)) {
-                a[,j] <- a[,j] + object$mixture_proportion[k0]*tweedie::ptweedie(y[,j], 
+                a[,j] <- a[,j] + object$mixing_proportion[k0]*tweedie::ptweedie(y[,j],
                                                                                  mu = get_fitted[,j,k0],
                                                                                  phi = object$spp_nuisance$dispersion[j],
                                                                                  power = object$spp_nuisance$power[j])
-                b[,j] <- b[,j] + object$mixture_proportion[k0]*tweedie::ptweedie(y[,j], 
+                b[,j] <- b[,j] + object$mixing_proportion[k0]*tweedie::ptweedie(y[,j],
                                                                                  mu = get_fitted[,j,k0],
                                                                                  phi = object$spp_nuisance$dispersion[j],
                                                                                  power = object$spp_nuisance$power[j])

@@ -17,9 +17,9 @@
 #' @param mesh Output from [sdmTMB::make_mesh()], from which species-specific spatial fields can be constructed and added to the linear predictor.
 #' @param spp_spatial_sd A vector of standard deviations corresponding to the species-specific spatial fields. This corresponds to the \eqn{\sigma} parameters described in [sdmTMB's parametrization of Gaussian random fields](https://pbs-assess.github.io/sdmTMB/articles/model-description.html#gaussian-random-fields).
 #' @param spp_spatial_range A vector of range parameters corresponding to the species-specific spatial fields. This is equal to \eqn{1/\kappa} where \eqn{\kappa} is described in [sdmTMB's parametrization of Gaussian random fields](https://pbs-assess.github.io/sdmTMB/articles/model-description.html#gaussian-random-fields).
-#' @param mixture_proportion A vector of mixture proportions corresponding to the probability of belonging to each archetype.
+#' @param mixing_proportion A vector of mixture proportions corresponding to the probability of belonging to each archetype.
 #' @param trial_size Trial sizes to use for binomial distribution. This should equal to a scalar.
-#' @param archetype_label If desired, the user can manually supply the archetype labels for each species. In this case, \code{mixture_proportion} must still be supplied but is subsequently ignored.
+#' @param archetype_label If desired, the user can manually supply the archetype labels for each species. In this case, \code{mixing_proportion} must still be supplied but is subsequently ignored.
 #' @param seed A seed that can be set for simulating datasets.
 #'
 #' @details 
@@ -99,7 +99,7 @@
 #' #mesh = sdmTMB::make_mesh(covariate_dat, xy_cols = c("x", "y"), n_knots = 80),
 #' #spp_spatial_sd = true_spatial_sd,
 #' #spp_spatial_range = true_spatial_range,
-#' mixture_proportion = true_mixprop,
+#' mixing_proportion = true_mixprop,
 #' seed = 022025)
 #' }
 #' 
@@ -123,7 +123,7 @@ create_samlife <- function(family = binomial(),
                            mesh = NULL,
                            spp_spatial_sd = NULL,
                            spp_spatial_range = NULL,
-                           mixture_proportion, 
+                           mixing_proportion,
                            trial_size = 1, 
                            archetype_label = NULL,
                            seed = NULL) {
@@ -135,15 +135,15 @@ create_samlife <- function(family = binomial(),
         stop("spp_effects must be matrix, where the number of rows defines the number of species in the simulated dataset.")
     num_units <- nrow(data)
     num_spp <- nrow(spp_effects)
-    num_archetypes <- length(mixture_proportion)
+    num_archetypes <- length(mixing_proportion)
     formula <- .check_X_formula(formula = formula, data = as.data.frame(data))          
     
-    if(nrow(betas) != length(mixture_proportion))
+    if(nrow(betas) != length(mixing_proportion))
         stop("No. of mixing proportions should be equal to the number of rows in betas.")
     if(ncol(spp_effects) != length(which_spp_effects))
         stop("species_effects should be a matrix where the number of columns should equal the length of which_spp_effects.")
-    if(any(mixture_proportion < 0) || any(mixture_proportion > 1) || abs(sum(mixture_proportion) - 1) > 1e-12)
-        stop("The mixture proportions mixture_proportion should be a vector with all elements between 0 and 1, and should sum to 1.")
+    if(any(mixing_proportion < 0) || any(mixing_proportion > 1) || abs(sum(mixing_proportion) - 1) > 1e-12)
+        stop("The mixture proportions mixing_proportion should be a vector with all elements between 0 and 1, and should sum to 1.")
     if(!(family$family %in% c("gaussian","Gamma","binomial","poisson","nbinom2","tweedie","Beta")))
         stop("family currently not supported. Sorry!")
     
@@ -170,7 +170,7 @@ create_samlife <- function(family = binomial(),
     
     set.seed(seed)
     if(is.null(archetype_label))
-        archetype_label <- sample(1:num_archetypes, size = num_spp, prob = mixture_proportion, replace = TRUE)
+        archetype_label <- sample(1:num_archetypes, size = num_spp, prob = mixing_proportion, replace = TRUE)
     set.seed(NULL)
     
     

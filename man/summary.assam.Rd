@@ -17,7 +17,7 @@
 An object of class "summary.assam" which includes the following components, not necessarily in the order below (and as appropriate):
 \describe{
 \item{call: }{The matched function call of \code{object}.}
-\item{mixture_proportion:}{Estimated vector of mixture proportions corresponding to the probability of belonging to each archetype.}
+\item{mixing_proportion:}{Estimated vector of mixture proportions corresponding to the probability of belonging to each archetype.}
 \item{spp_effects:}{Estimated species-specific effects}
 \item{betas:}{Estimated matrix of archetypal regression coefficients corresponding to the model matrix created. The number of rows in \code{betas} is equal to the number of archetypes.}
 \item{betas_results: }{If the \code{object$uncertainty_quantification = TRUE}, a summary table corresponding to archetypal regression coefficients.}

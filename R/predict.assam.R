@@ -117,7 +117,7 @@ predict.assam <- function(object,
         
         pt_pred <- get_eta 
         rownames(pt_pred) <- rownames(newdata)
-        colnames(pt_pred) <- names(object$mixture_proportion)
+        colnames(pt_pred) <- names(object$mixing_proportion)
         rm(tmp_formula, nullfit)
         }
     
@@ -132,7 +132,7 @@ predict.assam <- function(object,
         all_spp_mu <- foreach(l = 1:object$num_archetypes) %dopar% pred_per_archetype(k0 = l) 
         rm(pred_per_archetype)
         all_spp_mu <- abind::abind(all_spp_mu, along = 3)
-        dimnames(all_spp_mu) <- list(units = rownames(newdata), spp = rownames(object$spp_effects), archetype = names(object$mixture_proportion))
+        dimnames(all_spp_mu) <- list(units = rownames(newdata), spp = rownames(object$spp_effects), archetype = names(object$mixing_proportion))
         
         all_spp_mu <- object$family$linkinv(all_spp_mu)
         
@@ -166,7 +166,7 @@ predict.assam <- function(object,
             if(type == "archetype") {
                 cw_bootstrap_parameters <- object$bootstrap_parameters[k0,]
                 cw_spp_effects <- matrix(cw_bootstrap_parameters[grep("spp_effects", names(cw_bootstrap_parameters))], nrow = num_spp, byrow = TRUE)
-                cw_mixture_proportions <- cw_bootstrap_parameters[grep("mixture_proportion", names(cw_bootstrap_parameters))]
+                cw_mixing_proportions <- cw_bootstrap_parameters[grep("mixing_proportion", names(cw_bootstrap_parameters))]
                 cw_betas <- cw_bootstrap_parameters[grep("beta[1-9]", names(cw_bootstrap_parameters))]             
                 cw_betas <- matrix(cw_betas, nrow = object$num_archetypes, byrow = TRUE)
                 
@@ -176,7 +176,7 @@ predict.assam <- function(object,
                 
                 pt_pred <- get_cw_eta 
                 rownames(pt_pred) <- rownames(newdata)
-                colnames(pt_pred) <- names(object$mixture_proportion)
+                colnames(pt_pred) <- names(object$mixing_proportion)
                 }
             
             if(type %in% c("species_max", "species_mean")) {
@@ -226,7 +226,7 @@ predict.assam <- function(object,
                 upper_predictions <- matrix(upper_predictions, ncol = 1)
                 } 
             rownames(lower_predictions) <- rownames(upper_predictions) <- rownames(median_predictions) <- rownames(mean_predictions) <- rownames(newdata)
-            colnames(lower_predictions) <- colnames(upper_predictions) <- colnames(median_predictions) <- colnames(mean_predictions) <- names(object$mixture_proportion)
+            colnames(lower_predictions) <- colnames(upper_predictions) <- colnames(median_predictions) <- colnames(mean_predictions) <- names(object$mixing_proportion)
             }
         if(type %in% c("species_max", "species_mean")) {
             rownames(lower_predictions) <- rownames(upper_predictions) <- rownames(median_predictions) <- rownames(mean_predictions) <- rownames(newdata)
@@ -319,7 +319,7 @@ predict.assam <- function(object,
     
     cw_bootstrap_parameters <- object$bootstrap_parameters[k0,]
     cw_spp_effects <- matrix(cw_bootstrap_parameters[grep("spp_effects", names(cw_bootstrap_parameters))], nrow = num_spp, byrow = TRUE)
-    cw_mixture_proportions <- cw_bootstrap_parameters[grep("mixture_proportion", names(cw_bootstrap_parameters))]
+    cw_mixing_proportions <- cw_bootstrap_parameters[grep("mixing_proportion", names(cw_bootstrap_parameters))]
     cw_betas <- cw_bootstrap_parameters[grep("beta[1-9]", names(cw_bootstrap_parameters))]             
     cw_betas <- matrix(cw_betas, nrow = object$num_archetypes, byrow = TRUE)
     if(object$family$family[1] %in% c("Beta", "gaussian", "Gamma", "nbinom2", "tweedie")) 
