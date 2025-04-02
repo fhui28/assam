@@ -708,8 +708,10 @@ assam <- function(y,
     make_warm_start <- NULL
     if(!is.null(beta_selection_control$warm_start)) {
         make_warm_start <- beta_selection_control$warm_start
-        make_warm_start$spp_effects <- matrix(make_warm_start$spp_effects, nrow = num_spp)
-        make_warm_start$spp_nuisance <- matrix(make_warm_start$spp_nuisance, nrow = num_spp)
+        if(!is.null(make_warm_start$spp_effects))
+            make_warm_start$spp_effects <- matrix(make_warm_start$spp_effects, nrow = num_spp)
+        if(!is.null(make_warm_start$spp_nuisance))
+            make_warm_start$spp_nuisance <- matrix(make_warm_start$spp_nuisance, nrow = num_spp)
         make_warm_start$posterior_probability <- matrix(make_warm_start$posterior_probability, nrow = num_spp)
         }
     do_em <- em_fn(qa_object = get_qa,
