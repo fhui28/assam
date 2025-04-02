@@ -25,10 +25,12 @@
 .fill_beta_selection_control <- function(control, lambda_fill = TRUE) {
     if(lambda_fill) {
         if(is.null(control$lambda))
-            stop("Currently, the tuning parameter for the broken adaptive ridge (BAR) penalty *must* be supplied.")
+            stop("The tuning parameter for the broken adaptive ridge (BAR) penalty *must* be supplied.")
         if(length(control$lambda) != 1)
             stop("The assam function is designed for variable selection with a single tuning parameter. Please use the passam function if you want to construct an entire regularization path. Thanks!")
         }
+    if(is.null(control$warm_start))
+        control$warm_start <- NULL
     if(is.null(control$max_iter))
         control$max_iter <- 100
     if(is.null(control$eps))
@@ -144,6 +146,16 @@
         stop("beta_selection can not be set to TRUE if lower limit constraints are also supplied through control$beta_lower.")
     if(beta_selection & !is.null(control$beta_upper))
         stop("beta_selection can not be set to TRUE if upper limit constraints are also supplied through control$beta_lower.")
+    
+    if(!is.null(beta_selection_control$warm_start)) {
+        if(!beta_selection)
+            stop("If warm_start is supplied, then beta_selection must be set to TRUE.")
+        if(!is.list(beta_selection_control$warm_start))
+            stop("warm_start must be a list.")
+        if(!all(c("betas", "spp_effects", "spp_nuisance", "mixing_proportions", "posterior_probability") %in% names(beta_selection_control$warm_start)))
+            stop("warm_start must be list containing the following elements: betas, spp_effects, spp_nuisance, mixing_proportions, posterior_probability.")
+        }    
+    
     }
 
     

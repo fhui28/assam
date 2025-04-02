@@ -17,13 +17,13 @@ assam(
   do_parallel = TRUE,
   num_cores = NULL,
   beta_selection = FALSE,
-  uncertainty_quantification = TRUE,
+  uncertainty_quantification = FALSE,
   supply_quadapprox = NULL,
   do_assam_fit = TRUE,
   control = list(max_iter = 500, tol = 1e-04, temper_prob = 0.8, trace = FALSE,
     beta_lower = NULL, beta_upper = NULL),
-  beta_selection_control = list(lambda = 1, max_iter = 100, eps = 1e-04, round_eps =
-    1e-05),
+  beta_selection_control = list(lambda = 1, warm_start = NULL, max_iter = 100, eps =
+    1e-04, round_eps = 1e-05),
   bootstrap_control = list(method = "full_bootstrap", num_boot = 100, ci_alpha = 0.05,
     seed = NULL, ci_type = "percentile")
 )
@@ -72,6 +72,7 @@ assam(
 \item{beta_selection_control}{A list containing the following elements to control the broken adaptive ridge (BAR) penalty for variable selection on the archetypal regression coefficients:
 \describe{
 \item{lambda:}{the tuning parameter for the BAR penalty. Note the function only accepts a single value for this; if you wish to construct a regularization path for the archetypal regression coefficients, then please consider using the \code{\link[=passam]{passam()}} function instead.}
+\item{warm_start:}{a list containing a set of values to "warm start" the BAR optimization part of the EM algorithm. This can be useful to speed up the optimization process, but also in some cases can help to reduce inconsistencies between the penalized estimates obtained here versus as part of the regularization path using \code{\link[=passam]{passam()}}. The list must contain the following elements: 1) \code{beta}, a matrix of the archetypal regression coefficients; 2) \code{spp_effects}, a vector or matrix of species-specific effects; 3) \code{spp_nuisance}, a vector or matrix of species-specific nuisance parameters; 4) \code{mixture_proportion}, a vector of mixture proportions; 5) \code{posterior_probability}, a matrix of posterior probabilities for each species belonging to each archetype.}.
 \item{max_iter:}{the maximum number of iterations in the BAR optimization part of the EM algorithm.}
 \item{eps:}{the convergence criterion; the norm of the difference between all estimated parameters from successive iterations must be smaller than this value.}
 \item{round_eps:}{a tolerance to round values to zero. The technically not needed as the BAR penalty will produce exactly zero estimates up to machine error, but is included anyway, but is included anyway.}
@@ -236,7 +237,8 @@ plot(samfit, transform_fitted_values = TRUE, envelope = FALSE)
 predict(samfit, newdata = covariate_dat, type = "archetype", se_fit = TRUE) 
 
 #' Species-level predictions
-predict(samfit, newdata = covariate_dat, type = "species_max", num_cores = 8, se_fit = TRUE) 
+predict(samfit, newdata = covariate_dat, type = "species_max", 
+num_cores = detectCores() - 2, se_fit = TRUE) 
  
  
  
@@ -245,7 +247,7 @@ predict(samfit, newdata = covariate_dat, type = "species_max", num_cores = 8, se
 # Generate some multivariate abundance (non-negative continuous) data from a sparse SAM
 # Note only a single tuning parameter is used below; please see the [passam()] for 
 # constructing a proper regularization path, as well as to perform selection on the 
-mixing proportions i.e., choose the number of archetypes. 
+# mixing proportions i.e., choose the number of archetypes. 
 ##----------------------
 true_betas <- runif(num_archetype * num_X, -1, 1) \%>\% matrix(nrow = num_archetype)
 true_betas[which(abs(true_betas) < 0.4)] <- 0 # Making archetypal coefficients sparse
@@ -306,10 +308,10 @@ residuals(samfit, type = "dunnsmyth")
 plot(samfit_select, transform_fitted_values = TRUE, envelope = FALSE)
  
 #' Archetype-level predictions
-predict(samfit_select, newdata = covariate_dat, type = "archetype", se_fit = TRUE) 
+predict(samfit_select, newdata = covariate_dat, type = "archetype") 
 
 #' Species-level predictions
-predict(samfit_select, newdata = covariate_dat, type = "species_max", num_cores = 8, se_fit = TRUE) 
+predict(samfit_select, newdata = covariate_dat, type = "species_max") 
 }
 
 

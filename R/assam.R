@@ -32,6 +32,7 @@
 #' @param beta_selection_control A list containing the following elements to control the broken adaptive ridge (BAR) penalty for variable selection on the archetypal regression coefficients:
 #' \describe{
 #' \item{lambda:}{the tuning parameter for the BAR penalty. Note the function only accepts a single value for this; if you wish to construct a regularization path for the archetypal regression coefficients, then please consider using the [passam()] function instead.}
+#' \item{warm_start:}{a list containing a set of values to "warm start" the BAR optimization part of the EM algorithm. This can be useful to speed up the optimization process, but also in some cases can help to reduce inconsistencies between the penalized estimates obtained here versus as part of the regularization path using [passam()]. The list must contain the following elements: 1) \code{beta}, a matrix of the archetypal regression coefficients; 2) \code{spp_effects}, a vector or matrix of species-specific effects; 3) \code{spp_nuisance}, a vector or matrix of species-specific nuisance parameters; 4) \code{mixture_proportion}, a vector of mixture proportions; 5) \code{posterior_probability}, a matrix of posterior probabilities for each species belonging to each archetype.}. 
 #' \item{max_iter:}{the maximum number of iterations in the BAR optimization part of the EM algorithm.}
 #' \item{eps:}{the convergence criterion; the norm of the difference between all estimated parameters from successive iterations must be smaller than this value.}
 #' \item{round_eps:}{a tolerance to round values to zero. The technically not needed as the BAR penalty will produce exactly zero estimates up to machine error, but is included anyway, but is included anyway.}
@@ -193,7 +194,8 @@
 #' predict(samfit, newdata = covariate_dat, type = "archetype", se_fit = TRUE) 
 #' 
 #' #' Species-level predictions
-#' predict(samfit, newdata = covariate_dat, type = "species_max", num_cores = 8, se_fit = TRUE) 
+#' predict(samfit, newdata = covariate_dat, type = "species_max", 
+#' num_cores = detectCores() - 2, se_fit = TRUE) 
 #'  
 #'  
 #'  
@@ -202,7 +204,7 @@
 #' # Generate some multivariate abundance (non-negative continuous) data from a sparse SAM
 #' # Note only a single tuning parameter is used below; please see the [passam()] for 
 #' # constructing a proper regularization path, as well as to perform selection on the 
-#' mixing proportions i.e., choose the number of archetypes. 
+#' # mixing proportions i.e., choose the number of archetypes. 
 #' ##----------------------
 #' true_betas <- runif(num_archetype * num_X, -1, 1) %>% matrix(nrow = num_archetype)
 #' true_betas[which(abs(true_betas) < 0.4)] <- 0 # Making archetypal coefficients sparse
@@ -263,10 +265,10 @@
 #' plot(samfit_select, transform_fitted_values = TRUE, envelope = FALSE)
 #'  
 #' #' Archetype-level predictions
-#' predict(samfit_select, newdata = covariate_dat, type = "archetype", se_fit = TRUE) 
+#' predict(samfit_select, newdata = covariate_dat, type = "archetype") 
 #' 
 #' #' Species-level predictions
-#' predict(samfit_select, newdata = covariate_dat, type = "species_max", num_cores = 8, se_fit = TRUE) 
+#' predict(samfit_select, newdata = covariate_dat, type = "species_max") 
 #' }
 #' 
 #' 
@@ -300,13 +302,14 @@ assam <- function(y,
                   do_parallel = TRUE, 
                   num_cores = NULL, 
                   beta_selection = FALSE,
-                  uncertainty_quantification = TRUE,
+                  uncertainty_quantification = FALSE,
                   supply_quadapprox = NULL,
                   do_assam_fit = TRUE,
                   control = list(max_iter = 500, tol = 1e-4, 
                                  temper_prob = 0.8, trace = FALSE, 
                                  beta_lower = NULL, beta_upper = NULL),
-                  beta_selection_control = list(lambda = 1, max_iter = 100, eps = 1e-4, round_eps = 1e-5),
+                  beta_selection_control = list(lambda = 1, warm_start = NULL, 
+                                                max_iter = 100, eps = 1e-4, round_eps = 1e-5),
                   bootstrap_control = list(method = "full_bootstrap", 
                                            num_boot = 100, ci_alpha = 0.05, seed = NULL, 
                                            ci_type = "percentile")) {
@@ -441,6 +444,7 @@ assam <- function(y,
     ##----------------
     em_fn <- function(qa_object, 
                       dobar_penalty,
+                      warm_start = NULL,
                       betamatrix_selection = NULL) {
          counter <- 0
          diff <- 10
@@ -455,25 +459,34 @@ assam <- function(y,
                   
          while(diff > control$tol & counter < control$max_iter) {
              if(counter == 0) {
-                 do_kmeans <- cluster::pam(qa_object$parameters[, (1:num_X)[-which_spp_effects], drop = FALSE], k = num_archetypes)  
-                 if(is.null(betamatrix_selection)) {
-                     cw_betas <- do_kmeans$medoids
-                     cw_mixprop <- as.vector(table(do_kmeans$clustering)) / num_spp
+                 if(is.null(warm_start)) {
+                     do_kmeans <- cluster::pam(qa_object$parameters[, (1:num_X)[-which_spp_effects], drop = FALSE], k = num_archetypes)  
+                     if(is.null(betamatrix_selection)) {
+                         cw_betas <- do_kmeans$medoids
+                         cw_mixprop <- as.vector(table(do_kmeans$clustering)) / num_spp
+                         }
+                     if(!is.null(betamatrix_selection)) {
+                         #' Reordering to try and get to a starting value that best respects the desired sparsity pattern. No guarantees this actually works that well in practice, especially if a lot of non-zero coefficients are weak!
+                         switch_labels <- label.switching::pra(mcmc.pars = abind::abind(do_kmeans$medoids, along = 0), 
+                                                             pivot = betamatrix_selection)$permutations
+                         cw_betas <- do_kmeans$medoids[switch_labels[1,], ]
+                         cw_mixprop <- as.vector(table(do_kmeans$clustering))[switch_labels[1,]] / num_spp
+                         rm(switch_labels)
+                         }
+                     cw_spp_effects <- qa_object$parameters[, which_spp_effects, drop = FALSE]
+                     cw_nuisance <- NULL
+                     if(num_nuisance_perspp > 0)
+                        cw_nuisance <- qa_object$parameters[, num_X + 1:num_nuisance_perspp, drop = FALSE]
+                     rm(do_kmeans)
                      }
-                 #' Reordering to try and get to a starting value that best respects the desired sparsity pattern. No guarantees this actually works that well in practice, especially if a lot of non-zero coefficients are weak!
-                 if(!is.null(betamatrix_selection)) {
-                     switch_labels <- label.switching::pra(mcmc.pars = abind::abind(do_kmeans$medoids, along = 0), 
-                                                         pivot = betamatrix_selection)$permutations
-                     cw_betas <- do_kmeans$medoids[switch_labels[1,], ]
-                     cw_mixprop <- as.vector(table(do_kmeans$clustering))[switch_labels[1,]] / num_spp
-                     rm(switch_labels)
+                 if(!is.null(warm_start)) {
+                     cw_betas <- warm_start$betas
+                     cw_spp_effects <- warm_start$spp_effects
+                     cw_nuisance <- warm_start$spp_nuisance
+                     cw_mixprop <- warm_start$mixing_proportion
                      }
-                 cw_spp_effects <- qa_object$parameters[, which_spp_effects, drop = FALSE]
-                 cw_nuisance <- NULL
-                 if(num_nuisance_perspp > 0)
-                    cw_nuisance <- qa_object$parameters[, num_X + 1:num_nuisance_perspp, drop = FALSE]
-                 rm(do_kmeans)
-                 }
+                 } 
+             
              
              ##-------------------
              #' ## E-step
@@ -506,9 +519,12 @@ assam <- function(y,
                      for(j in 1:num_spp)
                          post_prob[j,] <- (2*alpha_temper*post_prob[j,]-alpha_temper+1)/(2*alpha_temper - alpha_temper*num_archetypes + num_archetypes)
                      new_logL <- -1e8               
-                     
+                     }
+                 if(!is.null(warm_start) & dobar_penalty) {
+                     post_prob <- warm_start$posterior_probability
+                     #new_logL <- warm_start$new_logL
                     }
-                 }
+                }
                     
              ##-------------------
              #' ## M-step 
@@ -689,9 +705,18 @@ assam <- function(y,
 
     if(control$trace)
         message("Commencing EM algorithm...")
+    make_warm_start <- NULL
+    if(!is.null(beta_selection_control$warm_start)) {
+        make_warm_start <- beta_selection_control$warm_start
+        make_warm_start$spp_effects <- matrix(make_warm_start$spp_effects, nrow = num_spp)
+        make_warm_start$spp_nuisance <- matrix(make_warm_start$spp_nuisance, nrow = num_spp)
+        make_warm_start$posterior_probability <- matrix(make_warm_start$posterior_probability, nrow = num_spp)
+        }
     do_em <- em_fn(qa_object = get_qa,
-                   dobar_penalty = beta_selection)
+                   dobar_penalty = beta_selection,
+                   warm_start = make_warm_start)
 
+    
     try_counter <- 0
     while(any(do_em$new_mixprop < 1e-3) & try_counter < 20) {
         message("Mixture component is being emptied...altering initial temp probability and restarting EM-algorithm to try and fix this.")

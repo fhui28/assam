@@ -189,6 +189,7 @@
 #' family = nbinom2(),
 #' beta_selection = TRUE,
 #' num_archetypes = num_archetype,
+#' uncertainty_quantification = TRUE,
 #' supply_quadapprox = samfit_prefit,
 #' beta_selection_control = list(lambda = samfit_select$lambda[use_BIC]),
 #' bootstrap_control = list(method = "fast"),
