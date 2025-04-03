@@ -32,7 +32,7 @@
 #' @param beta_selection_control A list containing the following elements to control the broken adaptive ridge (BAR) penalty for variable selection on the archetypal regression coefficients:
 #' \describe{
 #' \item{lambda:}{the tuning parameter for the BAR penalty. Note the function only accepts a single value for this; if you wish to construct a regularization path for the archetypal regression coefficients, then please consider using the [passam()] function instead.}
-#' \item{warm_start:}{a list containing a set of values to "warm start" the BAR optimization part of the EM algorithm. This can be useful to speed up the optimization process, but also in some cases can help to reduce inconsistencies between the penalized estimates obtained here versus as part of the regularization path using [passam()]. The list must contain the following elements: 1) \code{beta}, a matrix of the archetypal regression coefficients; 2) \code{spp_effects}, a vector or matrix of species-specific effects; 3) \code{spp_nuisance}, a vector or matrix of species-specific nuisance parameters; 4) \code{mixture_proportion}, a vector of mixture proportions; 5) \code{posterior_probability}, a matrix of posterior probabilities for each species belonging to each archetype.}. 
+#' \item{warm_start:}{a list containing a set of values to "warm start" the BAR optimization part of the EM algorithm. This can be useful to speed up the optimization process, but also in some cases can help to reduce inconsistencies between the penalized estimates obtained here versus as part of the regularization path using [passam()]. The list must contain the following elements: 1) \code{beta}, a matrix of the archetypal regression coefficients; 2) \code{spp_effects}, a vector or matrix of species-specific effects; 3) \code{spp_nuisance}, a vector or matrix of species-specific nuisance parameters; 4) \code{mixing_proportion}, a vector of mixture proportions; 5) \code{posterior_probability}, a matrix of posterior probabilities for each species belonging to each archetype.}.
 #' \item{max_iter:}{the maximum number of iterations in the BAR optimization part of the EM algorithm.}
 #' \item{eps:}{the convergence criterion; the norm of the difference between all estimated parameters from successive iterations must be smaller than this value.}
 #' \item{round_eps:}{a tolerance to round values to zero. The technically not needed as the BAR penalty will produce exactly zero estimates up to machine error, but is included anyway, but is included anyway.}
@@ -96,7 +96,7 @@
 #' \item{uncertainty_quantification:}{Same as input argument.}
 #' \item{spp_effects:}{Estimated species-specific effects i.e., \eqn{alpha_j}.}
 #' \item{betas:}{Estimated matrix of archetypal regression coefficients corresponding to the model matrix created i.e., \eqn{beta_k}. The number of rows in \code{betas} is equal to the number of archetypes.}
-#' \item{mixture_proportion:}{Estimated vector of mixture proportions corresponding to the probability of belonging to each archetype.}
+#' \item{mixing_proportion:}{Estimated vector of mixture proportions corresponding to the probability of belonging to each archetype.}
 #' \item{spp_nuisance:}{Estimated matrix of species-specific nuisance parameters e.g., the dispersion parameter in the negative binomial distribution, and dispersion and power parameters in the Tweedie distribution, and so on.}
 #' \item{posterior_probability:}{Estimated matrix of posterior probabilities for each species belong to each archetype. The number of rows in \code{posterior_probability} is equal to the number of species.}
 #' \item{linear_predictor:}{Estimated array of archetype-specific linear predictors for all species. The last dimension of the array corresponds to the number of archetypes.}
@@ -151,7 +151,7 @@
 #' spp_effects = true_spp_effects, 
 #' spp_dispparam = true_dispparam, 
 #' spp_powerparam = true_powerparam, 
-#' mixture_proportion = true_mixprop,
+#' mixing_proportion = true_mixprop,
 #' seed = 022025)
 #'
 #'  
@@ -218,7 +218,7 @@
 #' spp_effects = true_spp_effects,
 #' spp_dispparam = true_dispparam,
 #' spp_powerparam = true_powerparam,
-#' mixture_proportion = true_mixprop,
+#' mixing_proportion = true_mixprop,
 #' seed = 022025)
 #' 
 #' 
@@ -284,6 +284,7 @@
 #' @importFrom methods as
 #' @importFrom parallel detectCores
 #' @importFrom quadprog solve.QP
+#' @importFrom RcppHungarian HungarianSolver
 #' @importFrom stats as.formula nlminb model.matrix qt plogis qlogis 
 #' @importFrom TMB MakeADFun
 #' @importFrom utils setTxtProgressBar txtProgressBar
@@ -446,262 +447,263 @@ assam <- function(y,
                       dobar_penalty,
                       warm_start = NULL,
                       betamatrix_selection = NULL) {
-         counter <- 0
-         diff <- 10
-         cw_logL <- -Inf
-         cw_params <- numeric(ncol(mapping_mat))
-         post_prob <- matrix(NA, nrow = num_spp, ncol = num_archetypes)
-         rownames(post_prob) <- colnames(y)
-         colnames(post_prob) <- paste0("archetype", 1:num_archetypes)
-         logL_spp <- NULL         
-         basic_bigW <- bdiag(lapply(1:num_spp, function(j) kronecker(Diagonal(n = num_archetypes), qa_object$hessian[[j]]))) # Needed as part of constructing the big weight matrix in the M-step
-
-                  
-         while(diff > control$tol & counter < control$max_iter) {
-             if(counter == 0) {
-                 if(is.null(warm_start)) {
-                     do_kmeans <- cluster::pam(qa_object$parameters[, (1:num_X)[-which_spp_effects], drop = FALSE], k = num_archetypes)  
-                     if(is.null(betamatrix_selection)) {
-                         cw_betas <- do_kmeans$medoids
-                         cw_mixprop <- as.vector(table(do_kmeans$clustering)) / num_spp
-                         }
-                     if(!is.null(betamatrix_selection)) {
-                         #' Reordering to try and get to a starting value that best respects the desired sparsity pattern. No guarantees this actually works that well in practice, especially if a lot of non-zero coefficients are weak!
-                         switch_labels <- label.switching::pra(mcmc.pars = abind::abind(do_kmeans$medoids, along = 0), 
-                                                             pivot = betamatrix_selection)$permutations
-                         cw_betas <- do_kmeans$medoids[switch_labels[1,], ]
-                         cw_mixprop <- as.vector(table(do_kmeans$clustering))[switch_labels[1,]] / num_spp
-                         rm(switch_labels)
-                         }
-                     cw_spp_effects <- qa_object$parameters[, which_spp_effects, drop = FALSE]
-                     cw_nuisance <- NULL
-                     if(num_nuisance_perspp > 0)
+        counter <- 0
+        diff <- 10
+        cw_logL <- -Inf
+        cw_params <- numeric(ncol(mapping_mat))
+        post_prob <- matrix(NA, nrow = num_spp, ncol = num_archetypes)
+        rownames(post_prob) <- colnames(y)
+        colnames(post_prob) <- paste0("archetype", 1:num_archetypes)
+        logL_spp <- NULL         
+        basic_bigW <- bdiag(lapply(1:num_spp, function(j) kronecker(Diagonal(n = num_archetypes), qa_object$hessian[[j]]))) # Needed as part of constructing the big weight matrix in the M-step
+        
+        
+        while(diff > control$tol & counter < control$max_iter) {
+            if(counter == 0) {
+                if(is.null(warm_start)) {
+                    do_kmeans <- cluster::pam(qa_object$parameters[, (1:num_X)[-which_spp_effects], drop = FALSE], k = num_archetypes)  
+                    if(is.null(betamatrix_selection)) {
+                        cw_betas <- do_kmeans$medoids
+                        cw_mixprop <- as.vector(table(do_kmeans$clustering)) / num_spp
+                        }
+                    if(!is.null(betamatrix_selection)) {
+                        #' Reordering to try and get to a starting value that best respects the desired sparsity pattern. No guarantees this actually works that well in practice, especially if a lot of non-zero coefficients are weak!
+                        #' Using Hungarian algorithm to do the reordering now as it much quicker and more scalable with the number of archetypes. I think mathematically this is very similar to what label.switching::pra actually does?!
+                        AtB <- -tcrossprod(betamatrix_selection, do_kmeans$medoids)
+                        switch_labels <- RcppHungarian::HungarianSolver(AtB)
+                        cw_betas <- do_kmeans$medoids[switch_labels$pairs[,2],]
+                        cw_mixprop <- as.vector(table(do_kmeans$clustering))[switch_labels$pairs[,2]] / num_spp
+                        rm(AtB, switch_labels)
+                        }
+                    cw_spp_effects <- qa_object$parameters[, which_spp_effects, drop = FALSE]
+                    cw_nuisance <- NULL
+                    if(num_nuisance_perspp > 0)
                         cw_nuisance <- qa_object$parameters[, num_X + 1:num_nuisance_perspp, drop = FALSE]
-                     rm(do_kmeans)
-                     }
-                 if(!is.null(warm_start)) {
-                     cw_betas <- warm_start$betas
-                     cw_spp_effects <- warm_start$spp_effects
-                     cw_nuisance <- warm_start$spp_nuisance
-                     cw_mixprop <- warm_start$mixing_proportion
-                     }
-                 } 
-             
-             
-             ##-------------------
-             #' ## E-step
-             #' Ignore the normalizing constant of the normal distribution as that does not vary as a function of archetype anyway
-             ##-------------------
-             for(j in 1:num_spp) { 
-                 cw_Quad <- sapply(1:num_archetypes, function(k) {
-                     cw_params <- c(cw_spp_effects[j,], cw_betas[k,], cw_nuisance[j,])
-                     cw_params[which_spp_effects] <- cw_spp_effects[j,]
-                     cw_params[(1:num_X)[-which_spp_effects]] <- cw_betas[k,]
-                     
-                     cw_v <- matrix(cw_params - qa_object$parameters[j,], ncol = 1)
-                     return(-0.5 * (crossprod(cw_v, qa_object$hessian[[j]]) %*% cw_v))
-                     })
-                 eps <- max(cw_Quad)
-                 # cw_Quad <- sapply(1:num_archetypes, function(k) {
-                 #     out <- dmvnorm(c(cw_spp_intercept[j], cw_betas[k,], cw_nuisance[j,]), mean = qa_object$parameters[j,], sigma = solve(qa_object$hessian[[j]]), log = TRUE)
-                 #     return(out)
-                 #     })
-                 logL_spp[j] <- log(sum(cw_mixprop * exp(cw_Quad - eps))) + eps
-                 post_prob[j,] <- exp((log(cw_mixprop) + cw_Quad) - logL_spp[j])
-                 rm(eps, cw_Quad)
-                 }
-               
-             new_logL <- sum(logL_spp)
-             if(counter == 0) {
-                 if(num_archetypes > 1) {
-                     ## Temper the classification in the initial E-step if num_archetypes > 1
-                     alpha_temper <- (1 - control$temper_prob * num_archetypes) / (control$temper_prob * (2-num_archetypes) - 1)          
-                     for(j in 1:num_spp)
-                         post_prob[j,] <- (2*alpha_temper*post_prob[j,]-alpha_temper+1)/(2*alpha_temper - alpha_temper*num_archetypes + num_archetypes)
-                     new_logL <- -1e8               
-                     }
-                 if(!is.null(warm_start) & dobar_penalty) {
-                     post_prob <- warm_start$posterior_probability
-                     #new_logL <- warm_start$new_logL
+                    rm(do_kmeans)
+                    }
+                if(!is.null(warm_start)) {
+                    cw_betas <- warm_start$betas
+                    cw_spp_effects <- warm_start$spp_effects
+                    cw_nuisance <- warm_start$spp_nuisance
+                    cw_mixprop <- warm_start$mixing_proportion
+                    }
+                } 
+            
+            
+            ##-------------------
+            #' ## E-step
+            #' Ignore the normalizing constant of the normal distribution as that does not vary as a function of archetype anyway
+            ##-------------------
+            for(j in 1:num_spp) { 
+                cw_Quad <- sapply(1:num_archetypes, function(k) {
+                    cw_params <- c(cw_spp_effects[j,], cw_betas[k,], cw_nuisance[j,])
+                    cw_params[which_spp_effects] <- cw_spp_effects[j,]
+                    cw_params[(1:num_X)[-which_spp_effects]] <- cw_betas[k,]
+                    
+                    cw_v <- matrix(cw_params - qa_object$parameters[j,], ncol = 1)
+                    return(-0.5 * (crossprod(cw_v, qa_object$hessian[[j]]) %*% cw_v))
+                    })
+                eps <- max(cw_Quad)
+                # cw_Quad <- sapply(1:num_archetypes, function(k) {
+                #     out <- dmvnorm(c(cw_spp_intercept[j], cw_betas[k,], cw_nuisance[j,]), mean = qa_object$parameters[j,], sigma = solve(qa_object$hessian[[j]]), log = TRUE)
+                #     return(out)
+                #     })
+                logL_spp[j] <- log(sum(cw_mixprop * exp(cw_Quad - eps))) + eps
+                post_prob[j,] <- exp((log(cw_mixprop) + cw_Quad) - logL_spp[j])
+                rm(eps, cw_Quad)
+                }
+            
+            new_logL <- sum(logL_spp)
+            if(counter == 0) {
+                if(num_archetypes > 1) {
+                    ## Temper the classification in the initial E-step if num_archetypes > 1
+                    alpha_temper <- (1 - control$temper_prob * num_archetypes) / (control$temper_prob * (2-num_archetypes) - 1)          
+                    for(j in 1:num_spp)
+                        post_prob[j,] <- (2*alpha_temper*post_prob[j,]-alpha_temper+1)/(2*alpha_temper - alpha_temper*num_archetypes + num_archetypes)
+                    new_logL <- -1e8               
+                    }
+                if(!is.null(warm_start) & dobar_penalty) {
+                    post_prob <- warm_start$posterior_probability
+                    #new_logL <- warm_start$new_logL
                     }
                 }
+            
+            ##-------------------
+            #' ## M-step 
+            ##-------------------
+            new_mixprop <- colMeans(post_prob)
+            bigW <- Diagonal(x = rep(as.vector(t(sqrt(post_prob))), each = nrow(qa_object$hessian[[j]]))) %*% basic_bigW %*% Diagonal(x = rep(as.vector(t(sqrt(post_prob))), each = nrow(qa_object$hessian[[j]])))
+            MtWM <- forceSymmetric(crossprod(mapping_mat, bigW) %*% mapping_mat)
+            new_params <- solve(MtWM, crossprod(mapping_mat, bigW) %*% as.vector(qa_object$long_parameters))
+            new_params <- as.vector(new_params)
+            
+            
+            #' ### For selection on the archetypal coefficients via the broken adaptive ridge (BAR) penalty 
+            if(dobar_penalty) {
+                beta_s_err <- Inf
+                beta_s_counter <- 0
+                cw_params <- new_params
+                Dbar <- Diagonal(n = length(new_params))
+                diag(Dbar)[-grep("archetype", colnames(mapping_mat))] <- 0
+                lambda_used <- num_spp *  beta_selection_control$lambda 
+                
+                while(beta_s_counter < beta_selection_control$max_iter & beta_s_err > beta_selection_control$eps) {
+                    GammaMatrix_params <- Diagonal(n = length(new_params))
+                    diag(GammaMatrix_params)[grep("archetype", colnames(mapping_mat))] <- cw_params[grep("archetype", colnames(mapping_mat))]
                     
-             ##-------------------
-             #' ## M-step 
-             ##-------------------
-             new_mixprop <- colMeans(post_prob)
-             bigW <- Diagonal(x = rep(as.vector(t(sqrt(post_prob))), each = nrow(qa_object$hessian[[j]]))) %*% basic_bigW %*% Diagonal(x = rep(as.vector(t(sqrt(post_prob))), each = nrow(qa_object$hessian[[j]])))
-             MtWM <- forceSymmetric(crossprod(mapping_mat, bigW) %*% mapping_mat)
-             new_params <- solve(MtWM, crossprod(mapping_mat, bigW) %*% as.vector(qa_object$long_parameters))
-             new_params <- as.vector(new_params)
-             
-             
-             #' ### For selection on the archetypal coefficients via the broken adaptive ridge (BAR) penalty 
-             if(dobar_penalty) {
-                 beta_s_err <- Inf
-                 beta_s_counter <- 0
-                 cw_params <- new_params
-                 Dbar <- Diagonal(n = length(new_params))
-                 diag(Dbar)[-grep("archetype", colnames(mapping_mat))] <- 0
-                 lambda_used <- num_spp *  beta_selection_control$lambda 
-                 
-                 while(beta_s_counter < beta_selection_control$max_iter & beta_s_err > beta_selection_control$eps) {
-                     GammaMatrix_params <- Diagonal(n = length(new_params))
-                     diag(GammaMatrix_params)[grep("archetype", colnames(mapping_mat))] <- cw_params[grep("archetype", colnames(mapping_mat))]
-                     
-                     new_params <- GammaMatrix_params %*% solve(GammaMatrix_params %*% MtWM %*% GammaMatrix_params + lambda_used * Dbar) %*% GammaMatrix_params %*% (crossprod(mapping_mat, bigW) %*% as.vector(qa_object$long_parameters))
-                     new_params <- as.vector(new_params)
-                     names(new_params) <- colnames(mapping_mat)
-                     
-                     beta_s_err <- sum((new_params - cw_params)^2)
-                     cw_params <- new_params
-                     beta_s_counter <- beta_s_counter + 1
-                     }
-                 #' Note the convergence properties of the algorithm does ensure exact zeros can be achieved (up to machine error); see [https://doi.org/10.1155/2016/3456153]. However once can also round to zero if interested.
-                 new_params[abs(new_params) < beta_selection_control$round_eps] <- 0
-                 rm(beta_s_counter, beta_s_err, GammaMatrix_params, Dbar)
-                 }
-             
-             
-             #' ### For constrained solution
-             if(!is.null(control$beta_lower) | !is.null(control$beta_upper)) {
-                 if(!is.null(control$beta_lower)) {
-                     makeAmat_lower <- diag(x = 0, nrow = ncol(mapping_mat))
-                     rownames(makeAmat_lower) <- colnames(makeAmat_lower) <- colnames(mapping_mat)
-                     diag(makeAmat_lower)[grep("spp_effects", rownames(makeAmat_lower))] <- 1
-                     diag(makeAmat_lower)[grep("_beta", rownames(makeAmat_lower))] <- 1
-                        
-                     makebvec_lower <- numeric(ncol(mapping_mat))
-                     names(makebvec_lower) <- colnames(mapping_mat)
-                     makebvec_lower[grep("spp_effects", names(makebvec_lower))] <- control$beta_lower[which_spp_effects]
-                     makebvec_lower[grep("_beta", names(makebvec_lower))] <- rep(control$beta_lower[-which_spp_effects], num_archetypes)
-                     
-                     final_makeAmat <- makeAmat_lower
-                     final_makebvec <- makebvec_lower
-                     }
-                 if(!is.null(control$beta_upper)) {
-                     makeAmat_upper <- diag(x = 0, nrow = ncol(mapping_mat))
-                     rownames(makeAmat_upper) <- colnames(makeAmat_upper) <- colnames(mapping_mat)
-                     diag(makeAmat_upper)[grep("spp_effects", rownames(makeAmat_upper))] <- -1
-                     diag(makeAmat_upper)[grep("_beta", rownames(makeAmat_upper))] <- -1
-                     
-                     makebvec_upper <- numeric(ncol(mapping_mat))
-                     names(makebvec_upper) <- colnames(mapping_mat)
-                     makebvec_upper[grep("spp_effects", names(makebvec_upper))] <- control$beta_upper[which_spp_effects]
-                     makebvec_upper[grep("_beta", names(makebvec_upper))] <- rep(control$beta_upper[-which_spp_effects], num_archetypes)
-                     
-                     final_makeAmat <- makeAmat_upper
-                     final_makebvec <- makebvec_upper
-                     }
-                 if(!is.null(control$beta_lower) & !is.null(control$beta_upper)) {
-                     final_makeAmat <- t(rbind(makeAmat_lower, makeAmat_upper))
-                     final_makebvec <- c(makebvec_lower, makebvec_upper)
-                     
-                     rm(makeAmat_lower, makeAmat_upper, makebvec_lower, makebvec_upper)
-                     }                 
-                 
-                 
-                 #' Refine Amat and bvec arguments to things which only have constraints
-                 remove_unconstrained_elements <- which(diag(final_makeAmat) == 0) 
-                 if(length(remove_unconstrained_elements) > 0) {
-                     final_makeAmat <- final_makeAmat[-remove_unconstrained_elements,]
-                     final_makebvec <- final_makebvec[-remove_unconstrained_elements]
+                    new_params <- GammaMatrix_params %*% solve(GammaMatrix_params %*% MtWM %*% GammaMatrix_params + lambda_used * Dbar) %*% GammaMatrix_params %*% (crossprod(mapping_mat, bigW) %*% as.vector(qa_object$long_parameters))
+                    new_params <- as.vector(new_params)
+                    names(new_params) <- colnames(mapping_mat)
+                    
+                    beta_s_err <- sum((new_params - cw_params)^2)
+                    cw_params <- new_params
+                    beta_s_counter <- beta_s_counter + 1
                     }
-                 remove_unconstrained_elements <- which(!is.finite(final_makebvec))
-                 if(length(remove_unconstrained_elements) > 0) {
-                     final_makeAmat <- final_makeAmat[-remove_unconstrained_elements,]
-                     final_makebvec <- final_makebvec[-remove_unconstrained_elements]
-                     }
-                 rm(remove_unconstrained_elements)
-                 
-                 Mstep_update <- quadprog::solve.QP(Dmat = MtWM, 
-                                                    dvec = crossprod(mapping_mat, bigW) %*% as.vector(qa_object$long_parameters),
-                                                    Amat = t(final_makeAmat),
-                                                    bvec = final_makebvec)
-                 
-                 new_params <- Mstep_update$solution
-                 new_params[abs(new_params) < .Machine$double.eps] <- 0
-                 rm(Mstep_update, final_makeAmat, final_makebvec)
-                 }
-             
-             #' ### For subset solution
-             if(!is.null(betamatrix_selection)) {
-                 A <- Matrix(0, nrow = length(new_params), ncol = sum(betamatrix_selection == 0))
-                 find_zero_indices <- matrix(grep("archetype", colnames(mapping_mat)), nrow = num_archetypes, byrow = TRUE) * (betamatrix_selection == 0)
-                 find_zero_indices <- t(find_zero_indices)[t(find_zero_indices) != 0]
-                 for(l0 in 1:ncol(A))
-                     A[find_zero_indices[l0], l0] <- 1
-                 rm(find_zero_indices)
-
-                 Mstep_update <- quadprog::solve.QP(Dmat = MtWM,
-                                                    dvec = crossprod(mapping_mat, bigW) %*% as.vector(qa_object$long_parameters),
-                                                    Amat = A,
-                                                    meq = ncol(A),
-                                                    factorized = FALSE)
-                 new_params <- Mstep_update$solution
-                 new_params[abs(new_params) < .Machine$double.eps] <- 0
-                 rm(Mstep_update, A)
-                 }
-
-             names(new_params) <- colnames(mapping_mat)
-             new_spp_effects <- matrix(new_params[grep("spp_effects", names(new_params))], nrow = num_spp, byrow = TRUE)
-             new_betas <- matrix(new_params[grep("archetype", names(new_params))], nrow = num_archetypes, byrow = TRUE)
-             new_nuisance <- NULL
-             if(num_nuisance_perspp > 0) {
-                 new_nuisance <- matrix(new_params[grep("spp_nuisance", names(new_params))], nrow = num_spp, byrow = TRUE)
-                 colnames(new_nuisance) <- qa_parameters_colnames[num_X + 1:num_nuisance_perspp]  
-                 }
-             rm(bigW, MtWM)
-
-             ##-------------------
-             #' ## Finish iteration
-             ##-------------------
-             diff <- new_logL - cw_logL 
-             if(control$trace == TRUE) {
-                 message("Iteration: ", counter, "\t New Log-likelihood:", round(new_logL, 4), "\t Difference in Log-likelihood: ", round(new_logL - cw_logL, 4))
-                 #, "\t Norm difference in parameters: ", round(sum((new_params - cw_params)^2), 5))
-                 }
+                #' Note the convergence properties of the algorithm does ensure exact zeros can be achieved (up to machine error); see [https://doi.org/10.1155/2016/3456153]. However once can also round to zero if interested.
+                new_params[abs(new_params) < beta_selection_control$round_eps] <- 0
+                rm(beta_s_counter, beta_s_err, GammaMatrix_params, Dbar)
+                }
+            
+            
+            #' ### For constrained solution
+            if(!is.null(control$beta_lower) | !is.null(control$beta_upper)) {
+                if(!is.null(control$beta_lower)) {
+                    makeAmat_lower <- diag(x = 0, nrow = ncol(mapping_mat))
+                    rownames(makeAmat_lower) <- colnames(makeAmat_lower) <- colnames(mapping_mat)
+                    diag(makeAmat_lower)[grep("spp_effects", rownames(makeAmat_lower))] <- 1
+                    diag(makeAmat_lower)[grep("_beta", rownames(makeAmat_lower))] <- 1
                     
-             cw_logL <- new_logL
-             cw_mixprop <- new_mixprop
-             cw_spp_effects <- new_spp_effects
-             cw_betas <- new_betas
-             cw_nuisance <- new_nuisance
-             cw_params <- new_params
-             counter <- counter + 1          
-             }
-         
-         rownames(new_spp_effects) <- colnames(y)
-         rownames(new_betas) <- names(new_mixprop)
-         colnames(new_spp_effects) <- colnames(X)[which_spp_effects]
-         colnames(new_betas) <- colnames(X)[-which_spp_effects]
-         
-         tmp_nuisance <- NULL
-         if(num_nuisance_perspp > 0) {
-             if(family$family[1] %in% c("Beta", "gaussian", "Gamma", "nbinom2", "tweedie")) 
-                 tmp_nuisance$dispersion <- exp(new_nuisance[,grep("ln_phi", colnames(new_nuisance))])
-             if(family$family[1] == "tweedie")
-                 tmp_nuisance$power <- plogis(new_nuisance[,grep("thetaf", colnames(new_nuisance))]) + 1
-             if(add_spatial) { 
-                 tmp_nuisance$spatial_range <- 1/exp(new_nuisance[,grep("ln_kappa", colnames(new_nuisance))])
-                 est_tau <- exp(new_nuisance[,grep("ln_tau_O", colnames(new_nuisance))])
-                 tmp_nuisance$spatial_SD <- 1/(sqrt(4*pi) * est_tau * exp(new_nuisance[,grep("ln_kappa", colnames(new_nuisance))]))
-                 }
-                 
-             tmp_nuisance <- as.data.frame(tmp_nuisance)
-             rownames(new_nuisance) <- rownames(tmp_nuisance) <- colnames(y)            
-             }
-         
-         return(list(new_logL = new_logL, 
-                     new_mixprop = new_mixprop, 
-                     new_spp_effects = new_spp_effects, 
-                     new_betas = new_betas, 
-                     new_nuisance = new_nuisance, 
-                     new_transformed_nuisance = tmp_nuisance,
-                     new_params = new_params, 
-                     counter = counter, 
-                     post_prob = post_prob))          
-         }
+                    makebvec_lower <- numeric(ncol(mapping_mat))
+                    names(makebvec_lower) <- colnames(mapping_mat)
+                    makebvec_lower[grep("spp_effects", names(makebvec_lower))] <- control$beta_lower[which_spp_effects]
+                    makebvec_lower[grep("_beta", names(makebvec_lower))] <- rep(control$beta_lower[-which_spp_effects], num_archetypes)
+                    
+                    final_makeAmat <- makeAmat_lower
+                    final_makebvec <- makebvec_lower
+                    }
+                if(!is.null(control$beta_upper)) {
+                    makeAmat_upper <- diag(x = 0, nrow = ncol(mapping_mat))
+                    rownames(makeAmat_upper) <- colnames(makeAmat_upper) <- colnames(mapping_mat)
+                    diag(makeAmat_upper)[grep("spp_effects", rownames(makeAmat_upper))] <- -1
+                    diag(makeAmat_upper)[grep("_beta", rownames(makeAmat_upper))] <- -1
+                    
+                    makebvec_upper <- numeric(ncol(mapping_mat))
+                    names(makebvec_upper) <- colnames(mapping_mat)
+                    makebvec_upper[grep("spp_effects", names(makebvec_upper))] <- control$beta_upper[which_spp_effects]
+                    makebvec_upper[grep("_beta", names(makebvec_upper))] <- rep(control$beta_upper[-which_spp_effects], num_archetypes)
+                    
+                    final_makeAmat <- makeAmat_upper
+                    final_makebvec <- makebvec_upper
+                    }
+                if(!is.null(control$beta_lower) & !is.null(control$beta_upper)) {
+                    final_makeAmat <- t(rbind(makeAmat_lower, makeAmat_upper))
+                    final_makebvec <- c(makebvec_lower, makebvec_upper)
+                    
+                    rm(makeAmat_lower, makeAmat_upper, makebvec_lower, makebvec_upper)
+                    }                 
+                
+                
+                #' Refine Amat and bvec arguments to things which only have constraints
+                remove_unconstrained_elements <- which(diag(final_makeAmat) == 0) 
+                if(length(remove_unconstrained_elements) > 0) {
+                    final_makeAmat <- final_makeAmat[-remove_unconstrained_elements,]
+                    final_makebvec <- final_makebvec[-remove_unconstrained_elements]
+                    }
+                remove_unconstrained_elements <- which(!is.finite(final_makebvec))
+                if(length(remove_unconstrained_elements) > 0) {
+                    final_makeAmat <- final_makeAmat[-remove_unconstrained_elements,]
+                    final_makebvec <- final_makebvec[-remove_unconstrained_elements]
+                    }
+                rm(remove_unconstrained_elements)
+                
+                Mstep_update <- quadprog::solve.QP(Dmat = MtWM, 
+                                                   dvec = crossprod(mapping_mat, bigW) %*% as.vector(qa_object$long_parameters),
+                                                   Amat = t(final_makeAmat),
+                                                   bvec = final_makebvec)
+                
+                new_params <- Mstep_update$solution
+                new_params[abs(new_params) < .Machine$double.eps] <- 0
+                rm(Mstep_update, final_makeAmat, final_makebvec)
+                }
+            
+            #' ### For subset solution
+            if(!is.null(betamatrix_selection)) {
+                A <- Matrix(0, nrow = length(new_params), ncol = sum(betamatrix_selection == 0))
+                find_zero_indices <- matrix(grep("archetype", colnames(mapping_mat)), nrow = num_archetypes, byrow = TRUE) * (betamatrix_selection == 0)
+                find_zero_indices <- t(find_zero_indices)[t(find_zero_indices) != 0]
+                for(l0 in 1:ncol(A))
+                    A[find_zero_indices[l0], l0] <- 1
+                rm(find_zero_indices)
+                
+                Mstep_update <- quadprog::solve.QP(Dmat = MtWM,
+                                                   dvec = crossprod(mapping_mat, bigW) %*% as.vector(qa_object$long_parameters),
+                                                   Amat = A,
+                                                   meq = ncol(A),
+                                                   factorized = FALSE)
+                new_params <- Mstep_update$solution
+                new_params[abs(new_params) < beta_selection_control$round_eps] <- 0 #' Making this rounding factor the same as when the BAR penalty is applied
+                rm(Mstep_update, A)
+                }
+            
+            names(new_params) <- colnames(mapping_mat)
+            new_spp_effects <- matrix(new_params[grep("spp_effects", names(new_params))], nrow = num_spp, byrow = TRUE)
+            new_betas <- matrix(new_params[grep("archetype", names(new_params))], nrow = num_archetypes, byrow = TRUE)
+            new_nuisance <- NULL
+            if(num_nuisance_perspp > 0) {
+                new_nuisance <- matrix(new_params[grep("spp_nuisance", names(new_params))], nrow = num_spp, byrow = TRUE)
+                colnames(new_nuisance) <- qa_parameters_colnames[num_X + 1:num_nuisance_perspp]  
+                }
+            rm(bigW, MtWM)
+            
+            ##-------------------
+            #' ## Finish iteration
+            ##-------------------
+            diff <- new_logL - cw_logL 
+            if(control$trace == TRUE) {
+                message("Iteration: ", counter, "\t New Log-likelihood:", round(new_logL, 4), "\t Difference in Log-likelihood: ", round(new_logL - cw_logL, 4))
+                #, "\t Norm difference in parameters: ", round(sum((new_params - cw_params)^2), 5))
+                }
+            
+            cw_logL <- new_logL
+            cw_mixprop <- new_mixprop
+            cw_spp_effects <- new_spp_effects
+            cw_betas <- new_betas
+            cw_nuisance <- new_nuisance
+            cw_params <- new_params
+            counter <- counter + 1          
+            }
+        
+        rownames(new_spp_effects) <- colnames(y)
+        rownames(new_betas) <- names(new_mixprop)
+        colnames(new_spp_effects) <- colnames(X)[which_spp_effects]
+        colnames(new_betas) <- colnames(X)[-which_spp_effects]
+        
+        tmp_nuisance <- NULL
+        if(num_nuisance_perspp > 0) {
+            if(family$family[1] %in% c("Beta", "gaussian", "Gamma", "nbinom2", "tweedie")) 
+                tmp_nuisance$dispersion <- exp(new_nuisance[,grep("ln_phi", colnames(new_nuisance))])
+            if(family$family[1] == "tweedie")
+                tmp_nuisance$power <- plogis(new_nuisance[,grep("thetaf", colnames(new_nuisance))]) + 1
+            if(add_spatial) { 
+                tmp_nuisance$spatial_range <- 1/exp(new_nuisance[,grep("ln_kappa", colnames(new_nuisance))])
+                est_tau <- exp(new_nuisance[,grep("ln_tau_O", colnames(new_nuisance))])
+                tmp_nuisance$spatial_SD <- 1/(sqrt(4*pi) * est_tau * exp(new_nuisance[,grep("ln_kappa", colnames(new_nuisance))]))
+            }
+            
+            tmp_nuisance <- as.data.frame(tmp_nuisance)
+            rownames(new_nuisance) <- rownames(tmp_nuisance) <- colnames(y)            
+            }
+        
+        return(list(new_logL = new_logL, 
+                    new_mixprop = new_mixprop, 
+                    new_spp_effects = new_spp_effects, 
+                    new_betas = new_betas, 
+                    new_nuisance = new_nuisance, 
+                    new_transformed_nuisance = tmp_nuisance,
+                    new_params = new_params, 
+                    counter = counter, 
+                    post_prob = post_prob))          
+        }
 
     if(control$trace)
         message("Commencing EM algorithm...")
@@ -749,10 +751,13 @@ assam <- function(y,
                       uncertainty_quantification = uncertainty_quantification,
                       spp_effects = do_em$new_spp_effects,
                       betas = do_em$new_betas,
-                      mixture_proportion = do_em$new_mixprop,
+                      mixing_proportion = do_em$new_mixprop,
                       spp_nuisance = as.data.frame(do_em$new_transformed_nuisance),
                       posterior_probability = do_em$post_prob)
 
+    names(out_assam$mixing_proportion) <- paste0("archetype", 1:num_archetypes)
+    colnames(out_assam$posterior_probability) <- paste0("archetype", 1:num_archetypes)
+    
     #' ## Predict species-specific field in an ad-hoc but scalable manner based on the most likely archetype that the species belong.
     get_spatial_fields <- foreach(l = 1:num_spp, .combine = "cbind") %dopar% .predict_spatial_fields(l = l,
                                                                                                      add_spatial = add_spatial,
@@ -768,7 +773,7 @@ assam <- function(y,
         
     get_eta <- tcrossprod(X[, -which_spp_effects, drop = FALSE], out_assam$betas)
     out_assam$linear_predictor <- array(NA, dim = c(num_unit, num_spp, num_archetypes),
-                                        dimnames = list(units = rownames(y), spp = colnames(y), archetype = names(out_assam$mixture_proportion)))
+                                        dimnames = list(units = rownames(y), spp = colnames(y), archetype = names(out_assam$mixing_proportion)))
     for(k0 in 1:num_archetypes) {
         out_assam$linear_predictor[,,k0] <- tcrossprod(X[, which_spp_effects, drop = FALSE], out_assam$spp_effects) + matrix(get_eta[,k0], nrow = num_unit, ncol = num_spp, byrow = FALSE) + offset
         if(add_spatial)
@@ -914,21 +919,24 @@ assam <- function(y,
         
         
         #' ## Account for potential label-switching across the bootstrapped datasets, and also transform nuisance parameters as appropriate
-        if(num_archetypes > 1) {
+        #' Note this is avoided when model selection has been performed, so as to preserve a particular sparsity pattern is sought
+        if(num_archetypes > 1 & beta_selection == FALSE) {
             boot_params <- lapply(bootrun, function(x) cbind(x$new_betas, x$new_mixprop))
-            boot_params <- abind::abind(boot_params, along = 0)
-            switch_labels <- label.switching::pra(mcmc.pars = boot_params, 
-                                                  pivot = cbind(out_assam$betas, out_assam$mixture_proportion))$permutations #' This should technically be avoided when model selection has been performed and a particular sparsity pattern is sought. But in practice hopefully this makes little difference!
+            switch_labels <- sapply(boot_params, function(x) {
+                AtB <- -tcrossprod(cbind(out_assam$betas, out_assam$mixing_proportion), x)
+                switch_labels <- RcppHungarian::HungarianSolver(AtB)
+                return(switch_labels$pairs[,2])
+                }) 
             }
-        if(num_archetypes == 1) {
+        if(num_archetypes == 1 | beta_selection == TRUE) {
             boot_params <- NULL
             switch_labels <- NULL
             }
         
         bootrun <- lapply(1:length(bootrun), function(k0) {
-            if(num_archetypes > 1) {
-                bootrun[[k0]]$new_mixprop <- bootrun[[k0]]$new_mixprop[switch_labels[k0,]]
-                bootrun[[k0]]$new_betas <- bootrun[[k0]]$new_betas[switch_labels[k0,],]
+            if(num_archetypes > 1 & beta_selection == FALSE) {
+                bootrun[[k0]]$new_mixprop <- bootrun[[k0]]$new_mixprop[switch_labels[,k0]]
+                bootrun[[k0]]$new_betas <- bootrun[[k0]]$new_betas[switch_labels[,k0],]
                 #bootrun[[k0]]$post_prob <- bootrun[[k0]]$post_prob[,switch_labels[k0,]] #' Not actually used later on so omit! 
                 }
             
@@ -942,7 +950,7 @@ assam <- function(y,
                                                as.vector(t(bootrun[[k0]]$new_betas)), 
                                                as.vector(unlist(t(bootrun[[k0]]$new_nuisance))), # Note untransformed parameters passed here as this is what comes out of EM alg
                                                bootrun[[k0]]$new_mixprop)
-            names(bootrun[[k0]]$boot_params) <- c(colnames(mapping_mat), paste0(names(out_assam$mixture_proportion), "_", "mixture_proportion"))
+            names(bootrun[[k0]]$boot_params) <- c(colnames(mapping_mat), paste0(names(out_assam$mixing_proportion), "_", "mixing_proportion"))
             
             bootrun[[k0]]$new_logL <- bootrun[[k0]]$post_prob <- bootrun[[k0]]$new_params <- NULL
             return(bootrun[[k0]])
@@ -975,11 +983,11 @@ assam <- function(y,
             
             }
         if(num_archetypes > 1)
-            form_cis$mixture_proportion <- data.frame( t(apply(sapply(bootrun, function(x) x$new_mixprop), 1, quantile, prob = c(modified_alpha/2, 1 - modified_alpha/2), na.rm = TRUE)))
+            form_cis$mixing_proportion <- data.frame( t(apply(sapply(bootrun, function(x) x$new_mixprop), 1, quantile, prob = c(modified_alpha/2, 1 - modified_alpha/2), na.rm = TRUE)))
         
         rownames(form_cis$spp_effects$lower) <- rownames(form_cis$spp_effects$upper) <- colnames(out_assam$spp_effects)
         if(num_archetypes > 1) {
-            colnames(form_cis$mixture_proportion) <- c("lower", "upper")
+            colnames(form_cis$mixing_proportion) <- c("lower", "upper")
             }
         rownames(form_cis$betas$lower) <- rownames(form_cis$betas$lower) <- rownames(out_assam$betas)
         if(num_nuisance_perspp > 0) 
@@ -1152,7 +1160,7 @@ assam <- function(y,
 #'     rm(all_scores, score_spp_effects, score_beta, score_nuisance)            
 #'     
 #'     #' Note is omits the mixing proportion of the last archetype due to sum to one constraint
-#'     score_mixprop <- out_assam$posterior_probability[j,-num_archetypes]/out_assam$mixture_proportion[-num_archetypes] - out_assam$posterior_probability[j,num_archetypes]/out_assam$mixture_proportion[num_archetypes] 
+#'     score_mixprop <- out_assam$posterior_probability[j,-num_archetypes]/out_assam$mixing_proportion[-num_archetypes] - out_assam$posterior_probability[j,num_archetypes]/out_assam$mixing_proportion[num_archetypes]
 #'     
 #'     out <- c(score_mixprop, score_psi)
 #'     return(out)
@@ -1161,4 +1169,4 @@ assam <- function(y,
 #' all_scores <- foreach(j = 1:num_spp, .combine = "cbind") %dopar% score_fn(j)        
 #' 
 #' empirical_info <- matrix(rowSums(apply(all_scores, 2, tcrossprod)), nrow = nrow(all_scores)) 
-#' rownames(empirical_info) <- colnames(empirical_info) <- c(paste0("mixture_proportion", 1:(num_archetypes-1)), colnames(mapping_mat))
+#' rownames(empirical_info) <- colnames(empirical_info) <- c(paste0("mixing_proportion", 1:(num_archetypes-1)), colnames(mapping_mat))

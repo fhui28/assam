@@ -72,7 +72,7 @@ assam(
 \item{beta_selection_control}{A list containing the following elements to control the broken adaptive ridge (BAR) penalty for variable selection on the archetypal regression coefficients:
 \describe{
 \item{lambda:}{the tuning parameter for the BAR penalty. Note the function only accepts a single value for this; if you wish to construct a regularization path for the archetypal regression coefficients, then please consider using the \code{\link[=passam]{passam()}} function instead.}
-\item{warm_start:}{a list containing a set of values to "warm start" the BAR optimization part of the EM algorithm. This can be useful to speed up the optimization process, but also in some cases can help to reduce inconsistencies between the penalized estimates obtained here versus as part of the regularization path using \code{\link[=passam]{passam()}}. The list must contain the following elements: 1) \code{beta}, a matrix of the archetypal regression coefficients; 2) \code{spp_effects}, a vector or matrix of species-specific effects; 3) \code{spp_nuisance}, a vector or matrix of species-specific nuisance parameters; 4) \code{mixture_proportion}, a vector of mixture proportions; 5) \code{posterior_probability}, a matrix of posterior probabilities for each species belonging to each archetype.}.
+\item{warm_start:}{a list containing a set of values to "warm start" the BAR optimization part of the EM algorithm. This can be useful to speed up the optimization process, but also in some cases can help to reduce inconsistencies between the penalized estimates obtained here versus as part of the regularization path using \code{\link[=passam]{passam()}}. The list must contain the following elements: 1) \code{beta}, a matrix of the archetypal regression coefficients; 2) \code{spp_effects}, a vector or matrix of species-specific effects; 3) \code{spp_nuisance}, a vector or matrix of species-specific nuisance parameters; 4) \code{mixing_proportion}, a vector of mixture proportions; 5) \code{posterior_probability}, a matrix of posterior probabilities for each species belonging to each archetype.}.
 \item{max_iter:}{the maximum number of iterations in the BAR optimization part of the EM algorithm.}
 \item{eps:}{the convergence criterion; the norm of the difference between all estimated parameters from successive iterations must be smaller than this value.}
 \item{round_eps:}{a tolerance to round values to zero. The technically not needed as the BAR penalty will produce exactly zero estimates up to machine error, but is included anyway, but is included anyway.}
@@ -104,7 +104,7 @@ Otherwise, if \code{do_assam_fit = TRUE} as is the default, then an object of cl
 \item{uncertainty_quantification:}{Same as input argument.}
 \item{spp_effects:}{Estimated species-specific effects i.e., \eqn{alpha_j}.}
 \item{betas:}{Estimated matrix of archetypal regression coefficients corresponding to the model matrix created i.e., \eqn{beta_k}. The number of rows in \code{betas} is equal to the number of archetypes.}
-\item{mixture_proportion:}{Estimated vector of mixture proportions corresponding to the probability of belonging to each archetype.}
+\item{mixing_proportion:}{Estimated vector of mixture proportions corresponding to the probability of belonging to each archetype.}
 \item{spp_nuisance:}{Estimated matrix of species-specific nuisance parameters e.g., the dispersion parameter in the negative binomial distribution, and dispersion and power parameters in the Tweedie distribution, and so on.}
 \item{posterior_probability:}{Estimated matrix of posterior probabilities for each species belong to each archetype. The number of rows in \code{posterior_probability} is equal to the number of species.}
 \item{linear_predictor:}{Estimated array of archetype-specific linear predictors for all species. The last dimension of the array corresponds to the number of archetypes.}
@@ -194,7 +194,7 @@ betas = true_betas,
 spp_effects = true_spp_effects, 
 spp_dispparam = true_dispparam, 
 spp_powerparam = true_powerparam, 
-mixture_proportion = true_mixprop,
+mixing_proportion = true_mixprop,
 seed = 022025)
 
  
@@ -261,7 +261,7 @@ betas = true_betas,
 spp_effects = true_spp_effects,
 spp_dispparam = true_dispparam,
 spp_powerparam = true_powerparam,
-mixture_proportion = true_mixprop,
+mixing_proportion = true_mixprop,
 seed = 022025)
 
 

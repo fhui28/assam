@@ -27,6 +27,7 @@ Imports:
     mgcv,
     parallel,
     quadprog,
+    RcppHungarian,
     sdmTMB,
     stats,
     tdigest,
