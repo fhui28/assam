@@ -137,7 +137,7 @@ library(mvtnorm)
 library(GGally)
 library(doParallel)
 
-set.seed(022025)
+set.seed(042025)
 
 num_X <- 10
 num_units <- 1000
@@ -166,7 +166,7 @@ spp_effects = true_spp_effects,
 spp_dispparam = true_dispparam, 
 spp_powerparam = true_powerparam, 
 mixing_proportion = true_mixprop,
-seed = 022025)
+seed = 042025)
 
 
 ##----------------------

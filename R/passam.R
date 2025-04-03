@@ -123,7 +123,7 @@
 #' spp_dispparam = true_dispparam, 
 #' spp_powerparam = true_powerparam, 
 #' mixing_proportion = true_mixprop,
-#' seed = 022025)
+#' seed = 042025)
 #' 
 #' 
 #' ##----------------------
