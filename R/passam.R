@@ -94,7 +94,7 @@
 #' library(GGally)
 #' library(doParallel)
 #' 
-#' set.seed(022025)
+#' set.seed(042025)
 #' 
 #' num_X <- 10
 #' num_units <- 1000
