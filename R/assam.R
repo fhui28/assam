@@ -989,7 +989,7 @@ assam <- function(y,
         if(num_archetypes > 1) {
             colnames(form_cis$mixing_proportion) <- c("lower", "upper")
             }
-        rownames(form_cis$betas$lower) <- rownames(form_cis$betas$lower) <- rownames(out_assam$betas)
+        rownames(form_cis$betas$lower) <- rownames(form_cis$betas$upper) <- rownames(out_assam$betas)
         if(num_nuisance_perspp > 0) 
             dimnames(form_cis$spp_nuisance$lower)[[3]] <- dimnames(form_cis$spp_nuisance$upper)[[3]] <- colnames(out_assam$spp_nuisance)
         
