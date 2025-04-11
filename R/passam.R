@@ -624,7 +624,6 @@ passam <- function(y,
     ##----------------
     #' # Run penalized EM at each point on regularization path
     ##----------------
-    tic <- proc.time()
     message("Constructing regularization path...")
 
     cwfit_fn <- function(l) {
@@ -645,7 +644,7 @@ passam <- function(y,
             while(any(cwfit$new_mixprop < 1e-4) & try_counter < 10) {
                 if(control$trace)
                     message("Mixture component is being emptied...altering initial temp probability and restarting EM-algorithm to try and fix this.")
-                control$temper_prob <- control$temper_prob + 0.025
+                control$temper_prob <- control$temper_prob + 0.05
                 
                 cwfit <- pem_fn(qa_object = get_qa, 
                                 lambda = lambdaseq[l], 
@@ -669,7 +668,6 @@ passam <- function(y,
         for(l in 2:length(lambdaseq)) 
             allfits[[l]] <- cwfit_fn(l = l)
         #allfits <- foreach(l = 1:length(lambdaseq)) %dopar% cwfit_fn(l = l)
-        toc <- proc.time()
         gc()
         
         coefficients_path <- abind::abind(lapply(allfits, function(x) x$new_betas), along = 3)
@@ -678,7 +676,6 @@ passam <- function(y,
         }
     if(selection_on == "mixing_proportions") {
         allfits <- foreach(l = 1:length(lambdaseq)) %dopar% cwfit_fn(l = l)
-        toc <- proc.time()
         gc()
         
         coefficients_path <- sapply(allfits, function(x) x$new_mixprop)
@@ -704,6 +701,7 @@ passam <- function(y,
                       num_archetypes = num_archetypes,
                       nlambda = nlambda, 
                       lambda_min_ratio = lambda_min_ratio)
+    attr(out_assam$formula, ".Environment") <- NULL
     
     out_assam$lambda <- lambdaseq
     out_assam$parameters_df <- df_path
