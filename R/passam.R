@@ -642,7 +642,7 @@ passam <- function(y,
                             beta_selection_control = beta_selection_control)
             try_counter <- 0
             
-            while(any(cwfit$new_mixprop < 1e-3) & try_counter < 20) {
+            while(any(cwfit$new_mixprop < 1e-4) & try_counter < 10) {
                 if(control$trace)
                     message("Mixture component is being emptied...altering initial temp probability and restarting EM-algorithm to try and fix this.")
                 control$temper_prob <- control$temper_prob + 0.025
