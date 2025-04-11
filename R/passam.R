@@ -263,7 +263,7 @@ passam <- function(y,
                    nlambda = 100, 
                    lambda_min_ratio = 1e-6,
                    lambda = NULL, 
-                   control = list(max_iter = 500, tol = 1e-4, temper_prob = 0.8, trace = FALSE),
+                   control = list(max_iter = 500, tol = 1e-4, temper_prob = 0.7, trace = FALSE),
                    beta_selection_control = list(min_df = 0, max_iter = 100, eps = 1e-4, round_eps = 1e-5)) {
     
     ##----------------
@@ -386,6 +386,7 @@ passam <- function(y,
     pem_fn <- function(qa_object,
                        lambda, 
                        warm_start = NULL,
+                       temper_prob = control$temper_prob,
                        beta_selection_control) {
         counter <- 0
         diff <- 10
@@ -451,7 +452,7 @@ passam <- function(y,
             if(counter == 0) {
                 if(num_archetypes > 1) {
                     ## Temper the classification in the initial E-step if num_archetypes > 1
-                    alpha_temper <- (1 - control$temper_prob * num_archetypes) / (control$temper_prob * (2-num_archetypes) - 1)          
+                    alpha_temper <- (1 - temper_prob * num_archetypes) / (temper_prob * (2-num_archetypes) - 1)          
                     for(j in 1:num_spp)
                         post_prob[j,] <- (2*alpha_temper*post_prob[j,]-alpha_temper+1)/(2*alpha_temper - alpha_temper*num_archetypes + num_archetypes)
                     new_logL <- -1e8               
@@ -641,13 +642,13 @@ passam <- function(y,
                             beta_selection_control = beta_selection_control)
             try_counter <- 0
             
-            while(any(cwfit$new_mixprop < 1e-4) & try_counter < 10) {
+            while(any(cwfit$new_mixprop < 1e-4) & try_counter < 5) {
                 if(control$trace)
                     message("Mixture component is being emptied...altering initial temp probability and restarting EM-algorithm to try and fix this.")
-                control$temper_prob <- control$temper_prob + 0.05
-                
+
                 cwfit <- pem_fn(qa_object = get_qa, 
                                 lambda = lambdaseq[l], 
+                                temper_prob = control$temper_prob + try_counter*0.05,
                                 beta_selection_control = beta_selection_control)
                 try_counter <- try_counter + 1
                 }

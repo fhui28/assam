@@ -6,7 +6,7 @@
     if(is.null(control$tol))
         control$tol <- 1e-4
     if(is.null(control$temper_prob))
-        control$temper_prob <- 0.8
+        control$temper_prob <- 0.7
     if(is.null(control$trace))
         control$trace <- FALSE
     if(is.null(control$beta_lower))
