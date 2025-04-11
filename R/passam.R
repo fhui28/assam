@@ -702,8 +702,7 @@ passam <- function(y,
                       num_archetypes = num_archetypes,
                       nlambda = nlambda, 
                       lambda_min_ratio = lambda_min_ratio)
-    attr(out_assam$formula, ".Environment", exact = TRUE) <- NULL
-    
+
     out_assam$lambda <- lambdaseq
     out_assam$parameters_df <- df_path
     out_assam$parameters_path <- coefficients_path
@@ -732,6 +731,7 @@ passam <- function(y,
     ##----------------
     #' # Done! Final touches if any
     ##----------------
+    attr(out_assam$formula, ".Environment") <- NULL
     class(out_assam) <- "passam"
     return(out_assam)
     }
