@@ -702,7 +702,7 @@ passam <- function(y,
                       num_archetypes = num_archetypes,
                       nlambda = nlambda, 
                       lambda_min_ratio = lambda_min_ratio)
-    attr(out_assam$formula, ".Environment") <- NULL
+    base::attr(out_assam$formula, ".Environment", exact = TRUE) <- NULL
     
     out_assam$lambda <- lambdaseq
     out_assam$parameters_df <- df_path

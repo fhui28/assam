@@ -20,7 +20,7 @@ assam(
   uncertainty_quantification = FALSE,
   supply_quadapprox = NULL,
   do_assam_fit = TRUE,
-  control = list(max_iter = 500, tol = 1e-04, temper_prob = 0.8, trace = FALSE,
+  control = list(max_iter = 500, tol = 1e-04, temper_prob = 0.7, trace = FALSE,
     beta_lower = NULL, beta_upper = NULL),
   beta_selection_control = list(lambda = 1, warm_start = NULL, max_iter = 100, eps =
     1e-04, round_eps = 1e-05),

@@ -21,7 +21,7 @@ passam(
   nlambda = 100,
   lambda_min_ratio = 1e-06,
   lambda = NULL,
-  control = list(max_iter = 500, tol = 1e-04, temper_prob = 0.8, trace = FALSE),
+  control = list(max_iter = 500, tol = 1e-04, temper_prob = 0.7, trace = FALSE),
   beta_selection_control = list(min_df = 0, max_iter = 100, eps = 1e-04, round_eps =
     1e-05)
 )
