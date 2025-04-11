@@ -225,7 +225,7 @@ use_BIC <- which.min(samfit_select$BIC)
 samfit_select$betas_path[,,use_BIC]
 
 
-## Now fit the final asSAMs given a chosen value of the tuning parameter
+## Now fit the final asSAM given a chosen value of the tuning parameter
 samfit <- assam(y = simdat$y,
 formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) \%>\% as.formula,
 data = covariate_dat,
@@ -235,6 +235,25 @@ num_archetypes = num_archetype,
 uncertainty_quantification = TRUE,
 supply_quadapprox = samfit_prefit,
 beta_selection_control = list(lambda = samfit_select$lambda[use_BIC]),
+bootstrap_control = list(method = "fast"),
+num_cores = detectCores() - 2)
+
+## Alternatively, the final assam can be fitted using "warm starts", which is often
+# useful to consistency between the estimated beta and what is obtaind as passam 
+samfit2 <- assam(y = simdat$y,
+formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) \%>\% as.formula,
+data = covariate_dat,
+family = nbinom2(),
+beta_selection = TRUE,
+num_archetypes = num_archetype,
+uncertainty_quantification = TRUE,
+supply_quadapprox = samfit_prefit,
+beta_selection_control = list(lambda = samfit_select$lambda[use_BIC],
+warm_start = list(betas = samfit_select$betas_path[,,use_BIC-1],
+spp_effects = samfit_select$spp_effects_path[,,use_BIC-1],
+spp_nuisance = samfit_select$spp_nuisance_path[,,use_BIC-1],
+mixing_proportions = samfit_select$mixing_proportions_path[,use_BIC-1],
+posterior_probability = samfit_select$posterior_probability_path[,,use_BIC-1])),
 bootstrap_control = list(method = "fast"),
 num_cores = detectCores() - 2)
 
