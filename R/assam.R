@@ -1038,7 +1038,7 @@ assam <- function(y,
     ##----------------
     #' # Done! Final touches if any
     ##----------------
-    base::attr(out_assam$formula, ".Environment", exact = TRUE) <- NULL
+    attr(out_assam$formula, ".Environment", exact = TRUE) <- NULL
     class(out_assam) <- "assam"
     return(out_assam)
     }
