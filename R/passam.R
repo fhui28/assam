@@ -280,7 +280,7 @@ passam <- function(y,
                    selection_on = "betas",
                    supply_quadapprox = NULL,
                    nlambda = 100, 
-                   lambda_min_ratio = 1e-6,
+                   lambda_min_ratio = 1e-3,
                    lambda = NULL, 
                    control = list(max_iter = 500, tol = 1e-4, temper_prob = 0.7, trace = FALSE),
                    beta_selection_control = list(min_df = 0, max_iter = 100, eps = 1e-4, round_eps = 1e-5)) {
