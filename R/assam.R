@@ -838,14 +838,15 @@ assam <- function(y,
                                         dobar_penalty = FALSE,
                                         betamatrix_selection = out_assam$betas), silent = TRUE)
             
-            setTxtProgressBar(pb, b0)
+            #setTxtProgressBar(pb, b0)
             return(do_boot_em)
             }          
         
-        pb <- txtProgressBar(min = 0, max = bootstrap_control$num_boot, style = 3)
-        bootrun <- lapply(1:bootstrap_control$num_boot, bootcov_fast_fn)
-        close(pb) 
-        rm(pb)
+        #pb <- txtProgressBar(min = 0, max = bootstrap_control$num_boot, style = 3)
+        #bootrun <- lapply(1:bootstrap_control$num_boot, bootcov_fast_fn)
+        bootrun <- foreach::foreach(l = 1:bootstrap_control$num_boot) %dopar% bootcov_fast_fn(b0 = l)
+        #close(pb) 
+        #rm(pb)
         }
     
     if(uncertainty_quantification & bootstrap_control$method == "full_bootstrap") {
