@@ -800,7 +800,7 @@ assam <- function(y,
         out_assam$sdmTMB_fits <- get_qa$sdmTMB_fits
         get_qa$sdmTMB_fits <- NULL
         }
-    
+    gc()
     
     ##----------------
     #' # Standard Error using full or fast but crude parametric bootstrap approach
@@ -853,6 +853,7 @@ assam <- function(y,
         message("Performing full parametric bootstrap to obtain uncertainty quantification...this will take a while so go a brew a cup of tea (or two)!")
         
         #' ## Bootstrap datasets
+        #' It may be better to do this inside the bootcov_fn function, as this will be more memory efficient?
         class(out_assam) <- "assam"
         bootresp <- simulate.assam(out_assam,
                                    data = data,
@@ -860,7 +861,10 @@ assam <- function(y,
                                    do_parallel = do_parallel,
                                    num_cores = num_cores,
                                    seed = bootstrap_control$seed)
-        
+        for(l2 in 1:bootstrap_control$num_boot) {
+            bootresp[3,l2][[1]] <- NA
+            bootresp[4,l2][[1]] <- NA
+            }
 
         #' ## Fit asSAM to each bootstrapped dataset
         bootcov_fn <- function(b0, control) { 
@@ -877,7 +881,8 @@ assam <- function(y,
                                                trial_size = trial_size,
                                                do_parallel = do_parallel,
                                                control = control,
-                                               return_fits = FALSE),
+                                               return_fits = FALSE,
+                                               no_formula_environment = TRUE),
                                silent = TRUE)
             if(inherits(get_boot_qa, "try-error"))
                 return(get_boot_qa)
@@ -896,6 +901,7 @@ assam <- function(y,
                                    betamatrix_selection = out_assam$betas), silent = TRUE)
             
             setTxtProgressBar(pb, b0)
+            gc()
             return(do_em)
             }          
         

@@ -8,7 +8,8 @@
                             trial_size = 1, 
                             do_parallel = TRUE,
                             control = NULL,
-                            return_fits = TRUE) {     
+                            return_fits = TRUE,
+                            no_formula_environment = FALSE) {     
     
     num_spp <- ncol(resp)
     if(add_spatial) {
@@ -74,6 +75,8 @@
         
         fit0$parameters <- fit0$sd_report$par.fixed
         fit0$hessian <- solve(fit0$sd_report$cov.fixed)
+        if(no_formula_environment)
+            attr(fit0$formula, ".Environment") <- NULL
         return(fit0)
         }
     
