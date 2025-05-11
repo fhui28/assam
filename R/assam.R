@@ -865,6 +865,7 @@ assam <- function(y,
             bootresp[3,l2][[1]] <- NA
             bootresp[4,l2][[1]] <- NA
             }
+        gc()
 
         #' ## Fit asSAM to each bootstrapped dataset
         bootcov_fn <- function(b0, control) { 
@@ -914,6 +915,7 @@ assam <- function(y,
         out_assam$sdmTMB_fits <- get_qa$sdmTMB_fits
         get_qa$sdmTMB_fits <- NULL
         file.remove(file.path(tempdir(), "allsdmTMBfits.RData"))
+        gc()
         }
         
     if(uncertainty_quantification) {
