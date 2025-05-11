@@ -902,6 +902,7 @@ assam <- function(y,
                                    betamatrix_selection = out_assam$betas), silent = TRUE)
             
             setTxtProgressBar(pb, b0)
+            rm(get_boot_qa)
             gc()
             return(do_em)
             }          
