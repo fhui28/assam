@@ -39,8 +39,7 @@
 #' }
 #' @param bootstrap_control A list containing the following elements to control the parametric bootstrap for uncertainty quantification:
 #' \describe{
-#' \item{method:}{method of parametric bootstrap to use. Two options are currently available: 1) "full_bootstrap", which is a full parametric bootstrap where new multivariate abundance responses are simulated and a new approximate likelihood function is formed each time; 2) "fast_bootstrap" which bootstraps directly/only off the approximate likelihood. 
-#' Method 1 should be more accurate, but is computationally slower and less scalable. Defaults to "full_bootstrap".}
+#' \item{method:}{method of parametric bootstrap to use. Two options are currently available: 1) "fast_bootstrap" which bootstraps directly/only off the approximate likelihood only; 2) "full_bootstrap", which is a full parametric bootstrap where new multivariate abundance responses are simulated and a new approximate likelihood function is formed each time;  #' Method 2 should be more accurate, but is computationally *much* slower and more memory-hungry. Defaults to "fast_bootstrap".}
 #' \item{num_boot:}{the number of bootstrapped iterations to do. Defaults to 100, which can already take a long time but should be enough in a lot of settings for uncertainty quantification.}
 #' \item{ci_alpha:}{the type-1 level for confidence interval construction. \code{100 * (1 - ci_alpha)} percent Confidence intervals are constructed.}
 #' \item{seed:}{a seed that can be set for bootstrapping the datasets.}
@@ -231,7 +230,6 @@
 #' beta_selection = TRUE,
 #' num_archetypes = num_archetype,
 #' beta_selection_control = list(lambda = 0.1), # Note this an arbitrary choice!
-#' bootstrap_control = list(num_boot = 10), 
 #' num_cores = detectCores() - 2)
 #' 
 #' samfit_select
@@ -311,7 +309,7 @@ assam <- function(y,
                                  beta_lower = NULL, beta_upper = NULL),
                   beta_selection_control = list(lambda = 1, warm_start = NULL, 
                                                 max_iter = 100, eps = 1e-4, round_eps = 1e-5),
-                  bootstrap_control = list(method = "full_bootstrap", 
+                  bootstrap_control = list(method = "fast_bootstrap", 
                                            num_boot = 100, ci_alpha = 0.05, seed = NULL, 
                                            ci_type = "percentile")) {
     
@@ -804,11 +802,11 @@ assam <- function(y,
     
     ##----------------
     #' # Standard Error using full or fast but crude parametric bootstrap approach
-    #' Computation time for full parametric bootstrap is crap at the moment unless you have a HPC!!! Starts from estimated parameters to give a little speed on for the quadratic approximations, so not used...
+    #' Computation time and memory usage for full bootstrap is crap at the moment unless you have a HPC!!! Starts from estimated parameters to give a little speed on for the quadratic approximations, so not used...
     #' In the case model selection is performed i.e., beta_selection = TRUE, **bootstrap is performed conditional on selected model** 
     ##----------------
     if(uncertainty_quantification & bootstrap_control$method == "fast_bootstrap") {
-        message("Performing a fast but crude parametric bootstrap approach to obtain uncertainty quantification. Please take the results with a grain of salt!")
+        message("Performing a fast but crude parametric bootstrap approach to obtain uncertainty quantification. In our experience, this works alright especially if the number of observational units is large. However, please take the results with a grain of salt!")
         
         #' ## Bootstrap datasets
         bootresp <- .fastsimulate_assam(qa_object = get_qa,
@@ -850,7 +848,7 @@ assam <- function(y,
         }
     
     if(uncertainty_quantification & bootstrap_control$method == "full_bootstrap") {
-        message("Performing full parametric bootstrap to obtain uncertainty quantification...this will take a while so go a brew a cup of tea (or two)!")
+        message("Performing full parametric bootstrap to obtain uncertainty quantification...this will take a while and be quite memory-hungry, so go a brew a cup of tea or two!")
         
         #' ## Bootstrap datasets
         #' It may be better to do this inside the bootcov_fn function, as this will be more memory efficient?

@@ -24,7 +24,7 @@ assam(
     beta_lower = NULL, beta_upper = NULL),
   beta_selection_control = list(lambda = 1, warm_start = NULL, max_iter = 100, eps =
     1e-04, round_eps = 1e-05),
-  bootstrap_control = list(method = "full_bootstrap", num_boot = 100, ci_alpha = 0.05,
+  bootstrap_control = list(method = "fast_bootstrap", num_boot = 100, ci_alpha = 0.05,
     seed = NULL, ci_type = "percentile")
 )
 }
@@ -80,8 +80,7 @@ assam(
 
 \item{bootstrap_control}{A list containing the following elements to control the parametric bootstrap for uncertainty quantification:
 \describe{
-\item{method:}{method of parametric bootstrap to use. Two options are currently available: 1) "full_bootstrap", which is a full parametric bootstrap where new multivariate abundance responses are simulated and a new approximate likelihood function is formed each time; 2) "fast_bootstrap" which bootstraps directly/only off the approximate likelihood.
-Method 1 should be more accurate, but is computationally slower and less scalable. Defaults to "full_bootstrap".}
+\item{method:}{method of parametric bootstrap to use. Two options are currently available: 1) "fast_bootstrap" which bootstraps directly/only off the approximate likelihood only; 2) "full_bootstrap", which is a full parametric bootstrap where new multivariate abundance responses are simulated and a new approximate likelihood function is formed each time;  #' Method 2 should be more accurate, but is computationally \emph{much} slower and more memory-hungry. Defaults to "fast_bootstrap".}
 \item{num_boot:}{the number of bootstrapped iterations to do. Defaults to 100, which can already take a long time but should be enough in a lot of settings for uncertainty quantification.}
 \item{ci_alpha:}{the type-1 level for confidence interval construction. \code{100 * (1 - ci_alpha)} percent Confidence intervals are constructed.}
 \item{seed:}{a seed that can be set for bootstrapping the datasets.}
@@ -274,7 +273,6 @@ family = tweedie(),
 beta_selection = TRUE,
 num_archetypes = num_archetype,
 beta_selection_control = list(lambda = 0.1), # Note this an arbitrary choice!
-bootstrap_control = list(num_boot = 10), 
 num_cores = detectCores() - 2)
 
 samfit_select
