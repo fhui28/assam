@@ -16,6 +16,14 @@ Currently, `assam` is available and can be installed from Github with the help o
 pak::pkg_install("fhui28/assam")
 ```
 
+# Getting started
+
+Users are recommended to either:
+
+1. Check out the examples in the help files for the `assam` and `passam` functions in the package;
+
+2. Examine the `runsims.R` scripts inside the folders `ms/setting1` and `ms/setting2`, which are template `R` scripts that can be adapted to run simulation settings 1 and 2 in the associated manuscript;
+
 # If you find any bugs and issues...
 
 If you find something that looks like a bug/issue, please use Github issues and post it up there. As much as possible, please include in the issue:
