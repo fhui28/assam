@@ -54,8 +54,8 @@ for(k0 in 1:length(n_seq)) {
             next;
         load(cw_filename)
         
-        all_computation_times[k0, k1, 1:2] <- c(assams_tictoclog_lst[[1]]$toc - assams_tictoclog_lst[[1]]$tic + assams_tictoclog_lst[[2]]$toc - assams_tictoclog_lst[[2]]$tic,
-                                                assams_tictoclog_lst[[1]]$toc - assams_tictoclog_lst[[1]]$tic + assams_tictoclog_lst[[3]]$toc - assams_tictoclog_lst[[3]]$tic)
+        all_computation_times[k0, k1, 1:2] <- c(alltimes_tictoclog_lst[[1]]$toc - alltimes_tictoclog_lst[[1]]$tic + alltimes_tictoclog_lst[[2]]$toc - alltimes_tictoclog_lst[[2]]$tic,
+                                                alltimes_tictoclog_lst[[1]]$toc - alltimes_tictoclog_lst[[1]]$tic + alltimes_tictoclog_lst[[3]]$toc - alltimes_tictoclog_lst[[3]]$tic)
         
         get_pairs <- list(pairs = cbind(1:num_archetype, table(true_archetype_label, apply(samfit_final_pointest$posterior_probability, 1, which.max)) %>% apply(., 1, which.max)))
         all_bias[k0, k1, 1:2] <- c(mean(samfit_final_pointest$betas[get_pairs$pairs[,2],] - true_betas),
@@ -72,7 +72,7 @@ for(k0 in 1:length(n_seq)) {
         
         #' ## species_mix results
         if(response_types != "tweedie") {
-            all_computation_times[k0, k1, 3] <- c(speciesmix_tictoclog_lst[[1]]$toc - speciesmix_tictoclog_lst[[1]]$tic)
+            all_computation_times[k0, k1, 3] <- c(alltimes_tictoclog_lst[[4]]$toc - alltimes_tictoclog_lst[[4]]$tic)
             
             get_pairs <- list(pairs = cbind(1:num_archetype, table(true_archetype_label, apply(speciesmix_pointestimate$tau, 1, which.max)) %>% apply(., 1, which.max)))
             all_bias[k0, k1, 3] <- c(mean(speciesmix_pointestimate$coefs$beta[get_pairs$pairs[,2],] - true_betas))
