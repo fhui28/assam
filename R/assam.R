@@ -123,6 +123,7 @@
 #' library(mvtnorm)
 #' library(GGally)
 #' library(doParallel)
+#' library(sdmTMB)
 #' 
 #' set.seed(022025)
 #' 
@@ -161,6 +162,7 @@
 #' data = covariate_dat,
 #' family = nbinom2(),
 #' num_archetypes = num_archetype,
+#' uncertainty_quantification = TRUE,
 #' num_cores = detectCores() - 2)
 #' 
 #'  
@@ -801,12 +803,12 @@ assam <- function(y,
     gc()
     
     ##----------------
-    #' # Standard Error using full or fast but crude parametric bootstrap approach
+    #' # Standard Error using full or fast but approximate parametric bootstrap approach
     #' Computation time and memory usage for full bootstrap is crap at the moment unless you have a HPC!!! Starts from estimated parameters to give a little speed on for the quadratic approximations, so not used...
     #' In the case model selection is performed i.e., beta_selection = TRUE, **bootstrap is performed conditional on selected model** 
     ##----------------
     if(uncertainty_quantification & bootstrap_control$method == "fast_bootstrap") {
-        message("Performing a fast but crude parametric bootstrap approach to obtain uncertainty quantification. In our experience, this works alright especially if the number of observational units is large. However, please take the results with a grain of salt!")
+        message("Performing a fast but approximate parametric bootstrap approach to obtain uncertainty quantification. In our experience, this works alright especially if the number of observational units is large. However, please take the results with a grain of salt!")
         
         #' ## Bootstrap datasets
         bootresp <- .fastsimulate_assam(qa_object = get_qa,

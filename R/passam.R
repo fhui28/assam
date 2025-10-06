@@ -93,7 +93,8 @@
 #' library(mvtnorm)
 #' library(GGally)
 #' library(doParallel)
-#' 
+#' library(sdmMB)
+#'
 #' set.seed(042025)
 #' 
 #' num_X <- 10

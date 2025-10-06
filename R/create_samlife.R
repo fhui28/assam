@@ -64,6 +64,7 @@
 #' ##----------------------
 #' library(tidyverse)
 #' library(mvtnorm)
+#' library(sdmTMB)
 #'
 #' set.seed(022025)
 #' 
