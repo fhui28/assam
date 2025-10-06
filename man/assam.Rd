@@ -166,6 +166,7 @@ library(tidyverse)
 library(mvtnorm)
 library(GGally)
 library(doParallel)
+library(sdmTMB)
 
 set.seed(022025)
 
@@ -204,6 +205,7 @@ formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) \%>\% as.
 data = covariate_dat,
 family = nbinom2(),
 num_archetypes = num_archetype,
+uncertainty_quantification = TRUE,
 num_cores = detectCores() - 2)
 
  
@@ -244,9 +246,8 @@ num_cores = detectCores() - 2, se_fit = TRUE)
 ##----------------------
 # Example 2: Demonstrating variable selection on the archetypal regression coefficients
 # Generate some multivariate abundance (non-negative continuous) data from a sparse SAM
-# Note only a single tuning parameter is used below; please see the [passam()] for 
-# constructing a proper regularization path, as well as to perform selection on the 
-# mixing proportions i.e., choose the number of archetypes. 
+# Note **only a single tuning parameter is used below**; please see [passam()] for 
+# constructing a proper regularization path. 
 ##----------------------
 true_betas <- runif(num_archetype * num_X, -1, 1) \%>\% matrix(nrow = num_archetype)
 true_betas[which(abs(true_betas) < 0.4)] <- 0 # Making archetypal coefficients sparse

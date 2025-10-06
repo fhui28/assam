@@ -136,6 +136,7 @@ library(tidyverse)
 library(mvtnorm)
 library(GGally)
 library(doParallel)
+library(sdmTMB)
 
 set.seed(042025)
 
@@ -187,6 +188,9 @@ do_assam_fit = FALSE)
 
 
 ## Model selection for the number of archetypes
+# Note in the manuscript, we recommend "simply" fitting unpenalized asSAMs for a range of 
+# candidate values and using BIC to select the number of archetypes. In practice, we find
+# this to be faster and works just as well!
 samfit_select <- passam(y = simdat$y,
 formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) \%>\% as.formula,
 data = covariate_dat,
@@ -232,21 +236,18 @@ data = covariate_dat,
 family = nbinom2(),
 beta_selection = TRUE,
 num_archetypes = num_archetype,
-uncertainty_quantification = TRUE,
 supply_quadapprox = samfit_prefit,
 beta_selection_control = list(lambda = samfit_select$lambda[use_BIC]),
-bootstrap_control = list(method = "fast"),
 num_cores = detectCores() - 2)
 
-## Alternatively, the final assam can be fitted using "warm starts", which is often
-# useful to consistency between the estimated beta and what is obtaind as passam 
+## Alternatively, the final assam can be fitted using "warm starts". This can be useful
+# for "exact" consistency between the estimated beta and what is obtained from passam 
 samfit2 <- assam(y = simdat$y,
 formula = paste("~ ", paste0(colnames(covariate_dat), collapse = "+")) \%>\% as.formula,
 data = covariate_dat,
 family = nbinom2(),
 beta_selection = TRUE,
 num_archetypes = num_archetype,
-uncertainty_quantification = TRUE,
 supply_quadapprox = samfit_prefit,
 beta_selection_control = list(lambda = samfit_select$lambda[use_BIC],
 warm_start = list(betas = samfit_select$betas_path[,,use_BIC-1],
@@ -254,12 +255,14 @@ spp_effects = samfit_select$spp_effects_path[,,use_BIC-1],
 spp_nuisance = samfit_select$spp_nuisance_path[,,use_BIC-1],
 mixing_proportions = samfit_select$mixing_proportions_path[,use_BIC-1],
 posterior_probability = samfit_select$posterior_probability_path[,,use_BIC-1])),
-bootstrap_control = list(method = "fast"),
 num_cores = detectCores() - 2)
 
 
 samfit
+samfit2
+
 samfit$betas
+samfit2$betas
 true_betas
 
 plot(true_spp_effects, samfit$spp_effects); abline(0,1)
@@ -287,10 +290,10 @@ residuals(samfit, type = "dunnsmyth")
 plot(samfit, transform_fitted_values = TRUE, envelope = FALSE)
  
 # Archetype-level predictions
-predict(samfit, newdata = covariate_dat, type = "archetype", se_fit = TRUE) 
+predict(samfit, newdata = covariate_dat, type = "archetype") 
 
 # Species-level predictions
-predict(samfit, newdata = covariate_dat, type = "species_max", num_cores = 8, se_fit = FALSE) 
+predict(samfit, newdata = covariate_dat, type = "species_max") 
 }
 }
 \author{

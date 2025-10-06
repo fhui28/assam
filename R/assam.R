@@ -203,9 +203,8 @@
 #' ##----------------------
 #' # Example 2: Demonstrating variable selection on the archetypal regression coefficients
 #' # Generate some multivariate abundance (non-negative continuous) data from a sparse SAM
-#' # Note only a single tuning parameter is used below; please see the [passam()] for 
-#' # constructing a proper regularization path, as well as to perform selection on the 
-#' # mixing proportions i.e., choose the number of archetypes. 
+#' # Note **only a single tuning parameter is used below**; please see [passam()] for 
+#' # constructing a proper regularization path. 
 #' ##----------------------
 #' true_betas <- runif(num_archetype * num_X, -1, 1) %>% matrix(nrow = num_archetype)
 #' true_betas[which(abs(true_betas) < 0.4)] <- 0 # Making archetypal coefficients sparse
