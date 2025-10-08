@@ -49,8 +49,8 @@ all_computation_times <- all_order_selection <- array(NA,
                                                       dim = c(length(n_seq), num_dataset, length(method_names)), 
                                                       dimnames = list(n_seq, 1:num_dataset, method_names))
 all_sensitivity <- all_specificity <- all_F1score <- all_phi <- array(NA, 
-                                                                      dim = c(length(n_seq), num_dataset, length(method_names[c(2,4)])), 
-                                                                      dimnames = list(n_seq, 1:num_dataset, method_names[c(2,4)]))
+                                                                      dim = c(length(n_seq), num_dataset, length(method_names[c(2:4)])), 
+                                                                      dimnames = list(n_seq, 1:num_dataset, method_names[c(2:4)]))
 
 
 for(k0 in 1:length(n_seq)) {
@@ -98,13 +98,21 @@ for(k0 in 1:length(n_seq)) {
                                                   nrow(stacked_glmnet_pam_knownclusters$medoids),
                                                   nrow(speciesmix_chosen$coefs$beta))
             
-            
+            if(nrow(speciesmix_chosen$coefs$beta) == 5) {
+                get_pairs <- list(pairs = cbind(1:num_archetype, table(true_archetype_label, stacked_glmnet_pam_gap$clustering) %>% apply(., 1, which.max)))
+                makepred_obj <- ROCR::prediction(predictions = as.vector(1*(stacked_glmnet_pam_gap$medoids[get_pairs$pairs[,2],] != 0)), labels = as.vector(1*(true_betas != 0)))
+                all_sensitivity[k0,k1,2] <- ROCR::performance(makepred_obj, measure = "sens")@y.values[[1]][2]
+                all_specificity[k0,k1,2] <- ROCR::performance(makepred_obj, measure = "spec")@y.values[[1]][2]
+                all_F1score[k0,k1,2] <- ROCR::performance(makepred_obj, measure = "f")@y.values[[1]][2]
+                all_phi[k0,k1,2] <- ROCR::performance(makepred_obj, measure = "phi")@y.values[[1]][2]
+                }
+                
             get_pairs <- list(pairs = cbind(1:num_archetype, table(true_archetype_label, stacked_glmnet_pam_knownclusters$clustering) %>% apply(., 1, which.max)))
             makepred_obj <- ROCR::prediction(predictions = as.vector(1*(stacked_glmnet_pam_knownclusters$medoids[get_pairs$pairs[,2],] != 0)), labels = as.vector(1*(true_betas != 0)))
-            all_sensitivity[k0,k1,2] <- ROCR::performance(makepred_obj, measure = "sens")@y.values[[1]][2]
-            all_specificity[k0,k1,2] <- ROCR::performance(makepred_obj, measure = "spec")@y.values[[1]][2]
-            all_F1score[k0,k1,2] <- ROCR::performance(makepred_obj, measure = "f")@y.values[[1]][2]
-            all_phi[k0,k1,2] <- ROCR::performance(makepred_obj, measure = "phi")@y.values[[1]][2]
+            all_sensitivity[k0,k1,3] <- ROCR::performance(makepred_obj, measure = "sens")@y.values[[1]][2]
+            all_specificity[k0,k1,3] <- ROCR::performance(makepred_obj, measure = "spec")@y.values[[1]][2]
+            all_F1score[k0,k1,3] <- ROCR::performance(makepred_obj, measure = "f")@y.values[[1]][2]
+            all_phi[k0,k1,3] <- ROCR::performance(makepred_obj, measure = "phi")@y.values[[1]][2]
             }
         
         if(response_types == "tweedie") {
@@ -117,12 +125,21 @@ for(k0 in 1:length(n_seq)) {
                                                   nrow(stacked_glmnet_pam_knownclusters$medoids))
             
             
+            if(nrow(speciesmix_chosen$coefs$beta) == 5) {
+                get_pairs <- list(pairs = cbind(1:num_archetype, table(true_archetype_label, stacked_glmnet_pam_gap$clustering) %>% apply(., 1, which.max)))
+                makepred_obj <- ROCR::prediction(predictions = as.vector(1*(stacked_glmnet_pam_gap$medoids[get_pairs$pairs[,2],] != 0)), labels = as.vector(1*(true_betas != 0)))
+                all_sensitivity[k0,k1,2] <- ROCR::performance(makepred_obj, measure = "sens")@y.values[[1]][2]
+                all_specificity[k0,k1,2] <- ROCR::performance(makepred_obj, measure = "spec")@y.values[[1]][2]
+                all_F1score[k0,k1,2] <- ROCR::performance(makepred_obj, measure = "f")@y.values[[1]][2]
+                all_phi[k0,k1,2] <- ROCR::performance(makepred_obj, measure = "phi")@y.values[[1]][2]
+                }
+            
             get_pairs <- list(pairs = cbind(1:num_archetype, table(true_archetype_label, stacked_glmnet_pam_knownclusters$clustering) %>% apply(., 1, which.max)))
             makepred_obj <- ROCR::prediction(predictions = as.vector(1*(stacked_glmnet_pam_knownclusters$medoids[get_pairs$pairs[,2],] != 0)), labels = as.vector(1*(true_betas != 0)))
-            all_sensitivity[k0,k1,2] <- ROCR::performance(makepred_obj, measure = "sens")@y.values[[1]][2]
-            all_specificity[k0,k1,2] <- ROCR::performance(makepred_obj, measure = "spec")@y.values[[1]][2]
-            all_F1score[k0,k1,2] <- ROCR::performance(makepred_obj, measure = "f")@y.values[[1]][2]
-            all_phi[k0,k1,2] <- ROCR::performance(makepred_obj, measure = "phi")@y.values[[1]][2]
+            all_sensitivity[k0,k1,3] <- ROCR::performance(makepred_obj, measure = "sens")@y.values[[1]][2]
+            all_specificity[k0,k1,3] <- ROCR::performance(makepred_obj, measure = "spec")@y.values[[1]][2]
+            all_F1score[k0,k1,3] <- ROCR::performance(makepred_obj, measure = "f")@y.values[[1]][2]
+            all_phi[k0,k1,3] <- ROCR::performance(makepred_obj, measure = "phi")@y.values[[1]][2]
             }
         
         rm(list = ls(pattern = "stacked_glmnet"))
@@ -138,8 +155,7 @@ for(k0 in 1:length(n_seq)) {
 all_order_selection %>% 
     as.data.frame.table %>% 
     group_by(Var1, Var3) %>%
-    reframe(prop_correct = sum(Freq == 5, na.rm = TRUE),
-            num_converged_datasets = sum(!is.na(Freq))) %>% 
+    reframe(prop_correct = sum(Freq == 5, na.rm = TRUE)) %>% 
     print(n = Inf)
 
 # apply(all_sensitivity, c(1,3), mean, na.rm = TRUE) %>% round(4)
