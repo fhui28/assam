@@ -29,6 +29,9 @@ true_betas[,9:12] <- 0
 true_betas
 
 true_spp_effects <- matrix(runif(num_spp, -3, -1), ncol = 1)
+#' For the additional simulation involving datasets with reduced prevalence, use the following modification which sets all species-specific effects are set to -2.75. 
+#' On average, this makes the mean prevalence around 9-10% with a range from 7 to 15% for binary and negative binomial responses.
+# true_spp_effects <- matrix(runif(num_spp, -2.75, -2.75), ncol = 1) 
 true_dispparam <- 1/runif(num_spp, 1, 5)
 true_powerparam <- runif(num_spp, 1.2, 1.8)
 true_mixprop <- c(0.2, 0.2, 0.35, 0.15, 0.1)
