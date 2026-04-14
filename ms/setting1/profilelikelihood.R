@@ -28,6 +28,10 @@ num_archetype <- nrow(true_betas)
 
 new_formula <- ~ GBR_BATHY + GBR_TS_BSTRESS + GA_CRBNT + GA_GRAVEL + GA_MUD + CRS_O2_AV + CRS_S_AV + CRS_T_AV + SW_CHLA_AV
 
+#' For the additional simulation involving datasets with reduced prevalence, use the following modification which sets all species-specific effects are set to -2.5. 
+#' On average, this makes the mean prevalence around 9-10% with a range from 7 to 12% for binary and negative binomial responses.
+# true_spp_effects <- matrix(runif(num_spp, -2.5, -2.5), ncol = 1) 
+
 
 ##----------------------
 #' # Set up simulation function
