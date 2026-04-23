@@ -161,9 +161,9 @@ all_order_selection %>%
     reframe(prop_correct = sum(Freq == 5, na.rm = TRUE)) %>% 
     print(n = Inf)
 
-# apply(all_sensitivity, c(1,3), mean, na.rm = TRUE) %>% round(4)
-# apply(all_specificity, c(1,3), mean, na.rm = TRUE) %>% round(4)
-apply(all_F1score, c(1,3), mean, na.rm = TRUE) %>% round(4)
-# apply(all_phi, c(1,3), mean, na.rm = TRUE) %>% round(4)
+# apply(all_sensitivity, c(1,3), mean, na.rm = TRUE) %>% round(3)
+# apply(all_specificity, c(1,3), mean, na.rm = TRUE) %>% round(3)
+apply(all_F1score, c(1,3), mean, na.rm = TRUE) %>% round(3)
+# apply(all_phi, c(1,3), mean, na.rm = TRUE) %>% round(3)
 
-apply(all_computation_times, c(1,3), mean, na.rm = TRUE) %>% round(4)
+apply(all_computation_times, c(1,3), mean, na.rm = TRUE) %>% round(3)

@@ -88,11 +88,9 @@ for(k0 in 1:length(n_seq)) {
 
 
 
-
-
-apply(all_bias, c(1,3), mean, na.rm = TRUE) %>% round(4)
-apply(all_RMSE, c(1,3), mean, na.rm = TRUE) %>% round(4)
-apply(all_coverage, c(1,3), mean, na.rm = TRUE) %>% round(4)
-apply(all_computation_times, c(1,3), mean, na.rm = TRUE) %>% round(4)
+apply(all_bias*10, c(1,3), mean, na.rm = TRUE) %>% round(3)
+apply(all_RMSE, c(1,3), mean, na.rm = TRUE) %>% round(3)
+apply(all_coverage, c(1,3), mean, na.rm = TRUE) %>% round(3)
+apply(all_computation_times, c(1,3), mean, na.rm = TRUE) %>% round(3)
 
 
