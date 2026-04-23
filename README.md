@@ -22,7 +22,7 @@ Users are recommended to either:
 
 1. Check out the examples in the help files for the `assam` and `passam` functions in the package;
 
-2. Examine the `runsims.R` scripts inside the folders `ms/setting1` and `ms/setting2`, which are template `R` scripts that can be adapted to run simulation settings 1 and 2 in the associated manuscript;
+2. Examine the `runsims.R` scripts inside the folders `ms/setting1` and `ms/setting2` and `ms/setting_small`, which are template `R` scripts that can be adapted to run simulation settings 1, 2, and the smaller simulation setting (where asSAMs was also compared with a Bayesian method to fit SAMs using [cmdstanr](https://mc-stan.org/cmdstanr/)), respectively, in the associated manuscript;
 
 # If you find any bugs and issues...
 
