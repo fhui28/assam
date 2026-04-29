@@ -37,7 +37,7 @@ new_formula <- ~ GBR_BATHY + GBR_TS_BSTRESS + GA_CRBNT + GA_GRAVEL + GA_MUD + CR
 ##----------------------
 #' # Source results
 ##----------------------
-response_types <- c("tweedie")
+response_types <- c("binomial")
 n_seq <- c(250, 500, 1000, 2000)
 num_dataset <- 200
 method_names <- c("assam_pointestimateonly", "assam_bootfast", "speciesmix_pointestimateonly")
@@ -50,7 +50,6 @@ all_computation_times <- all_RMSE <- all_bias <- all_coverage <- array(NA,
 
 for(k0 in 1:length(n_seq)) {
     for(k1 in 1:num_dataset) {
-        
         #' ## (p)asSAM results
         cw_filename <- paste0("simdat_", response_types, "_numunits", n_seq[k0], "_assam_dataset", k1, ".RData")
         if(!file.exists(cw_filename))
@@ -94,3 +93,70 @@ apply(all_coverage, c(1,3), mean, na.rm = TRUE) %>% round(3)
 apply(all_computation_times, c(1,3), mean, na.rm = TRUE) %>% round(3)
 
 
+##----------------------
+#' # Source results -- Bias and relative results *done for each coefficient separately*
+##----------------------
+response_types <- c("binomial")
+n_seq <- c(250, 500, 1000, 2000)
+num_dataset <- 200
+method_names <- c("assam_pointestimateonly", "assam_bootfast", "speciesmix_pointestimateonly")
+
+all_bias <- all_relative_bias <- array(NA, 
+                                       dim = c(nrow(true_betas), ncol(true_betas), length(n_seq), num_dataset, length(method_names)), 
+                                       dimnames = list(paste0("Archetype ", 1:nrow(true_betas)), 
+                                                       paste0("Covariate ", 1:ncol(true_betas)), 
+                                                       n_seq, 
+                                                       1:num_dataset, 
+                                                       method_names))
+
+
+for(k0 in 1:length(n_seq)) {
+    for(k1 in 1:num_dataset) {
+        #' ## (p)asSAM results
+        cw_filename <- paste0("simdat_", response_types, "_numunits", n_seq[k0], "_assam_dataset", k1, ".RData")
+        if(!file.exists(cw_filename))
+            next;
+        load(cw_filename)
+        
+        get_pairs <- list(pairs = cbind(1:num_archetype, table(true_archetype_label, apply(samfit_final_pointest$posterior_probability, 1, which.max)) %>% apply(., 1, which.max)))
+        all_bias[,,k0, k1, 1:2] <- c(samfit_final_pointest$betas[get_pairs$pairs[,2],] - true_betas,
+                                     samfit_final_boot_fast$betas[get_pairs$pairs[,2],] - true_betas)
+        all_relative_bias[,,k0, k1, 1:2] <- c((samfit_final_pointest$betas[get_pairs$pairs[,2],] - true_betas)/true_betas,
+                                              (samfit_final_boot_fast$betas[get_pairs$pairs[,2],] - true_betas)/true_betas)
+        
+        rm(list = ls(pattern = "tictoclog"))
+        rm(list = ls(pattern = "samfit"))
+        
+        
+        #' ## speciesmix results
+        cw_filename <- paste0(response_types, "/simdat_", response_types, "_numunits", n_seq[k0], "_othermethods_dataset", k1, ".RData")
+        if(!file.exists(cw_filename))
+            next;
+        load(cw_filename)
+        
+        if(response_types != "tweedie") {
+            get_pairs <- list(pairs = cbind(1:num_archetype, table(true_archetype_label, apply(speciesmix_pointestimate$tau, 1, which.max)) %>% apply(., 1, which.max)))
+            all_bias[,,k0, k1, 3] <- speciesmix_pointestimate$coefs$beta[get_pairs$pairs[,2],] - true_betas
+            all_relative_bias[,,k0, k1, 3] <- (speciesmix_pointestimate$coefs$beta[get_pairs$pairs[,2],] - true_betas)/true_betas
+            }
+        
+        rm(speciesmix_pointestimate)
+        }
+    }
+
+
+
+apply(all_bias[,,,,-1], c(1,2,5,3), mean, na.rm = TRUE) %>% 
+    round(4) %>% 
+    ftable
+apply(all_relative_bias[,,,,-1], c(1,2,5,3), mean, na.rm = TRUE) %>% 
+    round(4) %>% 
+    ftable
+
+
+apply(all_bias[,,,,-1], c(5,3), mean, na.rm = TRUE) %>% 
+    round(4) %>% 
+    ftable
+apply(all_relative_bias[,,,,-1], c(5,3), mean, na.rm = TRUE) %>% 
+    round(4) %>% 
+    ftable
