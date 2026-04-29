@@ -12,3 +12,5 @@ R/note_comparingsdmfittomgcv.R
 R/note_comparetoecomix.R
 R/notes_modelselection.R
 R/notes.R
+^\.positai$
+^\.claude$

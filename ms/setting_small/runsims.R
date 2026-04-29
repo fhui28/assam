@@ -37,7 +37,8 @@ true_mixprop <- c(0.25,0.5,0.25)
 #' # Set up simulation function
 ##----------------------
 simfn <- function(seed,
-                  num_units = 250) {
+                  num_units = 250,
+                  family = binomial()) {
     
     num_boot <- 100
     
@@ -49,7 +50,7 @@ simfn <- function(seed,
     covariate_dat <- environ_dat[sel_sites,, drop = FALSE]
     set.seed(NULL)
     
-    simdat <- create_samlife(family = binomial(),
+    simdat <- create_samlife(family = family,
                              formula = new_formula, 
                              data = covariate_dat,
                              betas = true_betas,
@@ -70,7 +71,7 @@ simfn <- function(seed,
     samfit_prefit <- assam(y = simdat$y,
                            formula = new_formula,
                            data = covariate_dat,
-                           family = binomial(),
+                           family = family,
                            num_archetypes = 2, #' This is arbitrary and does not matter
                            num_cores = detectCores() - 4,
                            do_assam_fit = FALSE)
@@ -81,7 +82,7 @@ simfn <- function(seed,
     samfit_final_pointest <- try(assam(y = simdat$y,
                                        formula = new_formula,
                                        data = covariate_dat,
-                                       family = binomial(),
+                                       family = family,
                                        num_archetypes = num_archetype,
                                        uncertainty_quantification = FALSE,
                                        supply_quadapprox = samfit_prefit,
@@ -93,15 +94,15 @@ simfn <- function(seed,
     
     tictoc::tic("assams_final_fastbootstrap")
     samfit_final_boot_fast <- try(assam(y = simdat$y,
-                                    formula = new_formula,
-                                    data = covariate_dat,
-                                    family = binomial(),
-                                    num_archetypes = num_archetype,
-                                    uncertainty_quantification = TRUE,
-                                    bootstrap_control = list(method = "fast", num_boot = num_boot),
-                                    supply_quadapprox = samfit_prefit,
-                                    num_cores = detectCores() - 4),
-                                    silent = TRUE)
+                                        formula = new_formula,
+                                        data = covariate_dat,
+                                        family = family,
+                                        num_archetypes = num_archetype,
+                                        uncertainty_quantification = TRUE,
+                                        bootstrap_control = list(method = "fast", num_boot = num_boot),
+                                        supply_quadapprox = samfit_prefit,
+                                        num_cores = detectCores() - 4),
+                                  silent = TRUE)
     samfit_final_boot_fast$sdmTMB_fits <- samfit_final_boot_fast$linear_predictor <- NULL
     samfit_final_boot_fast$bootstrap_posterior_probability <- NULL
     samfit_final_boot_fast$bootstrap_parameters <- NULL
@@ -120,11 +121,18 @@ simfn <- function(seed,
     sam_form <- paste0('cbind(',paste("spp", 1:num_spp, sep = "", collapse = ','), ") ~ ", as.character(new_formula)[2]) %>% 
         as.formula
     
+    pick_response_type <- NULL
+    if(family$family == "binomial")
+        pick_response_type <- "bernoulli"
+    if(family$family == "nbinom2")
+        pick_response_type <- "negative.binomial"
+    
+    
     tictoc::tic("speciesmix_pointestimateonly")
     speciesmix_pointestimate <- try(species_mix(archetype_formula = sam_form,
                                                 species_formula = ~ 1,
                                                 data = data.frame(simdat$y, covariate_dat), 
-                                                family = "bernoulli", 
+                                                family = pick_response_type, 
                                                 nArchetypes = num_archetype),
                                     silent = TRUE)
     tictoc::toc(log = TRUE)
@@ -155,7 +163,10 @@ simfn <- function(seed,
     #' # Method 3: Fitting a SAM using Bayesian MCMC via stan
     #' Then account for label switching using the Stephens (2000) algorithm as implemented in the label.switching package
     ##----------------------
-    mod <- cmdstan_model("sam.stan")
+    if(family$family == "binomial")
+        mod <- cmdstan_model("sam.stan")
+    if(family$family == "nbinom2")
+        mod <- cmdstan_model("sam_nbinom2.stan")
     
     tictoc::tic("stanfit")
     stan_data <- list(
@@ -168,7 +179,7 @@ simfn <- function(seed,
         alpha_dirichlet = rep(1, num_archetype) # Uniform prior on mixing
         )
     init_fun <- function() {
-        list(beta = true_betas, pi = true_mixprop)
+        list(beta = true_betas, pi = true_mixprop, phi = true_dispparam)
         }
     
     
@@ -226,6 +237,13 @@ simfn <- function(seed,
                                                                               median,
                                                                               sd,
                                                                               ~quantile(.x, probs = c(0.025, 0.975))))
+    if(pick_response_type == "negative.binomial") {
+        fit_stan_summary$spp_dispersion <- posterior::summarize_draws(fit_stan$draws(variables = "phi") %>% posterior::as_draws_matrix(z_draws),
+                                                                mean,
+                                                                median,
+                                                                sd,
+                                                                ~quantile(.x, probs = c(0.025, 0.975)))
+        }
     tictoc::toc(log = TRUE)
     rm(fit_stan, stan_data)
     stanfit_tictoclog_txt <- tictoc::tic.log(format = TRUE)
@@ -251,7 +269,7 @@ simfn <- function(seed,
          stanfit_tictoclog_txt,
          stanfit_tictoclog_lst,
          true_archetype_label,
-         file = paste0("simdat_numunits", num_units, "_dataset", seed, ".RData"))
+         file = paste0("simdat_", family$family, "_numunits", num_units, "_dataset", seed, ".RData"))
     
     tictoc::tic.clearlog()
     }
