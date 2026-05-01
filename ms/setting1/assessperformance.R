@@ -6,6 +6,7 @@
 
 rm(list = ls())
 library(tidyverse)
+library(ggforce)
 library(mvtnorm)
 library(doParallel)
 library(tictoc)
@@ -51,7 +52,7 @@ all_computation_times <- all_RMSE <- all_bias <- all_coverage <- array(NA,
 for(k0 in 1:length(n_seq)) {
     for(k1 in 1:num_dataset) {
         #' ## (p)asSAM results
-        cw_filename <- paste0("simdat_", response_types, "_numunits", n_seq[k0], "_assam_dataset", k1, ".RData")
+        cw_filename <- paste0("simdat_", response_types, "_numunits", n_seq[k0], "_dataset", k1, ".RData")
         if(!file.exists(cw_filename))
             next;
         load(cw_filename)
@@ -68,9 +69,6 @@ for(k0 in 1:length(n_seq)) {
                                        mean(samfit_final_boot_fast$confidence_intervals$betas$upper[get_pairs$pairs[,2],] > true_betas & 
                                                 samfit_final_boot_fast$confidence_intervals$betas$lower[get_pairs$pairs[,2],] < true_betas))
 
-        rm(list = ls(pattern = "tictoclog"))
-        rm(list = ls(pattern = "samfit"))
-        
         
         #' ## species_mix results
         if(response_types != "tweedie") {
@@ -113,7 +111,7 @@ all_bias <- all_relative_bias <- array(NA,
 for(k0 in 1:length(n_seq)) {
     for(k1 in 1:num_dataset) {
         #' ## (p)asSAM results
-        cw_filename <- paste0("simdat_", response_types, "_numunits", n_seq[k0], "_assam_dataset", k1, ".RData")
+        cw_filename <- paste0("simdat_", response_types, "_numunits", n_seq[k0], "_dataset", k1, ".RData")
         if(!file.exists(cw_filename))
             next;
         load(cw_filename)
@@ -124,16 +122,8 @@ for(k0 in 1:length(n_seq)) {
         all_relative_bias[,,k0, k1, 1:2] <- c((samfit_final_pointest$betas[get_pairs$pairs[,2],] - true_betas)/true_betas,
                                               (samfit_final_boot_fast$betas[get_pairs$pairs[,2],] - true_betas)/true_betas)
         
-        rm(list = ls(pattern = "tictoclog"))
-        rm(list = ls(pattern = "samfit"))
-        
-        
+
         #' ## speciesmix results
-        cw_filename <- paste0(response_types, "/simdat_", response_types, "_numunits", n_seq[k0], "_othermethods_dataset", k1, ".RData")
-        if(!file.exists(cw_filename))
-            next;
-        load(cw_filename)
-        
         if(response_types != "tweedie") {
             get_pairs <- list(pairs = cbind(1:num_archetype, table(true_archetype_label, apply(speciesmix_pointestimate$tau, 1, which.max)) %>% apply(., 1, which.max)))
             all_bias[,,k0, k1, 3] <- speciesmix_pointestimate$coefs$beta[get_pairs$pairs[,2],] - true_betas
@@ -160,3 +150,54 @@ apply(all_bias[,,,,-1], c(5,3), mean, na.rm = TRUE) %>%
 apply(all_relative_bias[,,,,-1], c(5,3), mean, na.rm = TRUE) %>% 
     round(4) %>% 
     ftable
+
+
+
+
+#' Plot line graphs showing (relative) bias as a function of sample size, with different colors for each method and different line types of covariate
+for(k0 in 1:nrow(true_betas)) {
+    ggplot(apply(all_bias[,,,,-1], c(1,2,3,5), mean, na.rm = TRUE) %>% 
+               as.data.frame.table %>% 
+               rename(Archetype = Var1, Covariate = Var2, N = Var3, Method = Var4, Value = Freq) %>%
+               mutate(Archetype = fct_inorder(Archetype),
+                      Covariate = fct_inorder(Covariate),
+                      N = fct_inorder(N),
+                      Method = fct_inorder(Method) %>% 
+                          fct_recode("asSAMs" = "assam_bootfast",
+                                     "ecomix" = "speciesmix_pointestimateonly")),
+           aes(x = N, y = Value, color = Method, group = Method)) +
+        geom_hline(yintercept = 0, linetype = "dashed") +
+        geom_point() +
+        geom_line() +
+        scale_color_discrete_qualitative() +
+        facet_wrap_paginate(Archetype ~ Covariate, nrow = 3, ncol = 3, scales = "free_y", page = k0) +
+        labs(x = "Sample size", y = "Bias", title = paste0("Empirical bias -- Archetype ", k0)) +
+        theme_bw() +
+        theme(legend.position = "bottom")    
+    
+    ggsave(file = paste0(response_types, "bias_lineplot_archetype", k0, ".pdf"), width = 10, height = 8)
+    }
+
+
+for(k0 in 1:nrow(true_betas)) {
+    ggplot(apply(all_relative_bias[,,,,-1], c(1,2,3,5), mean, na.rm = TRUE) %>% 
+               as.data.frame.table %>% 
+               rename(Archetype = Var1, Covariate = Var2, N = Var3, Method = Var4, Value = Freq) %>%
+               mutate(Archetype = fct_inorder(Archetype),
+                      Covariate = fct_inorder(Covariate),
+                      N = fct_inorder(N),
+                      Method = fct_inorder(Method) %>% 
+                          fct_recode("asSAMs" = "assam_bootfast",
+                                     "ecomix" = "speciesmix_pointestimateonly")),
+           aes(x = N, y = Value, color = Method, group = Method)) +
+        geom_hline(yintercept = 0, linetype = "dashed") +
+        geom_point() +
+        geom_line() +
+        scale_color_discrete_qualitative() +
+        facet_wrap_paginate(Archetype ~ Covariate, nrow = 3, ncol = 3, scales = "free_y", page = k0) +
+        labs(x = "Sample size", y = "Relative bias", title = paste0("Empirical relative bias -- Archetype ", k0)) +
+        theme_bw() +
+        theme(legend.position = "bottom")    
+    
+    ggsave(file = paste0(response_types, "relativebias_lineplot_archetype", k0, ".pdf"), width = 10, height = 8)
+    }

@@ -59,7 +59,7 @@ all_sensitivity <- all_specificity <- all_F1score <- all_phi <- array(NA,
 for(k0 in 1:length(n_seq)) {
     for(k1 in 1:num_dataset) {
         
-        cw_filename <- paste0("simdat_", response_types, "_numunits", n_seq[k0], "_assam_dataset", k1, ".RData")
+        cw_filename <- paste0("simdat_", response_types, "_numunits", n_seq[k0], "_dataset", k1, ".RData")
         if(!file.exists(cw_filename))
             next;
         load(cw_filename)
@@ -85,9 +85,7 @@ for(k0 in 1:length(n_seq)) {
             all_F1score[k0,k1,1] <- ROCR::performance(makepred_obj, measure = "f")@y.values[[1]][2]
             all_phi[k0,k1,1] <- ROCR::performance(makepred_obj, measure = "phi")@y.values[[1]][2]
             }
-        
-        rm(list = ls(pattern = "samfit"))
-        
+
         
         #' ## Stacked GLMnet and speciesmix results
         if(response_types != "tweedie") {
