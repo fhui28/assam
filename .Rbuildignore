@@ -14,3 +14,4 @@ R/notes_modelselection.R
 R/notes.R
 ^\.positai$
 ^\.claude$
+^ms$

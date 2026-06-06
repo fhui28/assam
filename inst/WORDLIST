@@ -1,6 +1,5 @@
 BIC2
 Github
-Lifecycle
 McLachlan
 Menendez
 OpenBLAS
@@ -10,6 +9,7 @@ Smyth
 Tweedie
 asSAM
 asSAMs
+cmdstanr
 devtools
 dunnsmyth
 ecomix
