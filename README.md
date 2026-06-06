@@ -20,9 +20,12 @@ pak::pkg_install("fhui28/assam")
 
 Users are recommended to either:
 
-1. Check out the examples in the help files for the `assam` and `passam` functions in the package;
+1.  Check out the examples in the help files for the `assam` and `passam` functions in the package.
 
-2. Examine the `runsims.R` scripts inside the folders `ms/setting1` and `ms/setting2` and `ms/setting_small`, which are template `R` scripts that can be adapted to run simulation settings 1, 2, and the smaller simulation setting (where asSAMs was also compared with a Bayesian method to fit SAMs using [cmdstanr](https://mc-stan.org/cmdstanr/)), respectively, in the associated manuscript;
+2.  Examine the `runsims.R` scripts inside the folders `ms/setting1` and `ms/setting2` and `ms/setting_small`, which are template `R` scripts that can be adapted to run simulation settings 1, 2, and the smaller simulation setting (where asSAMs was also compared with a Bayesian method to fit SAMs using [cmdstanr](https://mc-stan.org/cmdstanr/)), respectively, in the associated manuscript.
+
+    - The `runsims.R` scripts inside the folders `ms/setting1` and `ms/setting2` can be straightforwardly modified to run simulation settings 3 and 4 as well, which are also described in the web appendices of the manuscript.
+    - The `ms` folder additionally contains a `GBRseabed_synthetic.RData` data file which mimics the format of the real [Great Barrier Reef Seabed Biodiversity project](https://www.gbif.org/dataset/3b7f6307-2f03-4f25-9f64-6aa4c3a3aea1) community ecology data, sourced from the Australian Institute of Marine Science (AIMS), that was analyzed as part of the manuscript.
 
 # If you find any bugs and issues...
 
